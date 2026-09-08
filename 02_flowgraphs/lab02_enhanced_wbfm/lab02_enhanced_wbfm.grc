@@ -1,0 +1,212 @@
+options:
+  parameters:
+    id: lab02_enhanced_wbfm
+    title: 'Lab 02 - Enhanced WBFM with Visualization (SignalSDR Pro)'
+    author: 'SignalSDR Pro Lab'
+    description: 'FM receiver with spectrum, waterfall, time displays and 48 kHz audio'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1200, 800)
+    sizing_mode: fixed
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: 'USRP sample rate (2 MSPS for wider view)'
+    value: '2000000'
+  states:
+    coordinate: [200, 10]
+    rotation: 0
+    state: enabled
+
+- name: audio_rate
+  id: variable
+  parameters:
+    comment: 'Target audio sample rate'
+    value: '48000'
+  states:
+    coordinate: [340, 10]
+    rotation: 0
+    state: enabled
+
+- name: quad_rate
+  id: variable
+  parameters:
+    comment: 'audio_rate * audio_decimation'
+    value: '384000'
+  states:
+    coordinate: [480, 10]
+    rotation: 0
+    state: enabled
+
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    label: 'FM Station (Hz)'
+    rangeType: float
+    start: '87.5e6'
+    stop: '108e6'
+    step: '100e3'
+    value: '100.0e6'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [200, 100]
+    rotation: 0
+    state: enabled
+
+- name: gain
+  id: variable_qtgui_range
+  parameters:
+    label: 'RF Gain (dB)'
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '40'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [500, 100]
+    rotation: 0
+    state: enabled
+
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    dev_addr: '""'
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '"TX/RX"'
+    bw0: '0'
+    center_freq0: freq
+    gain0: gain
+    gain_type0: default
+  states:
+    coordinate: [80, 240]
+    rotation: 0
+    state: enabled
+
+- name: freq_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '"Spectrum"'
+    nconnections: '1'
+    fftsize: '2048'
+    fc: freq
+    bw: samp_rate
+    wintype: window.WIN_BLACKMAN_hARRIS
+    ymin: '-140'
+    ymax: '10'
+    units: dB
+    average: '0.5'
+    update_time: '0.10'
+    autoscale: 'False'
+    axislabels: 'True'
+    grid: 'False'
+    label1: '"Raw IQ"'
+    legend: 'True'
+  states:
+    coordinate: [80, 420]
+    rotation: 0
+    state: enabled
+
+- name: waterfall_sink
+  id: qtgui_waterfall_sink_x
+  parameters:
+    type: complex
+    name: '"Waterfall"'
+    nconnections: '1'
+    fftsize: '2048'
+    fc: freq
+    bw: samp_rate
+    wintype: window.WIN_BLACKMAN_hARRIS
+    intensity_range: '[-140, 0]'
+    update_time: '0.10'
+    showports: 'False'
+  states:
+    coordinate: [80, 600]
+    rotation: 0
+    state: enabled
+
+- name: time_sink
+  id: qtgui_time_sink_x
+  parameters:
+    type: complex
+    name: '"IQ Time Domain"'
+    nconnections: '1'
+    size: '1024'
+    srate: samp_rate
+    autoscale: 'True'
+    update_time: '0.10'
+    axislabels: 'True'
+    grid: 'False'
+    label1: '"I (real)"'
+    label2: '"Q (imag)"'
+  states:
+    coordinate: [500, 420]
+    rotation: 0
+    state: enabled
+
+- name: rational_resampler
+  id: rational_resampler_xxx
+  parameters:
+    type: ccc
+    interp: '24'
+    decim: '125'
+    taps: '[]'
+    fbw: '0'
+  states:
+    coordinate: [420, 240]
+    rotation: 0
+    state: enabled
+
+- name: wbfm_rcv
+  id: analog_wfm_rcv
+  parameters:
+    quad_rate: quad_rate
+    audio_decimation: '8'
+  states:
+    coordinate: [720, 240]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    samp_rate: audio_rate
+    device_name: '""'
+    num_inputs: '1'
+    ok_to_block: 'True'
+  states:
+    coordinate: [1020, 240]
+    rotation: 0
+    state: enabled
+
+connections:
+- [usrp_source, '0', freq_sink, '0']
+- [usrp_source, '0', waterfall_sink, '0']
+- [usrp_source, '0', time_sink, '0']
+- [usrp_source, '0', rational_resampler, '0']
+- [rational_resampler, '0', wbfm_rcv, '0']
+- [wbfm_rcv, '0', audio_sink, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

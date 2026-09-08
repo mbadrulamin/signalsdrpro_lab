@@ -1,0 +1,423 @@
+options:
+  parameters:
+    id: lab04_stereo_wbfm
+    title: 'Lab 04 - Stereo WBFM with Full MPX Decoding (SignalSDR Pro)'
+    author: 'SignalSDR Pro Lab'
+    description: 'Manual stereo FM decoding: pilot extraction, PLL, L+R/L-R matrix'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1400, 900)
+    sizing_mode: fixed
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: 'USRP sample rate (2 MSPS)'
+    value: '2000000'
+  states:
+    coordinate: [200, 10]
+    rotation: 0
+    state: enabled
+
+- name: mpx_rate
+  id: variable
+  parameters:
+    comment: 'Rate after resampler - enough for 100 kHz MPX'
+    value: '240000'
+  states:
+    coordinate: [340, 10]
+    rotation: 0
+    state: enabled
+
+- name: audio_rate
+  id: variable
+  parameters:
+    comment: 'Final audio sample rate'
+    value: '48000'
+  states:
+    coordinate: [480, 10]
+    rotation: 0
+    state: enabled
+
+- name: deemph_tau
+  id: variable
+  parameters:
+    comment: 'De-emphasis time constant: 50e-6 (EU) or 75e-6 (US) seconds'
+    value: '50e-6'
+  states:
+    coordinate: [620, 10]
+    rotation: 0
+    state: enabled
+
+- name: deemph_alpha
+  id: variable
+  parameters:
+    comment: 'IIR tap: alpha = 1 - exp(-1/(mpx_rate*tau))'
+    value: '1 - __import__("math").exp(-1/(mpx_rate * deemph_tau))'
+  states:
+    coordinate: [760, 10]
+    rotation: 0
+    state: enabled
+
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    label: 'FM Station (Hz)'
+    rangeType: float
+    start: '87.5e6'
+    stop: '108e6'
+    step: '100e3'
+    value: '100.0e6'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [200, 100]
+    rotation: 0
+    state: enabled
+
+- name: rf_gain
+  id: variable_qtgui_range
+  parameters:
+    label: 'RF Gain (dB)'
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '40'
+    widget: counter_slider
+  states:
+    coordinate: [500, 100]
+    rotation: 0
+    state: enabled
+
+- name: volume
+  id: variable_qtgui_range
+  parameters:
+    label: 'Volume'
+    rangeType: float
+    start: '0'
+    stop: '3'
+    step: '0.1'
+    value: '1.0'
+    widget: counter_slider
+  states:
+    coordinate: [500, 180]
+    rotation: 0
+    state: enabled
+
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '"TX/RX"'
+    center_freq0: freq
+    gain0: rf_gain
+    gain_type0: default
+  states:
+    coordinate: [80, 300]
+    rotation: 0
+    state: enabled
+
+- name: rf_lowpass
+  id: low_pass_filter
+  parameters:
+    type: ccf
+    decim: '1'
+    samp_rate: samp_rate
+    cutoff_freq: '100000'
+    transition_width: '20000'
+    win: window.WIN_HAMMING
+    comment: 'Pre-filter: pass only ±100 kHz around tuned freq'
+  states:
+    coordinate: [300, 300]
+    rotation: 0
+    state: enabled
+
+- name: resampler
+  id: rational_resampler_xxx
+  parameters:
+    type: ccc
+    interp: '12'
+    decim: '100'
+    taps: '[]'
+    fbw: '0'
+    comment: '2 MSPS → 240 kSPS (ratio 12/100)'
+  states:
+    coordinate: [520, 300]
+    rotation: 0
+    state: enabled
+
+- name: quad_demod
+  id: analog_quadrature_demod_cf
+  parameters:
+    samp_rate: mpx_rate
+    sensitivity: '1.0'
+    comment: 'FM demodulator: IQ → MPX baseband (float)'
+  states:
+    coordinate: [740, 300]
+    rotation: 0
+    state: enabled
+
+- name: spectrum_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    type: float
+    name: '"MPX Spectrum"'
+    nconnections: '1'
+    fftsize: '2048'
+    fc: '0'
+    bw: mpx_rate
+    ymin: '-100'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.5'
+    label1: '"MPX (L+R @ 0-15k, pilot @ 19k, L-R @ 23-53k)"'
+  states:
+    coordinate: [740, 500]
+    rotation: 0
+    state: enabled
+
+# === L+R PATH (top) ===
+- name: lr_plus_lowpass
+  id: low_pass_filter
+  parameters:
+    type: fff
+    decim: '1'
+    samp_rate: mpx_rate
+    cutoff_freq: '15000'
+    transition_width: '1500'
+    win: window.WIN_HAMMING
+    comment: 'Extract L+R mono sum (0–15 kHz)'
+  states:
+    coordinate: [960, 180]
+    rotation: 0
+    state: enabled
+
+- name: l_plus_r_deemph
+  id: filter_singlepole_iir
+  parameters:
+    type: ff
+    taps: 'deemph_alpha'
+    comment: 'De-emphasis (50/75 us) on L+R'
+  states:
+    coordinate: [1180, 180]
+    rotation: 0
+    state: enabled
+
+# === PILOT PATH (middle) ===
+- name: pilot_bandpass
+  id: band_pass_filter
+  parameters:
+    type: fff
+    decim: '1'
+    samp_rate: mpx_rate
+    low_cutoff_freq: '18500'
+    high_cutoff_freq: '19500'
+    transition_width: '500'
+    win: window.WIN_HAMMING
+    comment: 'Isolate 19 kHz pilot tone (±500 Hz)'
+  states:
+    coordinate: [960, 420]
+    rotation: 0
+    state: enabled
+
+- name: pilot_float_to_complex
+  id: blocks_float_to_complex
+  parameters:
+    vlen: '1'
+    comment: 'Convert real pilot to complex for PLL'
+  states:
+    coordinate: [1180, 420]
+    rotation: 0
+    state: enabled
+
+- name: pilot_pll
+  id: analog_pll_refout_cc
+  parameters:
+    loop_bw: '0.05'
+    freq: '19000'
+    max_freq: '20000'
+    min_freq: '18000'
+    comment: 'PLL locks to 19 kHz pilot, outputs clean complex sinusoid'
+  states:
+    coordinate: [1400, 420]
+    rotation: 0
+    state: enabled
+
+- name: subcarrier_doubler
+  id: blocks_multiply_xx
+  parameters:
+    type: cc
+    num_inputs: '2'
+    comment: '19 kHz × 19 kHz = 38 kHz (double the frequency)'
+  states:
+    coordinate: [1620, 420]
+    rotation: 0
+    state: enabled
+
+- name: subcarrier_to_real
+  id: blocks_complex_to_real
+  parameters:
+    vlen: '1'
+    comment: 'Take real part: cos(2π·38k·t)'
+  states:
+    coordinate: [1840, 420]
+    rotation: 0
+    state: enabled
+
+# === L-R PATH (bottom) ===
+- name: lrmix
+  id: blocks_multiply_xx
+  parameters:
+    type: ff
+    num_inputs: '2'
+    comment: 'MPX × cos(2π·38k·t) demodulates DSB-SC L-R'
+  states:
+    coordinate: [1400, 620]
+    rotation: 0
+    state: enabled
+
+- name: lr_minus_lowpass
+  id: low_pass_filter
+  parameters:
+    type: fff
+    decim: '1'
+    samp_rate: mpx_rate
+    cutoff_freq: '15000'
+    transition_width: '1500'
+    win: window.WIN_HAMMING
+    comment: 'Extract L-R difference (0–15 kHz)'
+  states:
+    coordinate: [1620, 620]
+    rotation: 0
+    state: enabled
+
+- name: scale_lr_minus
+  id: multiply_const_vff
+  parameters:
+    type: ff
+    const: '2.0'
+    comment: 'DSB-SC demod halves amplitude; restore it'
+  states:
+    coordinate: [1840, 620]
+    rotation: 0
+    state: enabled
+
+- name: l_minus_r_deemph
+  id: filter_singlepole_iir
+  parameters:
+    type: ff
+    taps: 'deemph_alpha'
+    comment: 'De-emphasis (50/75 us) on L-R'
+  states:
+    coordinate: [2060, 620]
+    rotation: 0
+    state: enabled
+
+# === STEREO MATRIX ===
+- name: left_add
+  id: blocks_add_xx
+  parameters:
+    type: ff
+    num_inputs: '2'
+    vlen: '1'
+    comment: 'L = (L+R) + (L-R)'
+  states:
+    coordinate: [2280, 180]
+    rotation: 0
+    state: enabled
+
+- name: right_subtract
+  id: blocks_sub_xx
+  parameters:
+    type: ff
+    num_inputs: '2'
+    vlen: '1'
+    comment: 'R = (L+R) - (L-R)'
+  states:
+    coordinate: [2280, 420]
+    rotation: 0
+    state: enabled
+
+- name: scale_left
+  id: multiply_const_vff
+  parameters:
+    type: ff
+    const: 'volume * 0.5'
+    comment: 'Scale to 50% (matrix doubled) + apply volume'
+  states:
+    coordinate: [2500, 180]
+    rotation: 0
+    state: enabled
+
+- name: scale_right
+  id: multiply_const_vff
+  parameters:
+    type: ff
+    const: 'volume * 0.5'
+  states:
+    coordinate: [2500, 420]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    samp_rate: audio_rate
+    num_inputs: '2'
+    ok_to_block: 'True'
+    device_name: '""'
+    comment: 'Stereo output: L and R channels'
+  states:
+    coordinate: [2720, 300]
+    rotation: 0
+    state: enabled
+
+connections:
+# Main signal chain
+- [usrp_source, '0', rf_lowpass, '0']
+- [rf_lowpass, '0', resampler, '0']
+- [resampler, '0', quad_demod, '0']
+# MPX visualization
+- [quad_demod, '0', spectrum_sink, '0']
+# L+R path
+- [quad_demod, '0', lr_plus_lowpass, '0']
+- [lr_plus_lowpass, '0', l_plus_r_deemph, '0']
+# Pilot path
+- [quad_demod, '0', pilot_bandpass, '0']
+- [pilot_bandpass, '0', pilot_float_to_complex, '0']
+- [pilot_float_to_complex, '0', pilot_pll, '0']
+- [pilot_pll, '0', subcarrier_doubler, '0']
+- [pilot_pll, '0', subcarrier_doubler, '1']
+- [subcarrier_doubler, '0', subcarrier_to_real, '0']
+# L-R path: MPX (float) × 38kHz carrier (float) → demodulated L-R
+- [quad_demod, '0', lrmix, '0']
+- [subcarrier_to_real, '0', lrmix, '1']
+- [lrmix, '0', lr_minus_lowpass, '0']
+- [lr_minus_lowpass, '0', scale_lr_minus, '0']
+- [scale_lr_minus, '0', l_minus_r_deemph, '0']
+# Stereo matrix
+- [l_plus_r_deemph, '0', left_add, '0']
+- [l_minus_r_deemph, '0', left_add, '1']
+- [l_plus_r_deemph, '0', right_subtract, '0']
+- [l_minus_r_deemph, '0', right_subtract, '1']
+- [left_add, '0', scale_left, '0']
+- [right_subtract, '0', scale_right, '0']
+- [scale_left, '0', audio_sink, '0']
+- [scale_right, '0', audio_sink, '1']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

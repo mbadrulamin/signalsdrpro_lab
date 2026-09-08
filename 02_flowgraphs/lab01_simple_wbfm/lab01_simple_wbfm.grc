@@ -1,0 +1,134 @@
+options:
+  parameters:
+    id: lab01_simple_wbfm
+    title: 'Lab 01 - Simplest WBFM Receiver (SignalSDR Pro as B210)'
+    author: 'SignalSDR Pro Lab'
+    description: 'Minimal FM broadcast receiver using SignalSDR Pro emulating USRP B210'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1000, 400)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: 'Sample rate from USRP (1 MSPS for FM broadcast)'
+    value: '1000000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [200, 10]
+    rotation: 0
+    state: enabled
+
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    label: 'FM Station (Hz)'
+    rangeType: float
+    start: '87.5e6'
+    stop: '108e6'
+    step: '100e3'
+    value: '100.0e6'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [380, 10]
+    rotation: 0
+    state: enabled
+
+- name: gain
+  id: variable_qtgui_range
+  parameters:
+    label: 'RF Gain (dB)'
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '40'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [580, 10]
+    rotation: 0
+    state: enabled
+
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    dev_addr: '""'
+    dev_args: '""'
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '"TX/RX"'
+    bw0: '0'
+    center_freq0: freq
+    gain0: gain
+    gain_type0: default
+    lo_source0: internal
+    dc_offs0: 0+0j
+    iq_imbal0: 0+0j
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 200]
+    rotation: 0
+    state: enabled
+
+- name: wbfm_rcv
+  id: analog_wfm_rcv
+  parameters:
+    quad_rate: samp_rate
+    audio_decimation: '20'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [380, 200]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    samp_rate: '50000'
+    device_name: '""'
+    num_inputs: '1'
+    ok_to_block: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [680, 200]
+    rotation: 0
+    state: enabled
+
+connections:
+- [usrp_source, '0', wbfm_rcv, '0']
+- [wbfm_rcv, '0', audio_sink, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2
