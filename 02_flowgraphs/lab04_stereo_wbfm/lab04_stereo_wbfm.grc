@@ -59,8 +59,8 @@ blocks:
 - name: deemph_alpha
   id: variable
   parameters:
-    comment: 'IIR tap: alpha = 1 - exp(-1/(mpx_rate*tau))'
-    value: '1 - __import__("math").exp(-1/(mpx_rate * deemph_tau))'
+    comment: 'IIR tap: alpha = 1 - exp(-1/(audio_rate*tau))'
+    value: '1 - __import__("math").exp(-1/(audio_rate * deemph_tau))'
   states:
     coordinate: [760, 10]
     rotation: 0
@@ -133,12 +133,14 @@ blocks:
 - name: rf_lowpass
   id: low_pass_filter
   parameters:
-    type: ccf
+    type: fir_filter_ccf
     decim: '1'
+    gain: '1'
     samp_rate: samp_rate
     cutoff_freq: '100000'
-    transition_width: '20000'
+    width: '20000'
     win: window.WIN_HAMMING
+    beta: '6.76'
     comment: 'Pre-filter: pass only ±100 kHz around tuned freq'
   states:
     coordinate: [300, 300]
@@ -162,8 +164,7 @@ blocks:
 - name: quad_demod
   id: analog_quadrature_demod_cf
   parameters:
-    samp_rate: mpx_rate
-    sensitivity: '1.0'
+    gain: 'mpx_rate / (2 * 3.141592653589793 * 75000)'
     comment: 'FM demodulator: IQ → MPX baseband (float)'
   states:
     coordinate: [740, 300]
@@ -193,12 +194,14 @@ blocks:
 - name: lr_plus_lowpass
   id: low_pass_filter
   parameters:
-    type: fff
-    decim: '1'
+    type: fir_filter_fff
+    decim: '5'
+    gain: '1'
     samp_rate: mpx_rate
     cutoff_freq: '15000'
-    transition_width: '1500'
+    width: '1500'
     win: window.WIN_HAMMING
+    beta: '6.76'
     comment: 'Extract L+R mono sum (0–15 kHz)'
   states:
     coordinate: [960, 180]
@@ -206,10 +209,11 @@ blocks:
     state: enabled
 
 - name: l_plus_r_deemph
-  id: filter_singlepole_iir
+  id: single_pole_iir_filter_xx
   parameters:
-    type: ff
-    taps: 'deemph_alpha'
+    type: float
+    alpha: deemph_alpha
+    vlen: '1'
     comment: 'De-emphasis (50/75 us) on L+R'
   states:
     coordinate: [1180, 180]
@@ -220,13 +224,15 @@ blocks:
 - name: pilot_bandpass
   id: band_pass_filter
   parameters:
-    type: fff
+    type: fir_filter_fff
     decim: '1'
+    gain: '1'
     samp_rate: mpx_rate
     low_cutoff_freq: '18500'
     high_cutoff_freq: '19500'
-    transition_width: '500'
+    width: '500'
     win: window.WIN_HAMMING
+    beta: '6.76'
     comment: 'Isolate 19 kHz pilot tone (±500 Hz)'
   states:
     coordinate: [960, 420]
@@ -246,10 +252,9 @@ blocks:
 - name: pilot_pll
   id: analog_pll_refout_cc
   parameters:
-    loop_bw: '0.05'
-    freq: '19000'
-    max_freq: '20000'
-    min_freq: '18000'
+    w: '0.05'
+    min_freq: '2 * 3.141592653589793 * 18500 / mpx_rate'
+    max_freq: '2 * 3.141592653589793 * 19500 / mpx_rate'
     comment: 'PLL locks to 19 kHz pilot, outputs clean complex sinusoid'
   states:
     coordinate: [1400, 420]
@@ -259,8 +264,9 @@ blocks:
 - name: subcarrier_doubler
   id: blocks_multiply_xx
   parameters:
-    type: cc
+    type: complex
     num_inputs: '2'
+    vlen: '1'
     comment: '19 kHz × 19 kHz = 38 kHz (double the frequency)'
   states:
     coordinate: [1620, 420]
@@ -281,8 +287,9 @@ blocks:
 - name: lrmix
   id: blocks_multiply_xx
   parameters:
-    type: ff
+    type: float
     num_inputs: '2'
+    vlen: '1'
     comment: 'MPX × cos(2π·38k·t) demodulates DSB-SC L-R'
   states:
     coordinate: [1400, 620]
@@ -292,12 +299,14 @@ blocks:
 - name: lr_minus_lowpass
   id: low_pass_filter
   parameters:
-    type: fff
-    decim: '1'
+    type: fir_filter_fff
+    decim: '5'
+    gain: '1'
     samp_rate: mpx_rate
     cutoff_freq: '15000'
-    transition_width: '1500'
+    width: '1500'
     win: window.WIN_HAMMING
+    beta: '6.76'
     comment: 'Extract L-R difference (0–15 kHz)'
   states:
     coordinate: [1620, 620]
@@ -305,10 +314,11 @@ blocks:
     state: enabled
 
 - name: scale_lr_minus
-  id: multiply_const_vff
+  id: blocks_multiply_const_vxx
   parameters:
-    type: ff
+    type: float
     const: '2.0'
+    vlen: '1'
     comment: 'DSB-SC demod halves amplitude; restore it'
   states:
     coordinate: [1840, 620]
@@ -316,10 +326,11 @@ blocks:
     state: enabled
 
 - name: l_minus_r_deemph
-  id: filter_singlepole_iir
+  id: single_pole_iir_filter_xx
   parameters:
-    type: ff
-    taps: 'deemph_alpha'
+    type: float
+    alpha: deemph_alpha
+    vlen: '1'
     comment: 'De-emphasis (50/75 us) on L-R'
   states:
     coordinate: [2060, 620]
@@ -330,7 +341,7 @@ blocks:
 - name: left_add
   id: blocks_add_xx
   parameters:
-    type: ff
+    type: float
     num_inputs: '2'
     vlen: '1'
     comment: 'L = (L+R) + (L-R)'
@@ -342,7 +353,7 @@ blocks:
 - name: right_subtract
   id: blocks_sub_xx
   parameters:
-    type: ff
+    type: float
     num_inputs: '2'
     vlen: '1'
     comment: 'R = (L+R) - (L-R)'
@@ -352,10 +363,11 @@ blocks:
     state: enabled
 
 - name: scale_left
-  id: multiply_const_vff
+  id: blocks_multiply_const_vxx
   parameters:
-    type: ff
-    const: 'volume * 0.5'
+    type: float
+    const: volume * 0.5
+    vlen: '1'
     comment: 'Scale to 50% (matrix doubled) + apply volume'
   states:
     coordinate: [2500, 180]
@@ -363,10 +375,11 @@ blocks:
     state: enabled
 
 - name: scale_right
-  id: multiply_const_vff
+  id: blocks_multiply_const_vxx
   parameters:
-    type: ff
-    const: 'volume * 0.5'
+    type: float
+    const: volume * 0.5
+    vlen: '1'
   states:
     coordinate: [2500, 420]
     rotation: 0

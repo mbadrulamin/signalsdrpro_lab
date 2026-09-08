@@ -14,28 +14,22 @@ If you're seeing this error when running GNU Radio flowgraphs:
 
 **But** `uhd_find_devices` works fine, you have a **UHD version conflict**.
 
-### ⚡ Bulletproof Fix (Works Everywhere - 3 commands)
+### ⚡ Quick Fix (Terminal & GUI Launcher)
 
 ```bash
-# 1. Create system-wide environment variable (requires sudo password)
-echo 'export UHD_IMAGES_DIR=/usr/share/uhd/4.10.0/images' | sudo tee /etc/profile.d/uhd_images.sh
-
-# 2. Make it executable
-sudo chmod +x /etc/profile.d/uhd_images.sh
-
-# 3. Load it NOW (or just reboot)
-source /etc/profile.d/uhd_images.sh
-```
-
-**Why this works:** Creates a system-wide variable that works in **all** terminals AND desktop launchers.
-
-**Automated Bulletproof Fix:**
-```bash
+# Automated fix:
 cd "/home/ubuntu/GNU Radio/signalsdrpro_lab/00_setup"
-./bulletproof_fix.sh
+./fix_uhd_version_conflict.sh
 ```
 
-**Full explanation:** [Bulletproof UHD Fix](./00_setup/07_bulletproof_uhd_fix.md)
+Or manually create system symlinks:
+```bash
+sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/images
+sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/4.6.0/images
+echo 'UHD_IMAGES_DIR="/usr/share/uhd/4.10.0/images"' | sudo tee -a /etc/environment
+```
+
+**Full explanation:** [Fix UHD Version Conflict](./00_setup/06_fix_uhd_version_conflict.md)
 
 ---
 
@@ -64,8 +58,7 @@ Everything here is required before you can run any flowgraph.
 | 03 | [Installing GNU Radio](./00_setup/03_install_gnuradio.md) | Getting GRC (GNU Radio Companion) working |
 | 04 | [Verifying the Setup](./00_setup/04_verify_setup.md) | `uhd_find_devices`, `uhd_usrp_probe`, first signal |
 | 05 | [Troubleshooting](./00_setup/05_troubleshooting.md) | Common pitfalls with SignalSDR Pro + UHD |
-| 06 | [Fix UHD Version Conflict](./00_setup/06_fix_uhd_version_conflict.md) | **CRITICAL:** Fix when GNU Radio uses UHD 4.6 but CLI uses 4.10 |
-| 07 | [Bulletproof UHD Fix](./00_setup/07_bulletproof_uhd_fix.md) | ⭐ **BEST:** System-wide fix that works everywhere |
+| 06 | [Fix UHD Version Conflict](./00_setup/06_fix_uhd_version_conflict.md) | **CRITICAL:** Fix for dual UHD versions (Terminal & GUI Launcher) |
 
 ### Part 1 — Fundamentals (Theory from Zero)
 You cannot build good SDR systems without understanding these.
@@ -118,10 +111,8 @@ signalsdrpro_lab/
 │   ├── 03_install_gnuradio.md
 │   ├── 04_verify_setup.md
 │   ├── 05_troubleshooting.md
-│   ├── 06_fix_uhd_version_conflict.md  ← Detailed UHD version mismatch guide
-│   ├── 07_bulletproof_uhd_fix.md       ← ⭐ BEST FIX: System-wide solution
-│   ├── fix_uhd_version_conflict.sh     ← Interactive fix script
-│   └── bulletproof_fix.sh              ← ⭐ One-command system-wide fix
+│   ├── 06_fix_uhd_version_conflict.md  ← UHD version mismatch guide (Terminal & GUI)
+│   └── fix_uhd_version_conflict.sh     ← Automated fix script
 ├── 01_fundamentals/                ← Theory (read first!)
 │   ├── 01_signals_basics.md
 │   ├── 02_iq_sampling.md

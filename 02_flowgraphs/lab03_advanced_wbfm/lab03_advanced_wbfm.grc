@@ -125,12 +125,14 @@ blocks:
 - name: pre_filter
   id: low_pass_filter
   parameters:
-    type: ccf
+    type: fir_filter_ccf
     decim: '1'
+    gain: '1'
     samp_rate: samp_rate
     cutoff_freq: '100000'
-    transition_width: '20000'
+    width: '20000'
     win: window.WIN_HAMMING
+    beta: '6.76'
   states:
     coordinate: [300, 320]
     rotation: 0
@@ -183,25 +185,27 @@ blocks:
     state: enabled
 
 - name: agc
-  id: agc2_cc
+  id: analog_agc2_xx
   parameters:
+    type: complex
     reference: '0.5'
     attack_rate: '0.01'
     decay_rate: '0.001'
+    gain: '1.0'
     max_gain: '65536'
-    min_gain: '1.0'
   states:
     coordinate: [740, 320]
     rotation: 0
     state: enabled
 
 - name: squelch
-  id: analog_pwr_squelch_cc
+  id: analog_pwr_squelch_xx
   parameters:
+    type: complex
     threshold: squelch_threshold
     alpha: '0.01'
     ramp: '0'
-    gate: 'True'
+    gate: 'False'
   states:
     coordinate: [960, 320]
     rotation: 0
@@ -218,10 +222,11 @@ blocks:
     state: enabled
 
 - name: volume_control
-  id: multiply_const_vff
+  id: blocks_multiply_const_vxx
   parameters:
-    type: ff
+    type: float
     const: volume
+    vlen: '1'
   states:
     coordinate: [1400, 320]
     rotation: 0
@@ -231,6 +236,7 @@ blocks:
   id: audio_sink
   parameters:
     samp_rate: audio_rate
+    device_name: '""'
     num_inputs: '1'
     ok_to_block: 'True'
   states:

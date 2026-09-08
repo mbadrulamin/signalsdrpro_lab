@@ -58,37 +58,24 @@ Using images directory: <no images directory located>
 - UHD 4.10.0 from the PPA (used by command-line tools)
 - UHD 4.6.0 from Ubuntu repos (used by GNU Radio, which was compiled against it)
 
-**Quick Fix (1 command):**
+**Cause:** Dual UHD installations: UHD 4.10 from PPA (used by command-line tools) and UHD 4.6 from Ubuntu repos (used by GNU Radio). The firmware images downloaded by UHD 4.10 are at `/usr/share/uhd/4.10.0/images/`, but GNU Radio's UHD 4.6 looks in `/usr/share/uhd/images/`.
+
+**Definitive Fix (Works for Terminal AND GUI Launcher):**
+Create filesystem symlinks so all UHD versions find the images in their default search path:
+
 ```bash
-export UHD_IMAGES_DIR=/usr/share/uhd/4.10.0/images
-gnuradio-companion
+sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/images
+sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/4.6.0/images
+echo 'UHD_IMAGES_DIR="/usr/share/uhd/4.10.0/images"' | sudo tee -a /etc/environment
 ```
 
-**⚠️ IMPORTANT:** This only works if you launch `gnuradio-companion` from the **SAME terminal** where you ran the export. If you close the terminal or open GRC from the desktop shortcut, it won't work!
-
-**⭐ BEST FIX - Bulletproof System-Wide Solution (3 commands):**
+**Automated Fix:**
 ```bash
-# 1. Create system-wide environment variable (requires sudo password)
-echo 'export UHD_IMAGES_DIR=/usr/share/uhd/4.10.0/images' | sudo tee /etc/profile.d/uhd_images.sh
-
-# 2. Make it executable
-sudo chmod +x /etc/profile.d/uhd_images.sh
-
-# 3. Load it NOW (or just reboot)
-source /etc/profile.d/uhd_images.sh
+cd "00_setup"
+./fix_uhd_version_conflict.sh
 ```
 
-**Why this is better:** The `/etc/profile.d/` method creates a system-wide variable that works in ALL terminals AND desktop launchers. It survives reboots automatically.
-
-**Automated Bulletproof Fix:**
-```bash
-chmod +x bulletproof_fix.sh
-./bulletproof_fix.sh
-```
-
-**Why this happens:** GNU Radio 3.10.9 from Ubuntu's repos was compiled against UHD 4.6.0. When you later installed UHD 4.10.0 from the PPA, command-line tools started using the newer version, but GNU Radio still uses the old UHD 4.6.0 libraries.
-
-**Detailed guide:** [07_bulletproof_uhd_fix.md](07_bulletproof_uhd_fix.md)
+**Detailed guide:** [06_fix_uhd_version_conflict.md](06_fix_uhd_version_conflict.md)
 
 ---
 

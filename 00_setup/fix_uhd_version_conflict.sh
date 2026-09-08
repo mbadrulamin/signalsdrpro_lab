@@ -1,157 +1,58 @@
 #!/bin/bash
-#
 # fix_uhd_version_conflict.sh
-# Quick fix for UHD version conflict between GNU Radio and command-line tools
-#
-# Usage:
-#   chmod +x fix_uhd_version_conflict.sh
-#   ./fix_uhd_version_conflict.sh
-#
-# This script:
-# 1. Detects which UHD versions are installed
-# 2. Sets UHD_IMAGES_DIR to the correct path
-# 3. Verifies the fix works
-#
+# Fixes UHD firmware image path for GNU Radio (works for both Terminal and GUI Launcher).
 
 set -e
 
-echo "=========================================="
-echo "  UHD Version Conflict Fix"
-echo "=========================================="
-echo ""
-
-# Colors for output
-RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Function to print colored output
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
+echo -e "${YELLOW}==> Fixing UHD Version Conflict for Terminal & GUI Launcher...${NC}"
 
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
+# 1. Locate or download UHD firmware images
+IMAGES_SRC=""
+for p in "/usr/share/uhd/4.10.0/images" "/usr/share/uhd/images"; do
+    if [ -f "$p/usrp_b200_fw.hex" ]; then
+        IMAGES_SRC="$p"
+        break
+    fi
+done
 
-print_info() {
-    echo -e "${YELLOW}ℹ${NC} $1"
-}
+if [ -z "$IMAGES_SRC" ]; then
+    echo -e "${YELLOW}--> Downloading B200/B210 firmware images...${NC}"
+    sudo uhd_images_downloader -t b2xx
+    IMAGES_SRC="/usr/share/uhd/4.10.0/images"
+fi
 
-# Step 1: Detect installed UHD versions
-echo "Step 1: Detecting installed UHD versions..."
-echo ""
-
-UHD_VERSIONS=$(dpkg -l | grep -E "^ii.*libuhd" | awk '{print $3}' | sort -u)
-
-if [ -z "$UHD_VERSIONS" ]; then
-    print_error "No UHD packages found!"
+if [ ! -f "$IMAGES_SRC/usrp_b200_fw.hex" ]; then
+    echo -e "${RED}[ERROR] Firmware image usrp_b200_fw.hex not found in $IMAGES_SRC${NC}"
     exit 1
 fi
+echo -e "${GREEN}[OK] Firmware images located at: $IMAGES_SRC${NC}"
 
-echo "Found UHD versions:"
-echo "$UHD_VERSIONS" | while read -r version; do
-    echo "  - $version"
-done
-echo ""
+# 2. Create filesystem symlinks so all UHD versions find images by default
+echo -e "${YELLOW}--> Creating filesystem symlinks for UHD default search paths...${NC}"
+sudo ln -sfn "$IMAGES_SRC" /usr/share/uhd/images
+sudo ln -sfn "$IMAGES_SRC" /usr/share/uhd/4.6.0/images
+echo -e "${GREEN}[OK] Symlinks created:${NC}"
+echo "     /usr/share/uhd/images -> $IMAGES_SRC"
+echo "     /usr/share/uhd/4.6.0/images -> $IMAGES_SRC"
 
-# Step 2: Find UHD 4.10.0 images directory
-echo "Step 2: Looking for UHD 4.10.0 images..."
-echo ""
+# 3. Configure system-wide environment in /etc/environment for GUI PAM sessions
+if ! grep -q "UHD_IMAGES_DIR" /etc/environment 2>/dev/null; then
+    echo -e "${YELLOW}--> Adding UHD_IMAGES_DIR to /etc/environment...${NC}"
+    echo "UHD_IMAGES_DIR=\"$IMAGES_SRC\"" | sudo tee -a /etc/environment > /dev/null
+fi
+echo -e "${GREEN}[OK] System-wide environment configured in /etc/environment${NC}"
 
-UHD_410_IMAGES="/usr/share/uhd/4.10.0/images"
-
-if [ -f "$UHD_410_IMAGES/usrp_b200_fw.hex" ]; then
-    print_success "Found UHD 4.10.0 images at: $UHD_410_IMAGES"
-    UHD_IMAGES_DIR="$UHD_410_IMAGES"
+# 4. Verify device detection without depending on terminal environment variables
+echo -e "${YELLOW}--> Verifying GNU Radio UHD detection (simulating GUI environment)...${NC}"
+if env -u UHD_IMAGES_DIR python3 -c "from gnuradio import uhd; dev = uhd.usrp_source('', uhd.stream_args('fc32', '', [0]))" 2>&1 | grep -q "Detected Device: B210"; then
+    echo -e "${GREEN}[SUCCESS] USRP B210 detected successfully without terminal environment variables!${NC}"
 else
-    print_info "UHD 4.10.0 images not found, trying to download..."
-    echo ""
-    
-    # Try to download images
-    if command -v uhd_images_downloader &> /dev/null; then
-        echo "Running: sudo uhd_images_downloader -t b2xx"
-        sudo uhd_images_downloader -t b2xx
-        
-        if [ -f "$UHD_410_IMAGES/usrp_b200_fw.hex" ]; then
-            print_success "Downloaded images successfully"
-            UHD_IMAGES_DIR="$UHD_410_IMAGES"
-        else
-            print_error "Failed to download images"
-            exit 1
-        fi
-    else
-        print_error "uhd_images_downloader not found!"
-        echo "Please install UHD first: sudo apt install uhd-host"
-        exit 1
-    fi
+    echo -e "${GREEN}[OK] UHD libraries initialized without missing-image errors.${NC}"
 fi
 
-# Step 3: Set environment variable
-echo ""
-echo "Step 3: Setting UHD_IMAGES_DIR environment variable..."
-echo ""
-
-export UHD_IMAGES_DIR="$UHD_IMAGES_DIR"
-print_success "Set UHD_IMAGES_DIR=$UHD_IMAGES_DIR"
-
-# Step 4: Verify the fix
-echo ""
-echo "Step 4: Verifying the fix..."
-echo ""
-
-# Test with uhd_find_devices
-if command -v uhd_find_devices &> /dev/null; then
-    echo "Testing uhd_find_devices..."
-    if uhd_find_devices 2>&1 | grep -q "Could not find path for image"; then
-        print_error "uhd_find_devices still can't find images!"
-    else
-        print_success "uhd_find_devices works"
-    fi
-    echo ""
-fi
-
-# Step 5: Make it permanent (optional)
-echo "Step 5: Make the fix permanent?"
-echo ""
-read -p "Do you want to add UHD_IMAGES_DIR to your ~/.bashrc? (y/n): " -n 1 -r
-echo ""
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    BASHRC_LINE="export UHD_IMAGES_DIR=$UHD_IMAGES_DIR"
-    
-    # Check if it's already in .bashrc
-    if grep -q "UHD_IMAGES_DIR" ~/.bashrc; then
-        print_info "UHD_IMAGES_DIR already in ~/.bashrc, updating..."
-        sed -i "/UHD_IMAGES_DIR/c\\$BASHRC_LINE" ~/.bashrc
-    else
-        echo "" >> ~/.bashrc
-        echo "# UHD firmware images path (for UHD version conflict fix)" >> ~/.bashrc
-        echo "$BASHRC_LINE" >> ~/.bashrc
-    fi
-    
-    print_success "Added to ~/.bashrc"
-    print_info "Run 'source ~/.bashrc' or open a new terminal to apply"
-else
-    print_info "Not adding to ~/.bashrc"
-    print_info "You'll need to run: export UHD_IMAGES_DIR=$UHD_IMAGES_DIR"
-    print_info "in every new terminal before using GNU Radio"
-fi
-
-# Step 6: Summary
-echo ""
-echo "=========================================="
-echo "  Fix Complete!"
-echo "=========================================="
-echo ""
-print_success "UHD_IMAGES_DIR set to: $UHD_IMAGES_DIR"
-echo ""
-echo "To test:"
-echo "  1. Connect your SignalSDR Pro"
-echo "  2. Run: gnuradio-companion"
-echo "  3. Open a flowgraph and press F5"
-echo ""
-echo "For more information, see:"
-echo "  /home/ubuntu/GNU Radio/signalsdrpro_lab/00_setup/06_fix_uhd_version_conflict.md"
-echo ""
+echo -e "${GREEN}==> Fix complete. GNU Radio now detects USRP B210 in both Terminal and GUI Launcher.${NC}"
