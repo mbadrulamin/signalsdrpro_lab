@@ -119,6 +119,36 @@ decoder before you ever fight an antenna.
                    09         a different band, a different modulation, aircraft
 ```
 
+### Part 4 — The Applications Catalogue
+What else is out there. **589 signals and projects** across 16 domains, each with frequency,
+modulation, difficulty, the hardware it needs, and which labs prepare you for it.
+
+| # | Domain | Highlights |
+|---|---|---|
+| — | **[Catalogue index & difficulty ladder](./04_applications/README.md)** | Spectrum map, what to build first, antenna reference, law & ethics |
+| 01 | [Broadcast & Media](./04_applications/01_broadcast_and_media.md) | FM, AM, shortwave, DAB, DVB-T |
+| 02 | [Aviation](./04_applications/02_aviation.md) | ADS-B, ACARS, airband, VOR/ILS |
+| 03 | [Maritime](./04_applications/03_maritime.md) | AIS, NAVTEX, DSC, EPIRB |
+| 04 | [Satellite & Space](./04_applications/04_satellite_and_space.md) | NOAA & Meteor imagery, GOES, Inmarsat, cubesats |
+| 05 | [Weather & Environment](./04_applications/05_weather_and_environment.md) | Radiosondes, lightning, meteor scatter |
+| 06 | [Land Mobile & Professional](./04_applications/06_land_mobile_and_professional.md) | DMR, P25, TETRA, pagers, SCADA |
+| 07 | [Amateur Radio](./04_applications/07_amateur_radio.md) | FT8, WSPR, APRS, SSTV, EME |
+| 08 | [IoT, ISM & Short Range](./04_applications/08_iot_ism_and_short_range.md) | LoRa, TPMS, smart meters, BLE, Zigbee |
+| 09 | [Cellular](./04_applications/09_cellular.md) | GSM, LTE, 5G NR, NB-IoT |
+| 10 | [Navigation & Timing](./04_applications/10_navigation_and_timing.md) | GPS/GNSS, time stations, NDBs |
+| 11 | [Radar & Sensing](./04_applications/11_radar_and_sensing.md) | Passive radar, FMCW, Doppler |
+| 12 | [Science & Radio Astronomy](./04_applications/12_science_and_radio_astronomy.md) | Hydrogen line, Jupiter, pulsars |
+| 13 | [Security Research](./04_applications/13_security_research.md) | Protocol RE, fingerprinting, defence |
+| 14 | [Test & Measurement](./04_applications/14_test_measurement_and_infrastructure.md) | Spectrum monitoring, DF, EMC |
+| 15 | [Transmit Projects](./04_applications/15_transmit_projects.md) | Beacons, custom links, MIMO |
+| 16 | [Oddities & Historical](./04_applications/16_oddities_and_historical.md) | Numbers stations, NDBs, weatherfax |
+
+> **Not all of it is FM radio.** Labs 01–09 lean heavily on the FM broadcast band because it is
+> strong, legal everywhere and layers beautifully (mono → stereo → RDS data). Part 4 is the map
+> of everything else — and your SignalSDR Pro reaches most of it.
+
+---
+
 ### Part 3 — Scripts & Tools
 | Script | Purpose |
 |---|---|
@@ -187,13 +217,31 @@ signalsdrpro_lab/
 │   ├── lab07_bpsk_link_sim/            ← no hardware needed
 │   ├── lab08_rds_decoder/              ← live + from-file flowgraphs
 │   └── lab09_adsb_receiver/            ← live + from-file flowgraphs
-└── 03_scripts/
-    ├── validate_flowgraph.py           ← deep .grc validation
-    ├── simulate_bpsk_ber.py            ← BER vs theory
-    ├── simulate_rds_decode.py          ← RDS signal generator + self-test
-    ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
-    ├── simulate_stereo_decode.py
-    └── simulate_stereo_decode_pure.py
+├── 03_scripts/
+│   ├── validate_flowgraph.py           ← deep .grc validation
+│   ├── simulate_bpsk_ber.py            ← BER vs theory
+│   ├── simulate_rds_decode.py          ← RDS signal generator + self-test
+│   ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
+│   ├── simulate_stereo_decode.py
+│   └── simulate_stereo_decode_pure.py
+└── 04_applications/                ← What else is out there (589 entries)
+    ├── README.md                       ← index, difficulty ladder, spectrum map
+    ├── 01_broadcast_and_media.md
+    ├── 02_aviation.md
+    ├── 03_maritime.md
+    ├── 04_satellite_and_space.md
+    ├── 05_weather_and_environment.md
+    ├── 06_land_mobile_and_professional.md
+    ├── 07_amateur_radio.md
+    ├── 08_iot_ism_and_short_range.md
+    ├── 09_cellular.md
+    ├── 10_navigation_and_timing.md
+    ├── 11_radar_and_sensing.md
+    ├── 12_science_and_radio_astronomy.md
+    ├── 13_security_research.md
+    ├── 14_test_measurement_and_infrastructure.md
+    ├── 15_transmit_projects.md
+    └── 16_oddities_and_historical.md
 ```
 
 Each lab folder contains a `README.md`, one or more `.grc` flowgraphs, and the `.py` that
@@ -325,15 +373,20 @@ stereo MPX decoder, an AM/NBFM/WBFM multimode receiver, a synchronised BPSK link
 against theory, an RDS data decoder, and an aircraft transponder receiver. That covers analog
 and digital, broadcast and packet, audio and data.
 
-Where to go from here, roughly in order of difficulty:
+**Then open [Part 4 — the Applications Catalogue](./04_applications/README.md).** It maps 589
+signals and projects across 16 domains, sorted by difficulty, with the hardware each one needs.
+A few of the best next steps:
 
-- 🛰️ **NOAA APT weather satellites** (137 MHz) — Doppler tracking, AM-on-FM, image decoding
-- 📟 **POCSAG / FLEX pagers** (150/450 MHz) — very simple FSK, still in service
-- 🌦️ **Meteor-M LRPT** (137 MHz) — QPSK with Viterbi FEC and image reconstruction
-- 📶 **LoRa** (868/915 MHz) — chirp spread spectrum, a genuinely different modulation
-- 📱 **GSM / LTE signalling** — `gr-gsm`, srsRAN, LTESniffer
-- 🛰️ **GPS** — the deepest of all: 20 dB *below* the noise floor, recovered by correlation
-- 📻 **Transmitting** — legal only on bands you are licensed for. Check before you key up.
+| Next | Why | Where |
+|---|---|---|
+| 🛰️ **NOAA APT weather images** | A photo of your continent from a coat-hanger antenna. **The best second project in SDR** | [Satellite](./04_applications/04_satellite_and_space.md) |
+| 🎈 **Radiosondes** | Weather balloons transmit their GPS position — decode it, then go and find one | [Weather](./04_applications/05_weather_and_environment.md) |
+| 📟 **POCSAG pagers** | The simplest real data decode there is; an hour's work after Lab 08 | [Land Mobile](./04_applications/06_land_mobile_and_professional.md) |
+| 🚢 **AIS ship tracking** | Like ADS-B but slower and gentler | [Maritime](./04_applications/03_maritime.md) |
+| 📉 **WSPR** | Decode signals 28 dB *below* the noise, no licence needed | [Amateur Radio](./04_applications/07_amateur_radio.md) |
+| 🧭 **GPS from raw IQ** | Correlation pulls a signal from 20 dB under the noise floor | [Navigation](./04_applications/10_navigation_and_timing.md) |
+| 📡 **Passive radar** | Detect aircraft using a broadcast transmitter you do not own | [Radar](./04_applications/11_radar_and_sensing.md) |
+| 🔭 **The hydrogen line** | Measure the rotation of the Milky Way from your garden | [Science](./04_applications/12_science_and_radio_astronomy.md) |
 
 Each one reuses the same method this repo teaches: read the theory, plan the sample rates
 backwards from the sink, build the chain, **validate against a signal you control**, and only
@@ -367,4 +420,5 @@ Enjoy the journey! 🎧
 ---
 
 *Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
-*10 theory documents · 9 labs · 12 flowgraphs · all structurally, deeply and compile-validated against GNU Radio 3.10.9.2*
+*10 theory documents · 9 labs · 12 flowgraphs · 589 catalogued applications*
+*All flowgraphs structurally, deeply and compile-validated against GNU Radio 3.10.9.2; six labs verified on live RF*

@@ -556,14 +556,22 @@ You have now built, from first principles, receivers for: wideband FM, stereo MP
 narrowband FM, a synchronised BPSK link, RDS data, and Mode S. That covers analog and digital,
 broadcast and packet, audio and data.
 
-Directions from here, roughly in order of difficulty:
+**[Part 4 — the Applications Catalogue](../../04_applications/README.md) is the map of where to
+go next**: 589 signals and projects across 16 domains, each with its frequency, modulation,
+difficulty rating and hardware requirements, and a [difficulty
+ladder](../../04_applications/README.md#-where-to-start--a-suggested-path) that sequences them.
 
-- 🛰️ **NOAA APT weather satellites** (137 MHz) — Doppler tracking and image decoding
-- 🌦️ **Meteor-M LRPT** (137 MHz) — QPSK, Viterbi FEC, JPEG-ish image reconstruction
-- 📟 **POCSAG / FLEX pagers** (150/450 MHz) — trivially simple, still very much alive
-- 📶 **LoRa** (868/915 MHz) — chirp spread spectrum, a genuinely different modulation
-- 📱 **GSM** with `gr-gsm` — real cellular signalling
-- 🛰️ **GPS** — the deepest of all: 20 dB below the noise floor, recovered by correlation
+A few natural successors to this lab:
+
+- 🚢 **[AIS](../../04_applications/03_maritime.md)** — ships instead of planes; GMSK instead of PPM
+- 🛰️ **[NOAA APT](../../04_applications/04_satellite_and_space.md)** — your first satellite image
+- 🎈 **[Radiosondes](../../04_applications/05_weather_and_environment.md)** — and you can go and
+  retrieve the payload
+- 📡 **[Passive radar](../../04_applications/11_radar_and_sensing.md)** — detect the same aircraft
+  *without* their cooperation, using a broadcast transmitter as your illuminator, then check your
+  detections against the ADS-B truth you already decode
+- 🧭 **[GPS from raw IQ](../../04_applications/10_navigation_and_timing.md)** — the graduation
+  exercise
 
 Each one reuses this repo's method: read the theory, plan the rates, build the chain, validate
 against a signal you control, then point it at the sky.
