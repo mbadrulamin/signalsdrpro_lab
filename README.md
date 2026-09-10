@@ -78,6 +78,7 @@ each lab's header tells you which.
 | 08 | [Digital Modulation](./01_fundamentals/08_digital_modulation.md) | Constellations, RRC pulse shaping, Eb/N0, BER, PPM | Labs 07–09 |
 | 09 | [Synchronization](./01_fundamentals/09_synchronization.md) | PLLs, Costas loops, timing recovery, loop bandwidth | Labs 07, 08 |
 | 10 | [Error Detection & Framing](./01_fundamentals/10_error_detection_and_framing.md) | GF(2) arithmetic, CRC, self-synchronising codes, FEC | Labs 08, 09 |
+| 11 | [OFDM & Modern Broadcast Systems](./01_fundamentals/11_ofdm_and_broadcast_systems.md) | Orthogonality, the cyclic prefix, pilots, PAPR, LDPC+BCH | Lab 10 |
 
 ### Part 2 — Hands-On Flowgraphs (Progressive Labs)
 Each lab builds on the previous one. **Do not skip.**
@@ -93,6 +94,7 @@ Each lab builds on the previous one. **Do not skip.**
 | 07 | [BPSK Link Simulation](./02_flowgraphs/lab07_bpsk_link_sim/README.md) | A full digital link with **measured BER vs theory**. | 34 | **none** |
 | 08 | [RDS Decoder](./02_flowgraphs/lab08_rds_decoder/README.md) | Station name & RadioText off the 57 kHz subcarrier. | 34 | optional |
 | 09 | [ADS-B Aircraft Receiver](./02_flowgraphs/lab09_adsb_receiver/README.md) | 1090 MHz Mode S: identity, altitude, position. | 14 | optional |
+| 10 | [**DVB-T2 Television Transmitter**](./02_flowgraphs/lab10_dvbt2_tx_rx/README.md) | Build a TV transmitter. OFDM, LDPC+BCH, received by a real TV. | 31 | 🚨 **transmits** |
 
 **Labs 07, 08b and 09b run with no radio attached.** Labs 08 and 09 each ship a second
 flowgraph that reads a recorded or synthetic IQ file, so you can build and debug the whole
@@ -117,7 +119,14 @@ decoder before you ever fight an antenna.
                     │
                     ▼
                    09         a different band, a different modulation, aircraft
+                    │
+                    ▼
+                   10         stop receiving and TRANSMIT: OFDM, LDPC, a real TV
 ```
+
+> 🚨 **Lab 10 transmits.** It is the only lab that radiates, it uses licensed broadcast
+> spectrum, and it must be done in a Faraday cage or over a cable into a dummy load. Its
+> defaults are inert — amplitude and gain both start at zero — but the responsibility is yours.
 
 ### Part 4 — The Applications Catalogue
 What else is out there. **589 signals and projects** across 16 domains, each with frequency,
@@ -129,7 +138,7 @@ modulation, difficulty, the hardware it needs, and which labs prepare you for it
 | 01 | [Broadcast & Media](./04_applications/01_broadcast_and_media.md) | FM, AM, shortwave, DAB, DVB-T |
 | 02 | [Aviation](./04_applications/02_aviation.md) | ADS-B, ACARS, airband, VOR/ILS |
 | 03 | [Maritime](./04_applications/03_maritime.md) | AIS, NAVTEX, DSC, EPIRB |
-| 04 | [Satellite & Space](./04_applications/04_satellite_and_space.md) | NOAA & Meteor imagery, GOES, Inmarsat, cubesats |
+| 04 | [Satellite & Space](./04_applications/04_satellite_and_space.md) | Meteor LRPT, GOES, Inmarsat, cubesats |
 | 05 | [Weather & Environment](./04_applications/05_weather_and_environment.md) | Radiosondes, lightning, meteor scatter |
 | 06 | [Land Mobile & Professional](./04_applications/06_land_mobile_and_professional.md) | DMR, P25, TETRA, pagers, SCADA |
 | 07 | [Amateur Radio](./04_applications/07_amateur_radio.md) | FT8, WSPR, APRS, SSTV, EME |
@@ -156,6 +165,8 @@ modulation, difficulty, the hardware it needs, and which labs prepare you for it
 | [simulate_bpsk_ber.py](./03_scripts/simulate_bpsk_ber.py) | Run Lab 07's link at a sweep of Eb/N0 and compare the measured BER against closed-form theory. |
 | [simulate_rds_decode.py](./03_scripts/simulate_rds_decode.py) | Generate a synthetic FM+RDS signal with known contents for Lab 08, and self-test the RDS codec. |
 | [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Generate a synthetic 1090 MHz capture for Lab 09, and self-test the Mode S decoder against published reference frames. |
+| [make_test_ts.py](./03_scripts/make_test_ts.py) | Generate a standards-valid MPEG-2 transport stream (PAT/PMT/SDT/NIT) for Lab 10. No ffmpeg required. |
+| [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Verify a DVB-T2 waveform: bandwidth, cyclic prefix, symbol period, P1 preamble, frame period, PAPR. |
 | [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Mathematical verification of Lab 04's stereo matrix. |
 
 Run everything at once:
@@ -206,7 +217,8 @@ signalsdrpro_lab/
 │   ├── 07_am_and_narrowband_fm.md      │ read as the labs call for them
 │   ├── 08_digital_modulation.md        │
 │   ├── 09_synchronization.md           │
-│   └── 10_error_detection_and_framing.md ┘
+│   ├── 10_error_detection_and_framing.md │
+│   └── 11_ofdm_and_broadcast_systems.md  ┘
 ├── 02_flowgraphs/                  ← Hands-on labs
 │   ├── lab01_simple_wbfm/
 │   ├── lab02_enhanced_wbfm/
@@ -216,12 +228,15 @@ signalsdrpro_lab/
 │   ├── lab06_multimode_receiver/
 │   ├── lab07_bpsk_link_sim/            ← no hardware needed
 │   ├── lab08_rds_decoder/              ← live + from-file flowgraphs
-│   └── lab09_adsb_receiver/            ← live + from-file flowgraphs
+│   ├── lab09_adsb_receiver/            ← live + from-file flowgraphs
+│   └── lab10_dvbt2_tx_rx/              ← 🚨 TRANSMITS: generate / tx / analyse
 ├── 03_scripts/
 │   ├── validate_flowgraph.py           ← deep .grc validation
 │   ├── simulate_bpsk_ber.py            ← BER vs theory
 │   ├── simulate_rds_decode.py          ← RDS signal generator + self-test
 │   ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
+│   ├── make_test_ts.py                 ← MPEG-2 transport stream generator
+│   ├── analyze_dvbt2.py                ← DVB-T2 waveform verification
 │   ├── simulate_stereo_decode.py
 │   └── simulate_stereo_decode_pure.py
 └── 04_applications/                ← What else is out there (589 entries)
@@ -379,7 +394,7 @@ A few of the best next steps:
 
 | Next | Why | Where |
 |---|---|---|
-| 🛰️ **NOAA APT weather images** | A photo of your continent from a coat-hanger antenna. **The best second project in SDR** | [Satellite](./04_applications/04_satellite_and_space.md) |
+| 🛰️ **Meteor-M LRPT weather images** | A photo of your continent from a coat-hanger antenna | [Satellite](./04_applications/04_satellite_and_space.md) |
 | 🎈 **Radiosondes** | Weather balloons transmit their GPS position — decode it, then go and find one | [Weather](./04_applications/05_weather_and_environment.md) |
 | 📟 **POCSAG pagers** | The simplest real data decode there is; an hour's work after Lab 08 | [Land Mobile](./04_applications/06_land_mobile_and_professional.md) |
 | 🚢 **AIS ship tracking** | Like ADS-B but slower and gentler | [Maritime](./04_applications/03_maritime.md) |
@@ -420,5 +435,5 @@ Enjoy the journey! 🎧
 ---
 
 *Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
-*10 theory documents · 9 labs · 12 flowgraphs · 589 catalogued applications*
+*11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications*
 *All flowgraphs structurally, deeply and compile-validated against GNU Radio 3.10.9.2; six labs verified on live RF*

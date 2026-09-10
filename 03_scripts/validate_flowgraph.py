@@ -77,6 +77,9 @@ def deep_check(platform, path):
     except Exception as exc:
         return [f"could not load flowgraph: {exc}"], None
 
+    # GRC omits disabled blocks (and their connections) when generating, so a
+    # deliberately disabled block must not be reported as a dangling reference.
+    fg.blocks = [b for b in fg.blocks if getattr(b, 'enabled', True)]
     errors = []
     for b in fg.blocks:
         for msg in b.get_error_messages():

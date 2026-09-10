@@ -140,7 +140,7 @@ You already have the skills. Only the antenna changes.
 
 | Signal | Why |
 |---|---|
-| [NOAA APT weather images](./04_satellite_and_space.md) | **The best second project in all of SDR.** You get a picture of the Earth, taken minutes ago, from a $5 antenna |
+| [Meteor-M N2-4 LRPT](./04_satellite_and_space.md) | **A picture of the Earth, taken minutes ago, from a $5 antenna.** (NOAA APT held this spot for 25 years; the last APT satellite was switched off in August 2025) |
 | [ISS SSTV](./04_satellite_and_space.md) | Same skills, more novelty |
 | [Radiosondes](./05_weather_and_environment.md) | Balloons launched twice daily worldwide; you can go and find them |
 

@@ -34,8 +34,8 @@ narrowband or coherent does not, and you must correct with predicted orbital ele
 
 | Signal | Frequency | Mode | Diff | Needs | Notes |
 |---|---|---|---|---|---|
-| **NOAA APT** | 137.100, 137.9125, 137.620 MHz | WBFM → 2.4 kHz AM subcarrier | ⭐⭐ | ✅📡 | 🟢 **The best second project in SDR.** Analog line-by-line image, 4 km/pixel |
-| **Meteor-M N2 LRPT** | 137.100 / 137.900 MHz | QPSK 72 kbit/s, Viterbi + Reed-Solomon | ⭐⭐⭐⭐ | ✅📡 | 🟢 Digital, full colour, much sharper than APT |
+| ~~**NOAA APT**~~ | ~~137.100 / 137.9125 / 137.620 MHz~~ | WBFM → 2.4 kHz AM subcarrier | — | — | ⚰️ **OFF THE AIR.** NOAA-18 decommissioned June 2025, NOAA-19 on 13 Aug 2025, **NOAA-15 on 19 Aug 2025** — the last APT transmitter anywhere. Archived recordings remain a fine exercise |
+| **Meteor-M N2-4 LRPT** | **137.9 MHz** (137.1 backup) | QPSK 72 kbit/s, Viterbi + Reed-Solomon | ⭐⭐⭐⭐ | ✅📡 | 🟢 **THE weather-satellite target now that APT is gone.** Digital, full colour, sharper than APT ever was |
 | **GOES HRIT** | 1694.1 MHz | BPSK 927 kbit/s | ⭐⭐⭐⭐ | 🔺📡🔊 | 🟢 Full-disc Earth images every 10 minutes. Needs a dish + LNA |
 | **GOES EMWIN** | 1692.7 MHz | BPSK | ⭐⭐⭐⭐ | 🔺📡🔊 | 🟢 Text warnings and charts alongside HRIT |
 | **GK-2A LRIT** | 1692.14 MHz | BPSK | ⭐⭐⭐⭐ | 🔺📡🔊 | 🟢 Korean geostationary; covers Asia-Pacific |
@@ -107,34 +107,54 @@ narrowband or coherent does not, and you must correct with predicted orbital ele
 
 ---
 
-## Try this first: NOAA APT
+## ⚰️ A note on NOAA APT
 
-This is the project that converts people from "I have an SDR" to "I do radio". Everything you
-need:
+For twenty-five years the answer to "what should I try after FM radio?" was NOAA APT: a
+137 MHz analog signal from a polar orbiter, decodable with a coat-hanger antenna into a
+photograph of your own continent. It was the best second project in amateur SDR.
 
-**The antenna** — a V-dipole. Two 530 mm wires at 120°, horizontal, pointing north-south. Cost:
+**It is gone.** The POES fleet was retired in 2025 — NOAA-18 in June, NOAA-19 on 13 August, and
+NOAA-15 on 19 August, which was the last APT transmitter in orbit. No live APT signal exists.
+
+Two things remain worth doing:
+
+- **Archived APT recordings** are widely available, and decoding one is still an excellent
+  exercise: it is the only signal most people meet where the *carrier* is FM but the *image* is
+  AM on a 2400 Hz subcarrier, so you have to envelope-detect after demodulating
+  ([Fundamentals 07](../01_fundamentals/07_am_and_narrowband_fm.md)). Then find the sync pulses
+  and assemble 2080 pixels per line, two lines a second.
+- **Meteor-M N2-4 LRPT** is the live successor, and it is what a newcomer should aim at now.
+
+---
+
+## Try this first: Meteor-M N2-4 LRPT
+
+**137.9 MHz**, QPSK at 72 kbit/s, with Viterbi and Reed–Solomon coding — digital where APT was
+analog, and considerably sharper.
+
+**The antenna** — a V-dipole. Two 530 mm wires at 120°, horizontal, pointing north–south. Cost:
 a coat hanger and an SMA pigtail. It genuinely works.
 
-**The pass** — use any tracking site or `gpredict` to find when NOAA-15, -18 or -19 goes over.
-You get 10–15 minutes.
+**The pass** — use `gpredict` or any tracking site. You get 10–15 minutes.
 
-**The chain** — you already built it in [Lab 03](../02_flowgraphs/lab03_advanced_wbfm/README.md):
+**The chain** — every piece is something you have already built:
 
 ```
-USRP (137.1 MHz, 2 MSPS)
-  → xlating filter, ~40 kHz wide      ← Lab 06's technique
-  → WBFM demod                        ← Lab 01's block
-  → resample to 11025 Hz
-  → AM-envelope the 2400 Hz subcarrier
-  → one image line per 0.5 s, 2080 pixels
+USRP (137.9 MHz, ~1 MSPS)
+  → xlating filter, ~150 kHz wide       ← Lab 06's technique
+  → QPSK: symbol sync + Costas loop     ← Lab 07, exactly
+  → Viterbi + Reed-Solomon              ← Fundamentals 10's FEC section
+  → CCSDS frames → JPEG-like decode     ← the genuinely new part
 ```
-
-**The catch that gets everyone:** APT's *carrier* is FM but the *image* is AM on a 2400 Hz
-subcarrier. If you feed the FM audio straight to an image decoder you get noise. Envelope-detect
-first ([Fundamentals 07](../01_fundamentals/07_am_and_narrowband_fm.md)).
 
 **Record the pass with [Lab 05](../02_flowgraphs/lab05_iq_record_playback/README.md).** You get
-one attempt per pass; a recording gives you unlimited attempts at the decoder.
+one attempt per pass; a recording gives you unlimited attempts at the decoder. This matters more
+here than anywhere else in the catalogue.
+
+**The Doppler catch:** at 137 MHz a LEO pass shifts ±3.5 kHz, sweeping through zero at closest
+approach. WBFM shrugged that off; **QPSK will not.** You must either correct it from predicted
+orbital elements or give the Costas loop enough bandwidth to chase it — which is the Lab 07
+Exercise 3 trade-off, now with a real satellite instead of a slider.
 
 ---
 

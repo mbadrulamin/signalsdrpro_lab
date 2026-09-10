@@ -556,8 +556,13 @@ You have now built, from first principles, receivers for: wideband FM, stereo MP
 narrowband FM, a synchronised BPSK link, RDS data, and Mode S. That covers analog and digital,
 broadcast and packet, audio and data.
 
+**[Lab 10](../lab10_dvbt2_tx_rx/README.md) is the last lab, and the only one that transmits**:
+you build a DVB-T2 television transmitter — OFDM, LDPC and BCH — and a real TV receives it. Read
+[Fundamentals 11](../../01_fundamentals/11_ofdm_and_broadcast_systems.md) first, and get a
+Faraday cage or a cable.
+
 **[Part 4 — the Applications Catalogue](../../04_applications/README.md) is the map of where to
-go next**: 589 signals and projects across 16 domains, each with its frequency, modulation,
+go after that**: 589 signals and projects across 16 domains, each with its frequency, modulation,
 difficulty rating and hardware requirements, and a [difficulty
 ladder](../../04_applications/README.md#-where-to-start--a-suggested-path) that sequences them.
 

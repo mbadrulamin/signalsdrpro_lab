@@ -1,0 +1,578 @@
+options:
+  parameters:
+    id: lab10_dvbt2_tx
+    title: Lab 10b - DVB-T2 Transmitter (RF - Faraday cage or dummy load ONLY)
+    author: SignalSDR Pro Lab
+    description: Transmit a standards-compliant DVB-T2 multiplex for a real TV or tuner to receive
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1600, 1000)
+    sizing_mode: fixed
+  states:
+    coordinate:
+    - 10
+    - 10
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_legal
+  id: note
+  parameters:
+    note: THIS TRANSMITS. Faraday cage, or cable + attenuator into a dummy load. Never into an antenna.
+    comment: Read the README before running the RF version of this lab.
+  states:
+    coordinate:
+    - 10
+    - 100
+    rotation: 0
+    state: enabled
+- name: note_cfg
+  id: note
+  parameters:
+    note: 'Config = official gr-dtv vv011: 1K FFT, QPSK, CR1/2, GI1/8, PP3. To change it you must edit
+      SEVEN blocks together - see README.'
+    comment: DVB-T2 parameters are GRC enums, so they cannot be driven from one variable.
+  states:
+    coordinate:
+    - 10
+    - 160
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: (8000000.0 * 8) / 7
+    comment: 'The DVB-T2 elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS. Not negotiable -
+      it defines the OFDM carrier spacing.'
+  states:
+    coordinate:
+    - 330
+    - 10
+    rotation: 0
+    state: enabled
+- name: fft_len
+  id: variable
+  parameters:
+    value: '1024'
+    comment: FFT size in samples. Must match FFTSIZE_1K in the five blocks that take it.
+  states:
+    coordinate:
+    - 560
+    - 10
+    rotation: 0
+    state: enabled
+- name: cp_len
+  id: variable
+  parameters:
+    value: fft_len // 8
+    comment: Guard interval = 1/8 of the useful symbol. Must match GI_1_8 everywhere.
+  states:
+    coordinate:
+    - 700
+    - 10
+    rotation: 0
+    state: enabled
+- name: num_data_syms
+  id: variable
+  parameters:
+    value: '1966'
+    comment: OFDM data symbols per T2 frame. Fixed by the standard for this FFT/GI/PP combination.
+  states:
+    coordinate:
+    - 860
+    - 10
+    rotation: 0
+    state: enabled
+- name: fec_blocks
+  id: variable
+  parameters:
+    value: '48'
+    comment: FEC blocks per T2 frame. Sets the payload bitrate.
+  states:
+    coordinate:
+    - 1060
+    - 10
+    rotation: 0
+    state: enabled
+- name: ti_blocks
+  id: variable
+  parameters:
+    value: '3'
+    comment: Time-interleaver blocks per frame. Interleaving over time is what makes DVB-T2 survive impulsive
+      noise.
+  states:
+    coordinate:
+    - 1220
+    - 10
+    rotation: 0
+    state: enabled
+- name: ts_file
+  id: variable
+  parameters:
+    value: '''/tmp/dvbt2_test.ts'''
+    comment: MPEG-2 transport stream. Make one with 03_scripts/make_test_ts.py (no ffmpeg needed).
+  states:
+    coordinate:
+    - 330
+    - 90
+    rotation: 0
+    state: enabled
+- name: ts_source
+  id: blocks_file_source
+  parameters:
+    file: ts_file
+    type: byte
+    repeat: 'True'
+    vlen: '1'
+    begin_tag: pmt.PMT_NIL
+    offset: '0'
+    length: '0'
+    comment: repeat=True means the PHYSICAL layer never runs dry - only the TS content loops.
+  states:
+    coordinate:
+    - 60
+    - 400
+    rotation: 0
+    state: enabled
+- name: bbheader
+  id: dtv_dvb_bbheader_bb
+  parameters:
+    standard: STANDARD_DVBT2
+    framesize1: FECFRAME_NORMAL
+    rate1: C1_2
+    framesize2: FECFRAME_NORMAL
+    rate2: C1_3
+    rate3: C1_4
+    rate4: C1_5_MEDIUM
+    rate5: C1_4
+    mode: INPUTMODE_NORMAL
+    inband: INBAND_OFF
+    fecblocks: '168'
+    tsrate: '4000000'
+    rolloff: RO_0_35
+    comment: STAGE 1 - Baseband framing. Slices the TS into BBFRAMEs and prepends a header saying how
+      they are coded.
+  states:
+    coordinate:
+    - 280
+    - 400
+    rotation: 0
+    state: enabled
+- name: bbscrambler
+  id: dtv_dvb_bbscrambler_bb
+  parameters:
+    standard: STANDARD_DVBT2
+    framesize1: FECFRAME_NORMAL
+    rate1: C1_2
+    framesize2: FECFRAME_NORMAL
+    rate2: C1_3
+    rate3: C1_4
+    rate4: C1_5_MEDIUM
+    rate5: C1_4
+    comment: STAGE 2 - Energy dispersal. XOR with a PRBS so a run of identical bytes does not produce
+      a line spectrum.
+  states:
+    coordinate:
+    - 520
+    - 400
+    rotation: 0
+    state: enabled
+- name: bch
+  id: dtv_dvb_bch_bb
+  parameters:
+    standard: STANDARD_DVBT2
+    framesize1: FECFRAME_NORMAL
+    rate1: C1_2
+    framesize2: FECFRAME_NORMAL
+    rate2: C1_3
+    rate3: C1_4
+    rate4: C1_5_MEDIUM
+    rate5: C1_4
+    comment: STAGE 3 - BCH outer code. Mops up the residual errors the LDPC decoder leaves behind (its
+      error floor).
+  states:
+    coordinate:
+    - 760
+    - 400
+    rotation: 0
+    state: enabled
+- name: ldpc
+  id: dtv_dvb_ldpc_bb
+  parameters:
+    standard: STANDARD_DVBT2
+    framesize1: FECFRAME_NORMAL
+    rate1: C1_2
+    framesize2: FECFRAME_NORMAL
+    rate2: C1_3
+    rate3: C1_4
+    rate4: C1_5_MEDIUM
+    rate5: C1_4
+    constellation: MOD_OTHER
+    comment: STAGE 4 - LDPC inner code, 64800-bit codewords. This is what gets DVB-T2 within ~1 dB of
+      the Shannon limit.
+  states:
+    coordinate:
+    - 1000
+    - 400
+    rotation: 0
+    state: enabled
+- name: bitinterleaver
+  id: dtv_dvbt2_interleaver_bb
+  parameters:
+    framesize: FECFRAME_NORMAL
+    rate: C1_2
+    constellation: MOD_QPSK
+    comment: STAGE 5 - Bit interleaver. Spreads each LDPC codeword across constellation bits of differing
+      reliability.
+  states:
+    coordinate:
+    - 1240
+    - 400
+    rotation: 0
+    state: enabled
+- name: modulator
+  id: dtv_dvbt2_modulator_bc
+  parameters:
+    framesize: FECFRAME_NORMAL
+    constellation: MOD_QPSK
+    rotation: ROTATION_ON
+    comment: STAGE 6 - Map bits to constellation points. ROTATION_ON rotates the constellation so I and
+      Q each carry full information.
+  states:
+    coordinate:
+    - 1480
+    - 400
+    rotation: 0
+    state: enabled
+- name: cellinterleaver
+  id: dtv_dvbt2_cellinterleaver_cc
+  parameters:
+    framesize: FECFRAME_NORMAL
+    constellation: MOD_QPSK
+    fecblocks: fec_blocks
+    tiblocks: ti_blocks
+    comment: STAGE 7 - Cell and TIME interleaving. Spreads one codeword over hundreds of ms so a burst
+      of noise cannot kill it.
+  states:
+    coordinate:
+    - 1720
+    - 400
+    rotation: 0
+    state: enabled
+- name: framemapper
+  id: dtv_dvbt2_framemapper_cc
+  parameters:
+    framesize: FECFRAME_NORMAL
+    rate: C1_2
+    constellation: MOD_QPSK
+    rotation: ROTATION_ON
+    fecblocks: fec_blocks
+    tiblocks: ti_blocks
+    carriermode: CARRIERS_NORMAL
+    fftsize1: FFTSIZE_1K
+    fftsize2: FFTSIZE_2K
+    guardinterval: GI_1_8
+    l1constellation: L1_MOD_BPSK
+    pilotpattern: PILOT_PP3
+    t2frames: '2'
+    numdatasyms: num_data_syms
+    paprmode1: PAPR_OFF
+    paprmode2: PAPR_OFF
+    version: VERSION_111
+    preamble1: PREAMBLE_T2_SISO
+    preamble2: PREAMBLE_T2_SISO
+    inputmode: INPUTMODE_NORMAL
+    reservedbiasbits: RESERVED_OFF
+    l1scrambled: L1_SCRAMBLED_OFF
+    inband: INBAND_OFF
+    comment: STAGE 8 - Build the T2 frame and the P2 symbols carrying L1 signalling, which tells the receiver
+      how everything above was configured.
+  states:
+    coordinate:
+    - 60
+    - 640
+    rotation: 0
+    state: enabled
+- name: freqinterleaver
+  id: dtv_dvbt2_freqinterleaver_cc
+  parameters:
+    carriermode: CARRIERS_NORMAL
+    fftsize: FFTSIZE_1K
+    pilotpattern: PILOT_PP3
+    guardinterval: GI_1_8
+    numdatasyms: num_data_syms
+    paprmode1: PAPR_OFF
+    paprmode2: PAPR_OFF
+    version: VERSION_111
+    preamble1: PREAMBLE_T2_SISO
+    preamble2: PREAMBLE_T2_SISO
+    comment: STAGE 9 - Frequency interleaver. Scatters cells across OFDM carriers so a notch in the channel
+      does not wipe out consecutive data.
+  states:
+    coordinate:
+    - 340
+    - 640
+    rotation: 0
+    state: enabled
+- name: pilotgenerator
+  id: dtv_dvbt2_pilotgenerator_cc
+  parameters:
+    carriermode: CARRIERS_NORMAL
+    fftsize: FFTSIZE_1K
+    pilotpattern: PILOT_PP3
+    guardinterval: GI_1_8
+    numdatasyms: num_data_syms
+    paprmode1: PAPR_OFF
+    paprmode2: PAPR_OFF
+    version: VERSION_111
+    preamble1: PREAMBLE_T2_SISO
+    preamble2: PREAMBLE_T2_SISO
+    misogroup: MISO_TX1
+    equalization: EQUALIZATION_OFF
+    bandwidth: BANDWIDTH_8_0_MHZ
+    comment: STAGE 10 - Insert scattered/continual pilots, then IFFT. Output is a time-domain OFDM symbol.
+      The pilots are what the receiver equalises against.
+  states:
+    coordinate:
+    - 620
+    - 640
+    rotation: 0
+    state: enabled
+- name: cyclic_prefixer
+  id: digital_ofdm_cyclic_prefixer
+  parameters:
+    input_size: fft_len
+    cp_len: cp_len
+    rolloff: '0'
+    tagname: '""'
+    comment: STAGE 11 - Copy the last 1/8 of each symbol to its front. This is what makes OFDM immune
+      to multipath up to the guard length.
+  states:
+    coordinate:
+    - 900
+    - 640
+    rotation: 0
+    state: enabled
+- name: p1insertion
+  id: dtv_dvbt2_p1insertion_cc
+  parameters:
+    carriermode: CARRIERS_EXTENDED
+    fftsize1: FFTSIZE_1K
+    fftsize2: FFTSIZE_2K
+    guardinterval: GI_1_8
+    numdatasyms: num_data_syms
+    preamble1: PREAMBLE_T2_SISO
+    preamble2: PREAMBLE_T2_SISO
+    showlevels: SHOWLEVELS_OFF
+    vclip: '3.3'
+    version: VERSION_111
+    comment: STAGE 12 - Prepend the P1 preamble symbol. A receiver finds this FIRST, by correlation, before
+      it knows anything else.
+  states:
+    coordinate:
+    - 1180
+    - 640
+    rotation: 0
+    state: enabled
+- name: tx_scale
+  id: blocks_multiply_const_vxx
+  parameters:
+    type: complex
+    const: tx_amplitude
+    vlen: '1'
+    comment: Digital backoff. OFDM has a high peak-to-average ratio (~10 dB), so keep the average well
+      below full scale or the peaks clip.
+  states:
+    coordinate:
+    - 1460
+    - 640
+    rotation: 0
+    state: enabled
+- name: spectrum
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '''DVB-T2 signal - should be a 7.6 MHz flat-topped block'''
+    nconnections: '1'
+    fftsize: '4096'
+    fc: '0'
+    bw: samp_rate
+    ymin: '-120'
+    ymax: '0'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,1
+    comment: OFDM looks like a rectangle, not a hump. The flat top IS the thousand-odd carriers.
+  states:
+    coordinate:
+    - 1460
+    - 840
+    rotation: 0
+    state: enabled
+- name: timeplot
+  id: qtgui_time_sink_x
+  parameters:
+    type: complex
+    name: '''Time domain - noise-like, with high peaks'''
+    ylabel: Amplitude
+    size: '2048'
+    srate: samp_rate
+    nconnections: '1'
+    ymin: '-1'
+    ymax: '1'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.10'
+    gui_hint: 0,1,1,1
+    comment: A sum of ~1000 independent carriers is Gaussian by the central limit theorem. That is why
+      the PAPR is so high.
+  states:
+    coordinate:
+    - 1740
+    - 840
+    rotation: 0
+    state: enabled
+- name: center_freq
+  id: variable
+  parameters:
+    value: 474e6
+    comment: UHF channel 21. PICK A CHANNEL THAT IS EMPTY WHERE YOU ARE, and only radiate inside a Faraday
+      cage.
+  states:
+    coordinate:
+    - 700
+    - 90
+    rotation: 0
+    state: enabled
+- name: tx_amplitude
+  id: variable_qtgui_range
+  parameters:
+    label: '''TX digital amplitude'''
+    rangeType: float
+    start: '0.0'
+    stop: '0.5'
+    step: '0.01'
+    value: '0.0'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: STARTS AT ZERO ON PURPOSE. Raise it deliberately once you have checked what is connected
+      to the antenna port.
+  states:
+    coordinate:
+    - 330
+    - 180
+    rotation: 0
+    state: enabled
+- name: tx_gain
+  id: variable_qtgui_range
+  parameters:
+    label: '''TX RF gain (dB)'''
+    rangeType: float
+    start: '0'
+    stop: '89'
+    step: '1'
+    value: '0'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: Also starts at zero. In a cage or on a cable you need almost none of this.
+  states:
+    coordinate:
+    - 700
+    - 180
+    rotation: 0
+    state: enabled
+- name: usrp_sink
+  id: uhd_usrp_sink
+  parameters:
+    type: fc32
+    dev_addr: ''''''
+    dev_args: ''''''
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '''TX/RX'''
+    bw0: samp_rate
+    center_freq0: center_freq
+    gain0: tx_gain
+    comment: THIS RADIATES. Both tx_amplitude and tx_gain default to ZERO - raise them deliberately,
+      and only after checking what is connected to the antenna port.
+  states:
+    coordinate:
+    - 1740
+    - 640
+    rotation: 0
+    state: enabled
+connections:
+- - ts_source
+  - '0'
+  - bbheader
+  - '0'
+- - bbheader
+  - '0'
+  - bbscrambler
+  - '0'
+- - bbscrambler
+  - '0'
+  - bch
+  - '0'
+- - bch
+  - '0'
+  - ldpc
+  - '0'
+- - ldpc
+  - '0'
+  - bitinterleaver
+  - '0'
+- - bitinterleaver
+  - '0'
+  - modulator
+  - '0'
+- - modulator
+  - '0'
+  - cellinterleaver
+  - '0'
+- - cellinterleaver
+  - '0'
+  - framemapper
+  - '0'
+- - framemapper
+  - '0'
+  - freqinterleaver
+  - '0'
+- - freqinterleaver
+  - '0'
+  - pilotgenerator
+  - '0'
+- - pilotgenerator
+  - '0'
+  - cyclic_prefixer
+  - '0'
+- - cyclic_prefixer
+  - '0'
+  - p1insertion
+  - '0'
+- - p1insertion
+  - '0'
+  - tx_scale
+  - '0'
+- - tx_scale
+  - '0'
+  - spectrum
+  - '0'
+- - tx_scale
+  - '0'
+  - timeplot
+  - '0'
+- - tx_scale
+  - '0'
+  - usrp_sink
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

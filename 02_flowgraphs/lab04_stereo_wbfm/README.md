@@ -398,7 +398,7 @@ Divide by 2 (or scale by 0.5) to get correct levels.
 You now have the skills to tackle the next series of labs:
 - ✈️ **ADS-B Airplane Detection** — detect aircraft at 1090 MHz, decode their positions
 - 📻 **FM Transmitter** — broadcast your own signal (be careful with local laws!)
-- 📡 **Weather Satellite Reception** — NOAA APT at 137 MHz
+- 📡 **Weather Satellite Reception** — Meteor-M LRPT at 137.9 MHz
 - 📱 **GSM Sniffing** — decode GSM control channels with LTESniffer / gr-gsm
 
 ---

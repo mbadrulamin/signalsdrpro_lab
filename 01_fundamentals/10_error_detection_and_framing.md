@@ -252,7 +252,7 @@ errors.
 |---|---|---|---|
 | Hamming(7,4) | 75 % | 1 bit per 7 | Teaching, ECC RAM |
 | Reed–Solomon(255,223) | 14 % | 16 bytes per block | CDs, DVB, Voyager |
-| Convolutional $r=1/2$, $K=7$ | 100 % | Soft-decision Viterbi | GSM, satellite, NOAA APT |
+| Convolutional $r=1/2$, $K=7$ | 100 % | Soft-decision Viterbi | GSM, satellite, Meteor LRPT |
 | LDPC / Turbo | 10–100 % | Near Shannon limit | 5G, DVB-S2, Wi-Fi 6 |
 
 ### Coding gain
@@ -299,4 +299,4 @@ nothing to implement.
 
 ---
 
-**Next:** [Lab 08 — RDS Decoder →](../02_flowgraphs/lab08_rds_decoder/README.md)
+**Next:** [Lab 08 — RDS Decoder →](../02_flowgraphs/lab08_rds_decoder/README.md) · then [Fundamentals 11 — OFDM →](./11_ofdm_and_broadcast_systems.md)

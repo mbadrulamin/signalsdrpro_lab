@@ -1,0 +1,356 @@
+options:
+  parameters:
+    id: lab10_dvbt2_analyze
+    title: Lab 10c - DVB-T2 Receiver-Side Analyzer
+    author: SignalSDR Pro Lab
+    description: 'Measure a DVB-T2 signal: spectrum, cyclic-prefix timing, amplitude statistics'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1600, 1000)
+    sizing_mode: fixed
+  states:
+    coordinate:
+    - 10
+    - 10
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_what
+  id: note
+  parameters:
+    note: Receiver-side ANALYSIS. GNU Radio has no DVB-T2 demodulator - a real TV or USB tuner does the
+      decoding. This measures the signal.
+    comment: What this flowgraph is and is not.
+  states:
+    coordinate:
+    - 10
+    - 100
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: (8000000.0 * 8) / 7
+    comment: 'Must match the transmitter: 64/7 = 9.142857 MSPS.'
+  states:
+    coordinate:
+    - 330
+    - 10
+    rotation: 0
+    state: enabled
+- name: fft_len
+  id: variable
+  parameters:
+    value: '1024'
+    comment: Useful OFDM symbol length. The cyclic-prefix correlator below uses this as its delay.
+  states:
+    coordinate:
+    - 520
+    - 10
+    rotation: 0
+    state: enabled
+- name: cp_len
+  id: variable
+  parameters:
+    value: fft_len // 8
+    comment: Guard interval length. The correlator averages over exactly this many samples.
+  states:
+    coordinate:
+    - 660
+    - 10
+    rotation: 0
+    state: enabled
+- name: center_freq
+  id: variable
+  parameters:
+    value: 474e6
+    comment: Only used to label the spectrum axis, and by the USRP source if you enable it.
+  states:
+    coordinate:
+    - 820
+    - 10
+    rotation: 0
+    state: enabled
+- name: iq_file
+  id: variable
+  parameters:
+    value: '''/tmp/dvbt2_signal_9M14_fc32.iq'''
+    comment: Made by lab10_dvbt2_generate.grc, or recorded off the air with Lab 05.
+  states:
+    coordinate:
+    - 1000
+    - 10
+    rotation: 0
+    state: enabled
+- name: file_source
+  id: blocks_file_source
+  parameters:
+    file: iq_file
+    type: complex
+    repeat: 'True'
+    vlen: '1'
+    begin_tag: pmt.PMT_NIL
+    offset: '0'
+    length: '0'
+    comment: 'Default input: analyse a generated or recorded file, with no hardware at all.'
+  states:
+    coordinate:
+    - 60
+    - 300
+    rotation: 0
+    state: enabled
+- name: throttle
+  id: blocks_throttle2
+  parameters:
+    type: complex
+    samples_per_second: samp_rate
+    limit: auto
+    maximum: '0.1'
+    vlen: '1'
+    ignoretag: 'True'
+    comment: MANDATORY with a File Source - see Lab 05.
+  states:
+    coordinate:
+    - 280
+    - 300
+    rotation: 0
+    state: enabled
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    dev_addr: ''''''
+    dev_args: ''''''
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '''RX2'''
+    bw0: samp_rate
+    center_freq0: center_freq
+    gain0: '30'
+    gain_type0: default
+    comment: THE SECOND SDR. Disabled by default. Enable this and disable file_source+throttle to analyse
+      a live transmission.
+  states:
+    coordinate:
+    - 60
+    - 460
+    rotation: 0
+    state: disabled
+- name: spectrum
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '''DVB-T2 spectrum - a flat-topped 7.6 MHz block, not a hump'''
+    nconnections: '1'
+    fftsize: '4096'
+    fc: center_freq
+    bw: samp_rate
+    ymin: '-120'
+    ymax: '0'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,1
+    comment: The flat top IS the 853 OFDM carriers. Steep skirts are the sign of a well-formed OFDM signal.
+  states:
+    coordinate:
+    - 560
+    - 200
+    rotation: 0
+    state: enabled
+- name: waterfall
+  id: qtgui_waterfall_sink_x
+  parameters:
+    type: complex
+    name: '''Waterfall'''
+    nconnections: '1'
+    fftsize: '2048'
+    fc: center_freq
+    bw: samp_rate
+    update_time: '0.10'
+    gui_hint: 0,1,1,1
+    comment: A continuous transmission looks like a solid band. Watch the T2 frame boundaries if you look
+      closely.
+  states:
+    coordinate:
+    - 560
+    - 380
+    rotation: 0
+    state: enabled
+- name: delay_fft
+  id: blocks_delay
+  parameters:
+    type: complex
+    delay: fft_len
+    num_ports: '1'
+    vlen: '1'
+    showports: 'False'
+    comment: 'CYCLIC PREFIX DETECTOR, part 1: delay by exactly one useful symbol length.'
+  states:
+    coordinate:
+    - 560
+    - 560
+    rotation: 0
+    state: enabled
+- name: conj
+  id: blocks_conjugate_cc
+  parameters:
+    comment: 'Part 2: conjugate the delayed copy.'
+  states:
+    coordinate:
+    - 760
+    - 560
+    rotation: 0
+    state: enabled
+- name: correlate
+  id: blocks_multiply_xx
+  parameters:
+    type: complex
+    num_inputs: '2'
+    vlen: '1'
+    comment: 'Part 3: x[n] * conj(x[n-1024]). Inside the guard interval these are the SAME samples, so
+      the product is a positive real number.'
+  states:
+    coordinate:
+    - 920
+    - 560
+    rotation: 0
+    state: enabled
+- name: integrate
+  id: blocks_moving_average_xx
+  parameters:
+    type: complex
+    length: cp_len
+    scale: 1.0/cp_len
+    max_iter: '4096'
+    vlen: '1'
+    comment: 'Part 4: average over the guard length. This is the classic van de Beek OFDM timing estimator.'
+  states:
+    coordinate:
+    - 1120
+    - 560
+    rotation: 0
+    state: enabled
+- name: corr_mag
+  id: blocks_complex_to_mag
+  parameters:
+    vlen: '1'
+    comment: 'Part 5: magnitude. Peaks mark the start of every OFDM symbol.'
+  states:
+    coordinate:
+    - 1340
+    - 560
+    rotation: 0
+    state: enabled
+- name: corr_plot
+  id: qtgui_time_sink_x
+  parameters:
+    type: float
+    name: '''Cyclic-prefix correlation - one peak per OFDM symbol (every 1152 samples)'''
+    ylabel: Correlation
+    size: '4096'
+    srate: samp_rate
+    nconnections: '1'
+    ymin: '0'
+    ymax: '0.2'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.10'
+    gui_hint: 1,0,1,2
+    comment: THE MONEY SHOT. 4096 samples spans 3.5 symbols, so you should see 3-4 evenly spaced peaks.
+  states:
+    coordinate:
+    - 1560
+    - 560
+    rotation: 0
+    state: enabled
+- name: mag
+  id: blocks_complex_to_mag
+  parameters:
+    vlen: '1'
+    comment: Envelope, for the amplitude histogram.
+  states:
+    coordinate:
+    - 560
+    - 760
+    rotation: 0
+    state: enabled
+- name: hist
+  id: qtgui_histogram_sink_x
+  parameters:
+    type: float
+    name: '''Amplitude distribution - Rayleigh, because OFDM is Gaussian'''
+    size: '2048'
+    bins: '100'
+    grid: 'True'
+    autoscale: 'True'
+    accum: 'False'
+    xmin: '0'
+    xmax: '1'
+    nconnections: '1'
+    update_time: '0.10'
+    gui_hint: 2,0,1,2
+    comment: A sum of ~1000 random carriers is Gaussian, so |x| is Rayleigh. The long tail is the PAPR
+      problem, visible.
+  states:
+    coordinate:
+    - 820
+    - 760
+    rotation: 0
+    state: enabled
+connections:
+- - file_source
+  - '0'
+  - throttle
+  - '0'
+- - throttle
+  - '0'
+  - spectrum
+  - '0'
+- - throttle
+  - '0'
+  - waterfall
+  - '0'
+- - throttle
+  - '0'
+  - delay_fft
+  - '0'
+- - throttle
+  - '0'
+  - correlate
+  - '0'
+- - delay_fft
+  - '0'
+  - conj
+  - '0'
+- - conj
+  - '0'
+  - correlate
+  - '1'
+- - correlate
+  - '0'
+  - integrate
+  - '0'
+- - integrate
+  - '0'
+  - corr_mag
+  - '0'
+- - corr_mag
+  - '0'
+  - corr_plot
+  - '0'
+- - throttle
+  - '0'
+  - mag
+  - '0'
+- - mag
+  - '0'
+  - hist
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2
