@@ -34,6 +34,7 @@ blocks:
 - name: freq
   id: variable_qtgui_range
   parameters:
+    comment: 'FM broadcast band is 87.5-108 MHz. Stations sit 100 kHz apart (200 kHz in the US).'
     label: 'FM Station (Hz)'
     rangeType: float
     start: '87.5e6'
@@ -54,6 +55,7 @@ blocks:
 - name: gain
   id: variable_qtgui_range
   parameters:
+    comment: 'Start at 40 dB. Raise until the noise floor starts rising with it, then back off - see Fundamentals 06.'
     label: 'RF Gain (dB)'
     rangeType: float
     start: '0'
@@ -74,6 +76,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
+    comment: 'The only hardware block. fc32 = complex float32 IQ, the format every later lab assumes.'
     type: fc32
     dev_addr: '""'
     dev_args: '""'
@@ -100,6 +103,7 @@ blocks:
 - name: wbfm_rcv
   id: analog_wfm_rcv
   parameters:
+    comment: 'Quadrature demod + de-emphasis + audio filter in one block. 1000000/20 = 50000 audio.'
     quad_rate: samp_rate
     audio_decimation: '20'
   states:
@@ -113,6 +117,7 @@ blocks:
 - name: audio_sink
   id: audio_sink
   parameters:
+    comment: 'Must match the WBFM output rate exactly: samp_rate / audio_decimation = 50000.'
     samp_rate: '50000'
     device_name: '""'
     num_inputs: '1'

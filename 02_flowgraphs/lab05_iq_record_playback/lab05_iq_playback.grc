@@ -1,0 +1,284 @@
+options:
+  parameters:
+    id: lab05_iq_playback
+    title: 'Lab 05b - IQ Playback & Offline Tuning (no hardware needed)'
+    author: 'SignalSDR Pro Lab'
+    description: 'Replay a recorded IQ file and retune inside it with a frequency-translating filter'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1400, 900)
+    sizing_mode: fixed
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: note_howto
+  id: note
+  parameters:
+    comment: 'No SDR required to run this flowgraph'
+    note: 'samp_rate and rec_freq MUST match the values used when recording. The file itself does not store them.'
+  states:
+    coordinate: [10, 100]
+    rotation: 0
+    state: enabled
+
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: 'Rate the file was RECORDED at. Wrong value = wrong bandwidth, wrong audio pitch, wrong everything.'
+    value: '2000000'
+  states:
+    coordinate: [200, 10]
+    rotation: 0
+    state: enabled
+
+- name: rec_freq
+  id: variable
+  parameters:
+    comment: 'Centre frequency used at record time. Only used to label the spectrum axis correctly.'
+    value: '100.0e6'
+  states:
+    coordinate: [380, 10]
+    rotation: 0
+    state: enabled
+
+- name: rec_file
+  id: variable
+  parameters:
+    comment: 'Same path you wrote in lab05_iq_record.grc.'
+    value: '"/tmp/capture_100M0_2Msps_fc32.iq"'
+  states:
+    coordinate: [580, 10]
+    rotation: 0
+    state: enabled
+
+- name: chan_rate
+  id: variable
+  parameters:
+    comment: '2000000 / 5 = 400000. Comfortably above the 200 kHz an FM channel needs.'
+    value: 'int(samp_rate/5)'
+  states:
+    coordinate: [880, 10]
+    rotation: 0
+    state: enabled
+
+- name: audio_rate
+  id: variable
+  parameters:
+    comment: '400000 / 8 = 50000. Every rate in the chain is an exact integer ratio - see Fundamentals 05.'
+    value: 'int(chan_rate/8)'
+  states:
+    coordinate: [1060, 10]
+    rotation: 0
+    state: enabled
+
+- name: chan_taps
+  id: variable_low_pass_filter_taps
+  parameters:
+    comment: 'N = 53*2e6/(22*30e3) = 161 taps. Runs at the OUTPUT rate inside the xlating filter.'
+    gain: '1.0'
+    samp_rate: samp_rate
+    cutoff_freq: '100e3'
+    width: '30e3'
+    win: window.WIN_HAMMING
+    beta: '6.76'
+  states:
+    coordinate: [200, 110]
+    rotation: 0
+    state: enabled
+
+- name: offset_freq
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Tune INSIDE the recording. No hardware, no PLL settling - just a complex multiply.'
+    label: 'Offset from centre (Hz)'
+    rangeType: float
+    start: '-900e3'
+    stop: '900e3'
+    step: '10e3'
+    value: '0'
+    widget: counter_slider
+    min_len: '400'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [520, 110]
+    rotation: 0
+    state: enabled
+
+- name: volume
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Post-demod audio gain.'
+    label: 'Volume'
+    rangeType: float
+    start: '0'
+    stop: '5'
+    step: '0.1'
+    value: '1.0'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [880, 110]
+    rotation: 0
+    state: enabled
+
+- name: file_source
+  id: blocks_file_source
+  parameters:
+    comment: 'Reads interleaved float32 I,Q. repeat=True loops forever so you can experiment on one capture.'
+    file: rec_file
+    type: complex
+    repeat: 'True'
+    vlen: '1'
+    begin_tag: pmt.PMT_NIL
+    offset: '0'
+    length: '0'
+  states:
+    coordinate: [60, 300]
+    rotation: 0
+    state: enabled
+
+- name: throttle
+  id: blocks_throttle2
+  parameters:
+    comment: 'MANDATORY. Without hardware to pace the flowgraph, the File Source would run at disk speed and peg a CPU core.'
+    type: complex
+    samples_per_second: samp_rate
+    limit: auto
+    maximum: '0.1'
+    vlen: '1'
+  states:
+    coordinate: [280, 300]
+    rotation: 0
+    state: enabled
+
+- name: chan_filter
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    comment: 'Mix by -offset_freq, low-pass, and decimate by 5 - all in one pass at the output rate.'
+    type: ccf
+    decim: '5'
+    taps: chan_taps
+    center_freq: offset_freq
+    samp_rate: samp_rate
+  states:
+    coordinate: [520, 300]
+    rotation: 0
+    state: enabled
+
+- name: wbfm_rcv
+  id: analog_wfm_rcv
+  parameters:
+    comment: 'Quadrature demod + de-emphasis + audio filter. Same block as Lab 01, now fed from a file.'
+    quad_rate: chan_rate
+    audio_decimation: '8'
+  states:
+    coordinate: [800, 300]
+    rotation: 0
+    state: enabled
+
+- name: volume_control
+  id: blocks_multiply_const_vxx
+  parameters:
+    comment: 'Simple scalar gain on the audio.'
+    type: float
+    const: volume
+    vlen: '1'
+  states:
+    coordinate: [1020, 300]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    comment: 'ok_to_block=True lets the sound card provide back-pressure alongside the throttle.'
+    samp_rate: audio_rate
+    device_name: '""'
+    num_inputs: '1'
+    ok_to_block: 'True'
+  states:
+    coordinate: [1240, 300]
+    rotation: 0
+    state: enabled
+
+- name: wide_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    comment: 'The whole recorded span. Pick a station here, then dial offset_freq to it.'
+    type: complex
+    name: '"Recorded Spectrum (full file bandwidth)"'
+    nconnections: '1'
+    fftsize: '4096'
+    fc: rec_freq
+    bw: samp_rate
+    ymin: '-140'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,2
+  states:
+    coordinate: [280, 480]
+    rotation: 0
+    state: enabled
+
+- name: chan_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    comment: 'After the xlating filter: the selected channel, now centred at DC at 400 kSPS.'
+    type: complex
+    name: '"Selected Channel (after xlating filter)"'
+    nconnections: '1'
+    fftsize: '2048'
+    fc: '0'
+    bw: chan_rate
+    ymin: '-140'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 1,0,1,1
+  states:
+    coordinate: [800, 480]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink_gui
+  id: qtgui_time_sink_x
+  parameters:
+    comment: 'Demodulated audio waveform. If this clips at +/-1 turn the volume down.'
+    type: float
+    name: '"Demodulated Audio"'
+    ylabel: Amplitude
+    size: '2048'
+    srate: audio_rate
+    nconnections: '1'
+    ymin: '-1.5'
+    ymax: '1.5'
+    grid: 'True'
+    update_time: '0.10'
+    gui_hint: 1,1,1,1
+  states:
+    coordinate: [1020, 480]
+    rotation: 0
+    state: enabled
+
+connections:
+- [file_source, '0', throttle, '0']
+- [throttle, '0', chan_filter, '0']
+- [throttle, '0', wide_sink, '0']
+- [chan_filter, '0', wbfm_rcv, '0']
+- [chan_filter, '0', chan_sink, '0']
+- [wbfm_rcv, '0', volume_control, '0']
+- [volume_control, '0', audio_sink, '0']
+- [volume_control, '0', audio_sink_gui, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

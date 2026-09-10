@@ -1,0 +1,759 @@
+options:
+  parameters:
+    id: lab08_rds_decoder
+    title: 'Lab 08 - RDS Decoder: Reading Data Off the FM Broadcast Band'
+    author: SignalSDR Pro Lab
+    description: Decode Programme Service name and RadioText from the 57 kHz RDS subcarrier
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1600, 1000)
+    sizing_mode: fixed
+  states:
+    coordinate:
+    - 10
+    - 10
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_rds
+  id: note
+  parameters:
+    note: RDS lives at 57 kHz in the MPX - the 3rd harmonic of the 19 kHz pilot. 1187.5 bit/s, biphase,
+      differential BPSK.
+    comment: What we are decoding and where it hides.
+  states:
+    coordinate:
+    - 10
+    - 100
+    rotation: 0
+    state: enabled
+- name: imports
+  id: import
+  parameters:
+    imports: import math
+    comment: math.pi is needed for the quadrature demod gain below.
+  states:
+    coordinate:
+    - 10
+    - 160
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '2000000'
+    comment: Front-end rate. 2 MHz easily covers one 200 kHz FM channel plus tuning room.
+  states:
+    coordinate:
+    - 280
+    - 10
+    rotation: 0
+    state: enabled
+- name: mpx_rate
+  id: variable
+  parameters:
+    value: int(samp_rate/8)
+    comment: 2000000/8 = 250000. Must exceed 2x57 kHz to carry the RDS subcarrier - it does, comfortably.
+  states:
+    coordinate:
+    - 440
+    - 10
+    rotation: 0
+    state: enabled
+- name: rds_rate
+  id: variable
+  parameters:
+    value: int(mpx_rate/25)
+    comment: 250000/25 = 10000 samples/s for the RDS baseband.
+  states:
+    coordinate:
+    - 620
+    - 10
+    rotation: 0
+    state: enabled
+- name: chip_rate
+  id: variable
+  parameters:
+    value: '2375.0'
+    comment: Biphase (Manchester) doubles the 1187.5 bit/s data rate to 2375 chips/s.
+  states:
+    coordinate:
+    - 800
+    - 10
+    rotation: 0
+    state: enabled
+- name: sps
+  id: variable
+  parameters:
+    value: rds_rate/chip_rate
+    comment: 10000/2375 = 4.2105... Symbol Sync accepts a FRACTIONAL sps, so the rates need not divide
+      evenly.
+  states:
+    coordinate:
+    - 960
+    - 10
+    rotation: 0
+    state: enabled
+- name: nfilts
+  id: variable
+  parameters:
+    value: '32'
+    comment: Polyphase arms in the timing interpolator.
+  states:
+    coordinate:
+    - 1120
+    - 10
+    rotation: 0
+    state: enabled
+- name: audio_rate
+  id: variable
+  parameters:
+    value: int(mpx_rate/5)
+    comment: 250000/5 = 50000. Lets you LISTEN to the station while its RDS is being decoded.
+  states:
+    coordinate:
+    - 1260
+    - 10
+    rotation: 0
+    state: enabled
+- name: fm_taps
+  id: variable_low_pass_filter_taps
+  parameters:
+    gain: '1.0'
+    samp_rate: samp_rate
+    cutoff_freq: 110e3
+    width: 30e3
+    win: window.WIN_HAMMING
+    beta: '6.76'
+    comment: 'Channel filter: 110 kHz cutoff keeps the whole MPX (RDS reaches 59.4 kHz) and rejects the
+      neighbours.'
+  states:
+    coordinate:
+    - 280
+    - 90
+    rotation: 0
+    state: enabled
+- name: rds_taps
+  id: variable_low_pass_filter_taps
+  parameters:
+    gain: '1.0'
+    samp_rate: mpx_rate
+    cutoff_freq: '2400'
+    width: '800'
+    win: window.WIN_HAMMING
+    beta: '6.76'
+    comment: RDS occupies 57 kHz +/- 2.4 kHz. N = 53*250000/(22*800) = 753 taps, but running at only 10
+      kSPS out.
+  states:
+    coordinate:
+    - 620
+    - 90
+    rotation: 0
+    state: enabled
+- name: rds_mf_taps
+  id: variable
+  parameters:
+    value: firdes.root_raised_cosine(nfilts, nfilts*sps, 1.0, 1.0, int(11*sps*nfilts))
+    comment: Matched filter, roll-off 1.0 to approximate the RDS 100% cosine data shaping. Built at nfilts
+      x resolution.
+  states:
+    coordinate:
+    - 960
+    - 90
+    rotation: 0
+    state: enabled
+- name: offset_freq
+  id: variable_qtgui_range
+  parameters:
+    label: '''Channel Offset (Hz)'''
+    rangeType: float
+    start: -800e3
+    stop: 800e3
+    step: 10e3
+    value: '0'
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: Software tuning inside the captured span - same trick as Labs 05 and 06.
+  states:
+    coordinate:
+    - 280
+    - 180
+    rotation: 0
+    state: enabled
+- name: loop_bw
+  id: variable_qtgui_range
+  parameters:
+    label: '''Sync Loop Bandwidth'''
+    rangeType: float
+    start: '0.002'
+    stop: '0.050'
+    step: '0.001'
+    value: '0.010'
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: RDS is a weak, slow signal. Narrow loops win here - see Lab 07 Exercise 3.
+  states:
+    coordinate:
+    - 640
+    - 180
+    rotation: 0
+    state: enabled
+- name: volume
+  id: variable_qtgui_range
+  parameters:
+    label: '''Volume'''
+    rangeType: float
+    start: '0'
+    stop: '5'
+    step: '0.1'
+    value: '0.5'
+    widget: counter_slider
+    min_len: '250'
+    orient: QtCore.Qt.Horizontal
+    comment: Audio monitoring level.
+  states:
+    coordinate:
+    - 1000
+    - 180
+    rotation: 0
+    state: enabled
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    label: '''FM Station (Hz)'''
+    rangeType: float
+    start: 87.5e6
+    stop: 108e6
+    step: 100e3
+    value: 100.0e6
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: Pick a STRONG station. RDS needs roughly 25 dB SNR - a weak signal gives audio but no data.
+  states:
+    coordinate:
+    - 280
+    - 260
+    rotation: 0
+    state: enabled
+- name: rf_gain
+  id: variable_qtgui_range
+  parameters:
+    label: '''RF Gain (dB)'''
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '45'
+    widget: counter_slider
+    min_len: '250'
+    orient: QtCore.Qt.Horizontal
+    comment: 'Higher than the earlier labs: RDS is fussy.'
+  states:
+    coordinate:
+    - 640
+    - 260
+    rotation: 0
+    state: enabled
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    dev_addr: ''''''
+    dev_args: ''''''
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '''TX/RX'''
+    bw0: samp_rate
+    center_freq0: freq
+    gain0: rf_gain
+    gain_type0: default
+    comment: Live from the SignalSDR Pro.
+  states:
+    coordinate:
+    - 60
+    - 420
+    rotation: 0
+    state: enabled
+- name: xlating_fm
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    type: ccf
+    decim: '8'
+    taps: fm_taps
+    center_freq: offset_freq
+    samp_rate: samp_rate
+    comment: 'Select the FM channel: mix, filter, decimate 2 MSPS -> 250 kSPS.'
+  states:
+    coordinate:
+    - 420
+    - 420
+    rotation: 0
+    state: enabled
+- name: quad_demod
+  id: analog_quadrature_demod_cf
+  parameters:
+    gain: mpx_rate/(2*math.pi*75000)
+    comment: 'FM demod by hand: gain = fs/(2*pi*deviation) = 0.5305. Output is the raw MPX baseband.'
+  states:
+    coordinate:
+    - 680
+    - 420
+    rotation: 0
+    state: enabled
+- name: mpx_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    type: float
+    name: '''MPX Baseband - look for pilot at 19k, stereo at 38k, RDS at 57k'''
+    nconnections: '1'
+    fftsize: '4096'
+    fc: '0'
+    bw: mpx_rate
+    ymin: '-120'
+    ymax: '0'
+    update_time: '0.10'
+    average: '0.3'
+    grid: 'True'
+    gui_hint: 0,0,1,2
+    comment: THE picture of this lab. You should see a spike at 19 kHz and a low hump centred on 57 kHz.
+  states:
+    coordinate:
+    - 680
+    - 620
+    rotation: 0
+    state: enabled
+- name: rds_xlate
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    type: fcf
+    decim: '25'
+    taps: rds_taps
+    center_freq: '57000'
+    samp_rate: mpx_rate
+    comment: fcf = FLOAT in, COMPLEX out. Mixes 57 kHz down to DC and decimates 250k -> 10k in one pass.
+  states:
+    coordinate:
+    - 960
+    - 420
+    rotation: 0
+    state: enabled
+- name: rds_agc
+  id: analog_agc2_xx
+  parameters:
+    type: complex
+    reference: '0.5'
+    attack_rate: '0.1'
+    decay_rate: '0.01'
+    gain: '1.0'
+    max_gain: '65536'
+    comment: The RDS subcarrier is tiny (a few percent of the MPX). Normalise before the sync loops.
+  states:
+    coordinate:
+    - 1220
+    - 420
+    rotation: 0
+    state: enabled
+- name: sym_sync
+  id: digital_symbol_sync_xx
+  parameters:
+    type: cc
+    ted_type: digital.TED_GARDNER
+    constellation: digital.constellation_bpsk().base()
+    sps: sps
+    ted_gain: '1.0'
+    loop_bw: loop_bw
+    damping: '1.0'
+    max_dev: '1.5'
+    osps: '1'
+    resamp_type: digital.IR_PFB_MF
+    nfilters: nfilts
+    pfb_mf_taps: rds_mf_taps
+    comment: Recovers CHIP timing (2375/s), not bit timing. Gardner works before carrier lock.
+  states:
+    coordinate:
+    - 1460
+    - 420
+    rotation: 0
+    state: enabled
+- name: costas
+  id: digital_costas_loop_cc
+  parameters:
+    w: loop_bw
+    order: '2'
+    use_snr: 'False'
+    comment: 'BPSK carrier recovery. Its 180 degree ambiguity is harmless: RDS is differentially encoded.'
+  states:
+    coordinate:
+    - 1720
+    - 420
+    rotation: 0
+    state: enabled
+- name: const_sink
+  id: qtgui_const_sink_x
+  parameters:
+    type: complex
+    name: '''RDS Constellation'''
+    size: '512'
+    grid: 'True'
+    autoscale: 'True'
+    ymin: '-2'
+    ymax: '2'
+    xmin: '-2'
+    xmax: '2'
+    nconnections: '1'
+    update_time: '0.10'
+    gui_hint: 1,0,1,1
+    comment: Two dots = locked and decodable. A ring or a blob = no lock, and no RDS.
+  states:
+    coordinate:
+    - 1720
+    - 620
+    rotation: 0
+    state: enabled
+- name: to_real
+  id: blocks_complex_to_real
+  parameters:
+    vlen: '1'
+    comment: After Costas lock the chips live on the real axis.
+  states:
+    coordinate:
+    - 1960
+    - 420
+    rotation: 0
+    state: enabled
+- name: chip_sink
+  id: qtgui_time_sink_x
+  parameters:
+    type: float
+    name: '''Recovered chips (2375/s)'''
+    ylabel: Amplitude
+    size: '256'
+    srate: chip_rate
+    nconnections: '1'
+    ymin: '-2'
+    ymax: '2'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.10'
+    gui_hint: 1,1,1,1
+    comment: Should look like clean +/-1 levels. Every DATA bit is two OPPOSITE chips - that is biphase
+      coding.
+  states:
+    coordinate:
+    - 1960
+    - 620
+    rotation: 0
+    state: enabled
+- name: rds_decoder
+  id: epy_block
+  parameters:
+    _source_code: |
+      import numpy as np
+      from gnuradio import gr
+
+      POLY = 0b10110111001
+      OFFSETS = {'A': 0b0011111100, 'B': 0b0110011000, 'C': 0b0101101000,
+                 'Cp': 0b1101010000, 'D': 0b0110110100}
+      SYN = {v: k for k, v in OFFSETS.items()}
+      PTY_EU = ['None','News','Current Affairs','Information','Sport','Education','Drama',
+                'Culture','Science','Varied','Pop Music','Rock Music','Easy Listening',
+                'Light Classical','Serious Classical','Other Music','Weather','Finance',
+                "Children's",'Social Affairs','Religion','Phone In','Travel','Leisure',
+                'Jazz Music','Country Music','National Music','Oldies Music','Folk Music',
+                'Documentary','Alarm Test','Alarm']
+
+
+      def syndrome(w):
+          reg = w & 0x3FFFFFF
+          for i in range(25, 9, -1):
+              if reg & (1 << i):
+                  reg ^= POLY << (i - 10)
+          return reg & 0x3FF
+
+
+      class blk(gr.sync_block):
+          """RDS Decoder.
+
+          Input : one float per CHIP (2375 chips/s), real part after the Costas loop.
+          Output: cumulative count of successfully CRC-checked RDS groups.
+
+          Pipeline, all of it explained in Fundamentals 10:
+            1. biphase pairing   two chips per data bit; bit = sign(c0 - c1)
+            2. differential decode   b[n] = d[n] XOR d[n-1]
+            3. block sync via CRC    the (26,16) code's syndrome equals the offset word,
+                                     so finding the alignment and identifying the block
+                                     are the same operation - no preamble needed
+            4. group parsing         0A -> Programme Service name, 2A -> RadioText
+          """
+
+          def __init__(self, verbose=True, reacquire_chips=20000):
+              gr.sync_block.__init__(self, name="RDS Decoder",
+                                     in_sig=[np.float32], out_sig=[np.float32])
+              self.verbose = bool(verbose)
+              self.reacquire = int(reacquire_chips)
+              self.chipbuf = np.zeros(0, dtype=np.float32)
+              self.phase = None
+              self.prev_d = 0
+              self.bits = []
+              self.pos = 0
+              self.groups = 0
+              self.blocks_bad = 0
+              self.since_group = 0
+              self.pi = None
+              self.pty = None
+              self.tp = None
+              self.ps = [' '] * 8
+              self.rt = [' '] * 64
+              self.rt_ab = None
+              self._last_ps = None
+              self._last_rt = None
+
+          # --------------------------------------------------------------- work --
+          def work(self, input_items, output_items):
+              n = len(input_items[0])
+              self.chipbuf = np.concatenate([self.chipbuf, input_items[0]])
+
+              if self.phase is None:
+                  if len(self.chipbuf) < 4096:
+                      output_items[0][:] = np.float32(self.groups)
+                      return n
+                  self.phase = self._best_phase(self.chipbuf[:4096])
+
+              c = self.chipbuf[self.phase:]
+              npairs = len(c) // 2
+              if npairs:
+                  c0, c1 = c[0:2 * npairs:2], c[1:2 * npairs:2]
+                  d = ((c0 - c1) > 0).astype(np.uint8)
+                  self._feed_bits(d)
+                  self.chipbuf = c[2 * npairs:].copy()
+                  self.phase = 0
+                  self.since_group += npairs
+                  if self.since_group > self.reacquire:      # lost? try the other pairing
+                      self.since_group = 0
+                      self.phase = 1
+                      self.bits, self.pos = [], 0
+                      if self.verbose:
+                          print("[RDS] no valid groups - flipping biphase pairing", flush=True)
+
+              output_items[0][:] = np.float32(self.groups)
+              return n
+
+          @staticmethod
+          def _best_phase(c):
+              """Within a biphase symbol the two chips are always opposite, so the
+              correct pairing has a strongly negative chip-to-chip product."""
+              scores = []
+              for p in (0, 1):
+                  x = c[p:]
+                  m = len(x) // 2
+                  scores.append(-float(np.mean(x[0:2 * m:2] * x[1:2 * m:2])))
+              return int(np.argmax(scores))
+
+          # ------------------------------------------------------------- decode --
+          def _feed_bits(self, dbits):
+              for b in dbits:
+                  self.bits.append(int(b) ^ self.prev_d)     # differential decode
+                  self.prev_d = int(b)
+              while self.pos + 104 <= len(self.bits):
+                  w = [self._word(self.pos + 26 * k) for k in range(4)]
+                  s = [SYN.get(syndrome(x)) for x in w]
+                  if s[0] == 'A' and s[1] == 'B' and s[2] in ('C', 'Cp') and s[3] == 'D':
+                      self._group([x >> 10 for x in w], s[2] == 'Cp')
+                      self.groups += 1
+                      self.since_group = 0
+                      self.pos += 104
+                  else:
+                      self.blocks_bad += 1
+                      self.pos += 1
+              if self.pos > 4096:
+                  self.bits = self.bits[self.pos:]
+                  self.pos = 0
+
+          def _word(self, i):
+              v = 0
+              for b in self.bits[i:i + 26]:
+                  v = (v << 1) | b
+              return v
+
+          def _group(self, info, version_b):
+              a, b, c, d = info
+              self.pi = a
+              gtype = (b >> 12) & 0xF
+              self.tp = (b >> 10) & 1
+              self.pty = (b >> 5) & 0x1F
+              if gtype == 0:
+                  addr = b & 0x3
+                  self.ps[2 * addr] = self._ch(d >> 8)
+                  self.ps[2 * addr + 1] = self._ch(d & 0xFF)
+              elif gtype == 2:
+                  ab = (b >> 4) & 1
+                  if self.rt_ab is not None and ab != self.rt_ab:
+                      self.rt = [' '] * 64
+                  self.rt_ab = ab
+                  addr = b & 0xF
+                  chars = ([c >> 8, c & 0xFF, d >> 8, d & 0xFF] if not version_b
+                           else [d >> 8, d & 0xFF])
+                  base = 4 * addr if not version_b else 2 * addr
+                  for i, ch in enumerate(chars):
+                      if base + i < 64:
+                          self.rt[base + i] = self._ch(ch)
+              self._announce()
+
+          @staticmethod
+          def _ch(c):
+              return chr(c) if 32 <= c < 127 else ' '
+
+          def _announce(self):
+              if not self.verbose:
+                  return
+              ps = ''.join(self.ps)
+              rt = ''.join(self.rt).rstrip()
+              if ps != self._last_ps and ps.strip():
+                  self._last_ps = ps
+                  print(f"[RDS] PI=0x{self.pi:04X}  PS='{ps}'  "
+                        f"PTY={PTY_EU[self.pty]}  TP={self.tp}  groups={self.groups}", flush=True)
+              if rt != self._last_rt and rt.strip():
+                  self._last_rt = rt
+                  print(f"[RDS] RadioText: {rt}", flush=True)
+    verbose: 'True'
+    reacquire_chips: '20000'
+    comment: Biphase pairing, differential decode, CRC block sync, group parsing. Prints PS and RadioText.
+  states:
+    coordinate:
+    - 2200
+    - 420
+    rotation: 0
+    state: enabled
+- name: group_sink
+  id: qtgui_number_sink
+  parameters:
+    name: '''Valid RDS groups decoded'''
+    type: float
+    autoscale: 'True'
+    avg: '0'
+    graph_type: qtgui.NUM_GRAPH_NONE
+    nconnections: '1'
+    min: '0'
+    max: '1000'
+    update_time: '0.25'
+    label1: '''groups'''
+    unit1: ''''''
+    factor1: '1'
+    gui_hint: 2,0,1,2
+    comment: A healthy strong station yields ~11 groups/second. Zero means the loops are not locked.
+  states:
+    coordinate:
+    - 2460
+    - 420
+    rotation: 0
+    state: enabled
+- name: wbfm_rcv
+  id: analog_wfm_rcv
+  parameters:
+    quad_rate: mpx_rate
+    audio_decimation: '5'
+    comment: Independent audio path so you can hear what you are decoding. 250000/5 = 50000.
+  states:
+    coordinate:
+    - 680
+    - 800
+    rotation: 0
+    state: enabled
+- name: volume_control
+  id: blocks_multiply_const_vxx
+  parameters:
+    type: float
+    const: volume
+    vlen: '1'
+    comment: Audio gain.
+  states:
+    coordinate:
+    - 960
+    - 800
+    rotation: 0
+    state: enabled
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    samp_rate: audio_rate
+    device_name: ''''''
+    num_inputs: '1'
+    ok_to_block: 'True'
+    comment: 50 kHz mono monitoring.
+  states:
+    coordinate:
+    - 1220
+    - 800
+    rotation: 0
+    state: enabled
+connections:
+- - usrp_source
+  - '0'
+  - xlating_fm
+  - '0'
+- - xlating_fm
+  - '0'
+  - quad_demod
+  - '0'
+- - quad_demod
+  - '0'
+  - mpx_sink
+  - '0'
+- - quad_demod
+  - '0'
+  - rds_xlate
+  - '0'
+- - rds_xlate
+  - '0'
+  - rds_agc
+  - '0'
+- - rds_agc
+  - '0'
+  - sym_sync
+  - '0'
+- - sym_sync
+  - '0'
+  - costas
+  - '0'
+- - costas
+  - '0'
+  - to_real
+  - '0'
+- - costas
+  - '0'
+  - const_sink
+  - '0'
+- - to_real
+  - '0'
+  - rds_decoder
+  - '0'
+- - to_real
+  - '0'
+  - chip_sink
+  - '0'
+- - rds_decoder
+  - '0'
+  - group_sink
+  - '0'
+- - xlating_fm
+  - '0'
+  - wbfm_rcv
+  - '0'
+- - wbfm_rcv
+  - '0'
+  - volume_control
+  - '0'
+- - volume_control
+  - '0'
+  - audio_sink
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

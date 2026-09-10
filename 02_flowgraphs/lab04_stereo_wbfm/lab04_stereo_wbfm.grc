@@ -69,6 +69,7 @@ blocks:
 - name: freq
   id: variable_qtgui_range
   parameters:
+    comment: 'Pick a MUSIC station - talk stations are often mono and will show no stereo separation.'
     label: 'FM Station (Hz)'
     rangeType: float
     start: '87.5e6'
@@ -86,6 +87,7 @@ blocks:
 - name: rf_gain
   id: variable_qtgui_range
   parameters:
+    comment: 'Stereo costs roughly 20 dB of SNR versus mono (Fundamentals 06), so it needs a stronger signal.'
     label: 'RF Gain (dB)'
     rangeType: float
     start: '0'
@@ -101,6 +103,7 @@ blocks:
 - name: volume
   id: variable_qtgui_range
   parameters:
+    comment: 'Final audio gain, applied to both channels after the stereo matrix.'
     label: 'Volume'
     rangeType: float
     start: '0'
@@ -116,6 +119,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
+    comment: 'Live IQ. Everything below is a hand-built receiver - no WBFM Receive block anywhere.'
     type: fc32
     nchan: '1'
     num_mboards: '1'
@@ -174,6 +178,7 @@ blocks:
 - name: spectrum_sink
   id: qtgui_freq_sink_x
   parameters:
+    comment: 'The MPX baseband: L+R at 0-15 kHz, pilot at 19 kHz, L-R at 23-53 kHz, RDS at 57 kHz.'
     type: float
     name: '"MPX Spectrum"'
     nconnections: '1'
@@ -377,6 +382,7 @@ blocks:
 - name: scale_right
   id: blocks_multiply_const_vxx
   parameters:
+    comment: 'The 0.5 undoes the factor of 2 the stereo matrix introduces: (L+R)-(L-R) = 2R.'
     type: float
     const: volume * 0.5
     vlen: '1'

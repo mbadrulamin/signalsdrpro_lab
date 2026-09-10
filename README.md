@@ -63,27 +63,80 @@ Everything here is required before you can run any flowgraph.
 ### Part 1 — Fundamentals (Theory from Zero)
 You cannot build good SDR systems without understanding these.
 
-| # | Document | What You'll Learn |
-|---|---|---|
-| 01 | [Signals & Systems Basics](./01_fundamentals/01_signals_basics.md) | Time vs frequency, amplitude, phase, bandwidth |
-| 02 | [IQ Sampling](./01_fundamentals/02_iq_sampling.md) | Why SDRs use I/Q, complex numbers, negative frequencies |
-| 03 | [RF Basics](./01_fundamentals/03_rf_basics.md) | What is RF, spectrum, mixers, filters |
-| 04 | [FM Modulation Theory](./01_fundamentals/04_fm_theory.md) | How FM works, deviation, bandwidth, Carson's rule |
+**Read 01–04 before Lab 01.** Documents 05–10 are referenced by the labs that need them, and
+each lab's header tells you which.
+
+| # | Document | What You'll Learn | Needed by |
+|---|---|---|---|
+| 01 | [Signals & Systems Basics](./01_fundamentals/01_signals_basics.md) | Time vs frequency, amplitude, phase, bandwidth | Lab 01 |
+| 02 | [IQ Sampling](./01_fundamentals/02_iq_sampling.md) | Why SDRs use I/Q, complex numbers, negative frequencies | Lab 01 |
+| 03 | [RF Basics](./01_fundamentals/03_rf_basics.md) | What is RF, spectrum, mixers, filters | Lab 01 |
+| 04 | [FM Modulation Theory](./01_fundamentals/04_fm_theory.md) | How FM works, deviation, bandwidth, Carson's rule | Lab 01 |
+| 05 | [Sampling, Filters & Resampling](./01_fundamentals/05_sampling_and_filters.md) | Nyquist, aliasing, FIR design, the tap-count equation, decimation, xlating filters | Labs 05–09 |
+| 06 | [Noise, SNR, Gain & Dynamic Range](./01_fundamentals/06_noise_snr_and_gain.md) | kTB, noise figure, Friis, dBm/dBFS, AGC, squelch, link budgets | Labs 05, 06, 08, 09 |
+| 07 | [AM, SSB & Narrowband FM](./01_fundamentals/07_am_and_narrowband_fm.md) | Envelope vs coherent detection, DSB-SC, SSB in IQ, modulation index | Lab 06 |
+| 08 | [Digital Modulation](./01_fundamentals/08_digital_modulation.md) | Constellations, RRC pulse shaping, Eb/N0, BER, PPM | Labs 07–09 |
+| 09 | [Synchronization](./01_fundamentals/09_synchronization.md) | PLLs, Costas loops, timing recovery, loop bandwidth | Labs 07, 08 |
+| 10 | [Error Detection & Framing](./01_fundamentals/10_error_detection_and_framing.md) | GF(2) arithmetic, CRC, self-synchronising codes, FEC | Labs 08, 09 |
 
 ### Part 2 — Hands-On Flowgraphs (Progressive Labs)
 Each lab builds on the previous one. **Do not skip.**
 
-| Lab | Flowgraph | Concept |
-|---|---|---|
-| 01 | [Simplest WBFM Receiver](./02_flowgraphs/lab01_simple_wbfm/README.md) | Minimum viable FM radio. 3 blocks total. |
-| 02 | [Enhanced WBFM + Visualization](./02_flowgraphs/lab02_enhanced_wbfm/README.md) | Add spectrum, waterfall, resampling, GUI sliders. |
-| 03 | [Advanced WBFM with AGC & Squelch](./02_flowgraphs/lab03_advanced_wbfm/README.md) | Real-world receiver: filtering, AGC, squelch, volume. |
-| 04 | [Stereo WBFM — Full MPX Decoding](./02_flowgraphs/lab04_stereo_wbfm/README.md) | Manual stereo extraction: pilot, PLL, L+R, L-R, de-emphasis. |
+| Lab | Flowgraph | Concept | Blocks | Hardware? |
+|---|---|---|---|---|
+| 01 | [Simplest WBFM Receiver](./02_flowgraphs/lab01_simple_wbfm/README.md) | Minimum viable FM radio. 3 blocks total. | 7 | yes |
+| 02 | [Enhanced WBFM + Visualization](./02_flowgraphs/lab02_enhanced_wbfm/README.md) | Spectrum, waterfall, resampling, GUI sliders. | 13 | yes |
+| 03 | [Advanced WBFM with AGC & Squelch](./02_flowgraphs/lab03_advanced_wbfm/README.md) | Real receiver: filtering, AGC, squelch, volume. | 18 | yes |
+| 04 | [Stereo WBFM — Full MPX Decoding](./02_flowgraphs/lab04_stereo_wbfm/README.md) | Manual stereo: pilot, PLL, L+R, L−R, de-emphasis. | 30 | yes |
+| 05 | [IQ Recording & Playback](./02_flowgraphs/lab05_iq_record_playback/README.md) | Capture to disk, replay, retune inside a recording. | 19 | record only |
+| 06 | [Multimode Receiver](./02_flowgraphs/lab06_multimode_receiver/README.md) | AM / NBFM / WBFM, channel selection, S-meter, squelch. | 35 | yes |
+| 07 | [BPSK Link Simulation](./02_flowgraphs/lab07_bpsk_link_sim/README.md) | A full digital link with **measured BER vs theory**. | 34 | **none** |
+| 08 | [RDS Decoder](./02_flowgraphs/lab08_rds_decoder/README.md) | Station name & RadioText off the 57 kHz subcarrier. | 34 | optional |
+| 09 | [ADS-B Aircraft Receiver](./02_flowgraphs/lab09_adsb_receiver/README.md) | 1090 MHz Mode S: identity, altitude, position. | 14 | optional |
+
+**Labs 07, 08b and 09b run with no radio attached.** Labs 08 and 09 each ship a second
+flowgraph that reads a recorded or synthetic IQ file, so you can build and debug the whole
+decoder before you ever fight an antenna.
+
+### The arc
+
+```
+  01 ─▶ 02 ─▶ 03 ─▶ 04        analog: one signal, growing sophistication
+                    │
+                    ▼
+                   05         stop needing the radio
+                    │
+                    ▼
+                   06         one tuner, many channels and many modes
+                    │
+                    ▼
+                   07         cross into digital, in a controlled simulation
+                    │
+                    ▼
+                   08         apply it to real data hidden in an FM broadcast
+                    │
+                    ▼
+                   09         a different band, a different modulation, aircraft
+```
 
 ### Part 3 — Scripts & Tools
-| Document | Purpose |
+| Script | Purpose |
 |---|---|
-| [Flowgraph Validator](./03_scripts/validate_flowgraph.py) | Python script to check if your `.grc` files are well-formed |
+| [validate_flowgraph.py](./03_scripts/validate_flowgraph.py) | Validate `.grc` files against the **installed** GNU Radio block library — block ids, parameter expressions, port types, connections. `--compile` also generates the Python. |
+| [simulate_bpsk_ber.py](./03_scripts/simulate_bpsk_ber.py) | Run Lab 07's link at a sweep of Eb/N0 and compare the measured BER against closed-form theory. |
+| [simulate_rds_decode.py](./03_scripts/simulate_rds_decode.py) | Generate a synthetic FM+RDS signal with known contents for Lab 08, and self-test the RDS codec. |
+| [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Generate a synthetic 1090 MHz capture for Lab 09, and self-test the Mode S decoder against published reference frames. |
+| [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Mathematical verification of Lab 04's stereo matrix. |
+
+Run everything at once:
+
+```bash
+cd 03_scripts
+python3 validate_flowgraph.py ../02_flowgraphs --compile
+python3 simulate_rds_decode.py  --selftest
+python3 simulate_adsb_decode.py --selftest
+python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
+```
 
 ---
 
@@ -111,40 +164,113 @@ signalsdrpro_lab/
 │   ├── 03_install_gnuradio.md
 │   ├── 04_verify_setup.md
 │   ├── 05_troubleshooting.md
-│   ├── 06_fix_uhd_version_conflict.md  ← UHD version mismatch guide (Terminal & GUI)
+│   ├── 06_fix_uhd_version_conflict.md  ← UHD version mismatch guide
 │   └── fix_uhd_version_conflict.sh     ← Automated fix script
-├── 01_fundamentals/                ← Theory (read first!)
-│   ├── 01_signals_basics.md
-│   ├── 02_iq_sampling.md
-│   ├── 03_rf_basics.md
-│   └── 04_fm_theory.md
+├── 01_fundamentals/                ← Theory
+│   ├── 01_signals_basics.md            ┐
+│   ├── 02_iq_sampling.md               │ read before Lab 01
+│   ├── 03_rf_basics.md                 │
+│   ├── 04_fm_theory.md                 ┘
+│   ├── 05_sampling_and_filters.md      ┐
+│   ├── 06_noise_snr_and_gain.md        │
+│   ├── 07_am_and_narrowband_fm.md      │ read as the labs call for them
+│   ├── 08_digital_modulation.md        │
+│   ├── 09_synchronization.md           │
+│   └── 10_error_detection_and_framing.md ┘
 ├── 02_flowgraphs/                  ← Hands-on labs
 │   ├── lab01_simple_wbfm/
 │   ├── lab02_enhanced_wbfm/
 │   ├── lab03_advanced_wbfm/
-│   └── lab04_stereo_wbfm/
+│   ├── lab04_stereo_wbfm/
+│   ├── lab05_iq_record_playback/       ← record + playback flowgraphs
+│   ├── lab06_multimode_receiver/
+│   ├── lab07_bpsk_link_sim/            ← no hardware needed
+│   ├── lab08_rds_decoder/              ← live + from-file flowgraphs
+│   └── lab09_adsb_receiver/            ← live + from-file flowgraphs
 └── 03_scripts/
-    └── validate_flowgraph.py
+    ├── validate_flowgraph.py           ← deep .grc validation
+    ├── simulate_bpsk_ber.py            ← BER vs theory
+    ├── simulate_rds_decode.py          ← RDS signal generator + self-test
+    ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
+    ├── simulate_stereo_decode.py
+    └── simulate_stereo_decode_pure.py
 ```
+
+Each lab folder contains a `README.md`, one or more `.grc` flowgraphs, and the `.py` that
+`grcc` generates from them (byte-for-byte what GRC produces when you press F5).
+
 
 ---
 
 ## 🔬 About Verification
 
-> **Honest note from the author:** The flowgraphs in this lab were built, structurally validated, and checked against the exact YAML schema used by GNU Radio 3.10. Their Python-equivalent outputs were syntax-checked with `python3 -m py_compile`. However, **physical RF testing was not possible** on the authoring machine because the SignalSDR Pro device is not currently connected. You are expected to run each flowgraph in **GNU Radio Companion** and confirm they work with your hardware. If you find a bug, please fix it and report back — that's the spirit of this lab.
+Claims in this repository are checked, and the checks are in the repo so you can re-run them.
+
+### What is verified, and how
+
+| Level | What it proves | How to run it |
+|---|---|---|
+| **Structural** | The `.grc` YAML is well-formed and self-consistent | `validate_flowgraph.py --structural-only` |
+| **Deep** | Every block id, parameter expression and port type is valid against the **installed** GNU Radio 3.10 block library | `validate_flowgraph.py <dir>` |
+| **Compile** | `grcc` generates Python, and that Python compiles | `validate_flowgraph.py <dir> --compile` |
+| **Numerical** | The DSP produces the mathematically correct answer | the `simulate_*.py` scripts |
+| **Execution** | The generated flowgraph actually runs and produces the right output | headless runs against synthetic captures |
+
+All 12 flowgraphs pass structural + deep + compile.
+
+### Results that were measured, not asserted
+
+- **Lab 07** — the generated flowgraph was executed headlessly at Eb/N0 = 8 dB and converged to
+  a BER of **3.9 × 10⁻⁴**; differentially-encoded BPSK theory predicts **3.82 × 10⁻⁴**.
+- **Lab 08** — the generated flowgraph was executed against a synthetic FM+RDS capture and
+  recovered the correct PI code, PS name, PTY and RadioText, decoding **90 CRC-valid groups**
+  from 8 seconds against a theoretical maximum of ~91.
+- **Lab 09** — the generated flowgraph was executed against a synthetic 1090 MHz capture and
+  recovered **80 of 80** frames, with ICAO address, callsign, altitude, velocity and CPR
+  position all matching the published Mode S reference vectors.
+- **Fundamentals 05** — the tap-count equation is the one `firdes` uses internally; the doc's
+  worked examples were checked against `firdes.low_pass()` directly.
+- **Fundamentals 08** — the Eb/N0-to-`noise_voltage` formula was calibrated empirically against
+  `analog.noise_source_c`, not assumed. (An earlier draft had a spurious factor of 2, which
+  would have shifted every BER curve by 3 dB.)
+
+### What is *not* verified
+
+> **Honest note from the author:** **no over-the-air RF testing has been done** — the
+> SignalSDR Pro was not connected to the authoring machine. Everything above is simulation,
+> static analysis and headless execution against synthetic signals.
+>
+> That is a real limitation, and it is exactly why Labs 05, 08 and 09 ship file-based
+> flowgraphs and synthetic signal generators: when a lab does not work on your hardware, run
+> the offline version first. If the offline version works, the problem is RF — antenna, gain,
+> placement, or simply nothing on the air — and not the flowgraph. If it fails, you have a
+> deterministic, reproducible bug you can actually chase.
+>
+> Please run these against real hardware and report what you find. That is the spirit of this
+> lab.
 
 ---
 
 ## 🚀 What's Next?
 
-After you finish all four labs, you will have built up the skills to tackle advanced projects such as:
+By the end of Lab 09 you will have built, from first principles: a wideband FM receiver, a
+stereo MPX decoder, an AM/NBFM/WBFM multimode receiver, a synchronised BPSK link you measured
+against theory, an RDS data decoder, and an aircraft transponder receiver. That covers analog
+and digital, broadcast and packet, audio and data.
 
-- ✈️ **ADS-B Airplane Detection** (1090 MHz) — planned as Part 4
-- 📻 **FM Transmitter** (be careful with local laws!)
-- 📱 **LTE/5G Sniffing** (srsRAN, LTESniffer)
-- 🛰️ **GPS Signal Simulation** (gps-sim-sdr)
-- 📶 **GSM Base Station** (OpenBTS, YateBTS)
-- 🌐 **WiFi Reverse Engineering** (OpenWiFi)
+Where to go from here, roughly in order of difficulty:
+
+- 🛰️ **NOAA APT weather satellites** (137 MHz) — Doppler tracking, AM-on-FM, image decoding
+- 📟 **POCSAG / FLEX pagers** (150/450 MHz) — very simple FSK, still in service
+- 🌦️ **Meteor-M LRPT** (137 MHz) — QPSK with Viterbi FEC and image reconstruction
+- 📶 **LoRa** (868/915 MHz) — chirp spread spectrum, a genuinely different modulation
+- 📱 **GSM / LTE signalling** — `gr-gsm`, srsRAN, LTESniffer
+- 🛰️ **GPS** — the deepest of all: 20 dB *below* the noise floor, recovered by correlation
+- 📻 **Transmitting** — legal only on bands you are licensed for. Check before you key up.
+
+Each one reuses the same method this repo teaches: read the theory, plan the sample rates
+backwards from the sink, build the chain, **validate against a signal you control**, and only
+then point it at the sky.
 
 ---
 
@@ -156,10 +282,22 @@ SDR is not just "running a flowgraph". It's about understanding what happens **b
 - What does the frequency spectrum look like?
 - Why did we choose this specific decimation / filter tap count?
 
-**Every block has a reason. Every parameter has a meaning.** This lab will teach you to ask those questions.
+**Every block has a reason. Every parameter has a meaning.** This lab will teach you to ask
+those questions — and every flowgraph here answers them in the `comment` field of every block,
+which GRC shows on the canvas.
+
+Three habits worth taking from this repo:
+
+1. **Plan sample rates backwards from the sink.** 48 kHz audio × 8 = 384 kHz quadrature rate;
+   × 125/24 = 2 MSPS at the radio. Everything falls out cleanly, and nothing aliases.
+2. **Filter before you decimate, and filter before you AGC.** Both rules follow from one
+   equation each, in Fundamentals 05 and 06.
+3. **Validate against a signal you control before you blame the antenna.** It converts
+   "why doesn't this work?" into a reproducible test.
 
 Enjoy the journey! 🎧
 
 ---
 
-*Created: September 2026 • Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9 + UHD 4.6*
+*Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
+*10 theory documents · 9 labs · 12 flowgraphs · all structurally, deeply and compile-validated against GNU Radio 3.10.9.2*

@@ -1,0 +1,702 @@
+options:
+  parameters:
+    id: lab07_bpsk_link_sim
+    title: Lab 07 - BPSK Link Simulation with Live BER Measurement
+    author: SignalSDR Pro Lab
+    description: 'A complete digital link in simulation: RRC shaping, AWGN, timing and carrier recovery,
+      measured BER'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1600, 1000)
+    sizing_mode: fixed
+  states:
+    coordinate:
+    - 10
+    - 10
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_purpose
+  id: note
+  parameters:
+    note: NO HARDWARE NEEDED. A complete BPSK link - modulator, channel, synchroniser, demodulator, BER
+      meter.
+    comment: Run this on any machine, SDR or not.
+  states:
+    coordinate:
+    - 10
+    - 100
+    rotation: 0
+    state: enabled
+- name: imports
+  id: import
+  parameters:
+    imports: import numpy as np
+    comment: numpy is needed to build the reference bit pattern below.
+  states:
+    coordinate:
+    - 10
+    - 160
+    rotation: 0
+    state: enabled
+- name: sps
+  id: variable
+  parameters:
+    value: '4'
+    comment: Samples per symbol. 2 is the Nyquist minimum; 4 gives the timing loop room to interpolate.
+  states:
+    coordinate:
+    - 280
+    - 10
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '400000'
+    comment: Sample rate of the simulated link. Higher = more bits/second = faster BER convergence.
+  states:
+    coordinate:
+    - 400
+    - 10
+    rotation: 0
+    state: enabled
+- name: sym_rate
+  id: variable
+  parameters:
+    value: int(samp_rate/sps)
+    comment: 400000/4 = 100000 baud = 100 kbit/s for BPSK. A BER of 1e-5 needs ~100 s to measure.
+  states:
+    coordinate:
+    - 560
+    - 10
+    rotation: 0
+    state: enabled
+- name: excess_bw
+  id: variable
+  parameters:
+    value: '0.35'
+    comment: RRC roll-off. Occupied bandwidth = sym_rate*(1+excess_bw) = 135 kHz.
+  states:
+    coordinate:
+    - 760
+    - 10
+    rotation: 0
+    state: enabled
+- name: nfilts
+  id: variable
+  parameters:
+    value: '32'
+    comment: Polyphase arms in the timing interpolator. More arms = finer timing resolution.
+  states:
+    coordinate:
+    - 920
+    - 10
+    rotation: 0
+    state: enabled
+- name: rrc_tx_taps
+  id: variable
+  parameters:
+    value: firdes.root_raised_cosine(sps, sps, 1.0, excess_bw, 11*sps)
+    comment: TX pulse shape. gain=sps and samp_rate=sps normalise the output to unit average power.
+  states:
+    coordinate:
+    - 1060
+    - 10
+    rotation: 0
+    state: enabled
+- name: pfb_mf_taps
+  id: variable
+  parameters:
+    value: firdes.root_raised_cosine(nfilts, nfilts*sps, 1.0, excess_bw, 11*sps*nfilts)
+    comment: RX matched filter, built at nfilts x the sample rate so Symbol Sync can slice it into polyphase
+      arms.
+  states:
+    coordinate:
+    - 1380
+    - 10
+    rotation: 0
+    state: enabled
+- name: pattern
+  id: variable
+  parameters:
+    value: '[int(b) for b in np.random.RandomState(1).randint(0, 2, 1023)]'
+    comment: A fixed 1023-bit pseudo-random pattern. The BER monitor knows it, so it can count errors
+      exactly.
+  states:
+    coordinate:
+    - 280
+    - 90
+    rotation: 0
+    state: enabled
+- name: ebno_db
+  id: variable_qtgui_range
+  parameters:
+    label: '''Eb/N0 (dB)'''
+    rangeType: float
+    start: '0'
+    stop: '14'
+    step: '0.5'
+    value: '8'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: The only fair way to compare digital links. Sweep this and watch the BER waterfall.
+  states:
+    coordinate:
+    - 700
+    - 90
+    rotation: 0
+    state: enabled
+- name: noise_volt
+  id: variable
+  parameters:
+    value: float(np.sqrt(sps / (1.0 * 10.0**(ebno_db/10.0))))
+    comment: A = sqrt(sps/(k*10^(EbN0/10))). GNU Radio noise_voltage is the TOTAL complex sigma - no extra
+      factor of 2.
+  states:
+    coordinate:
+    - 1020
+    - 90
+    rotation: 0
+    state: enabled
+- name: freq_offset
+  id: variable_qtgui_range
+  parameters:
+    label: '''Freq Offset (cycles/sample)'''
+    rangeType: float
+    start: '-0.01'
+    stop: '0.01'
+    step: '0.0005'
+    value: '0.0005'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: Simulated LO error. 0.0005 cycles/sample at 400 kSPS = 200 Hz. Watch the Costas loop chase
+      it.
+  states:
+    coordinate:
+    - 280
+    - 180
+    rotation: 0
+    state: enabled
+- name: timing_offset
+  id: variable_qtgui_range
+  parameters:
+    label: '''Clock Ratio (epsilon)'''
+    rangeType: float
+    start: '0.999'
+    stop: '1.001'
+    step: '0.00001'
+    value: '1.00005'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: TX/RX sample clock mismatch. 1.00005 = 50 ppm, a realistic cheap-crystal error.
+  states:
+    coordinate:
+    - 700
+    - 180
+    rotation: 0
+    state: enabled
+- name: loop_bw
+  id: variable_qtgui_range
+  parameters:
+    label: '''Loop Bandwidth (both loops)'''
+    rangeType: float
+    start: '0.001'
+    stop: '0.080'
+    step: '0.001'
+    value: '0.010'
+    widget: counter_slider
+    min_len: '300'
+    orient: QtCore.Qt.Horizontal
+    comment: 'THE experiment of this lab: wide locks fast but is noisy; narrow tracks cleanly but may
+      never acquire.'
+  states:
+    coordinate:
+    - 1120
+    - 180
+    rotation: 0
+    state: enabled
+- name: tx_bits
+  id: blocks_vector_source_x
+  parameters:
+    type: byte
+    vector: pattern
+    tags: '[]'
+    repeat: 'True'
+    vlen: '1'
+    comment: One bit per byte (0 or 1), repeating forever.
+  states:
+    coordinate:
+    - 60
+    - 400
+    rotation: 0
+    state: enabled
+- name: throttle
+  id: blocks_throttle2
+  parameters:
+    type: byte
+    samples_per_second: sym_rate
+    limit: auto
+    maximum: '0.1'
+    vlen: '1'
+    ignoretag: 'True'
+    comment: 'MANDATORY: there is no hardware in this flowgraph, so something must set the pace.'
+  states:
+    coordinate:
+    - 260
+    - 400
+    rotation: 0
+    state: enabled
+- name: diff_enc
+  id: digital_diff_encoder_bb
+  parameters:
+    coding: digital.DIFF_DIFFERENTIAL
+    modulus: '2'
+    comment: d[n] = d[n-1] XOR b[n]. Immunises the link against the Costas loop 180 degree ambiguity.
+      Try Bypass!
+  states:
+    coordinate:
+    - 460
+    - 400
+    rotation: 0
+    state: enabled
+- name: chunks_to_syms
+  id: digital_chunks_to_symbols_xx
+  parameters:
+    in_type: byte
+    out_type: complex
+    symbol_table: '[-1+0j, 1+0j]'
+    dimension: '1'
+    num_ports: '1'
+    comment: 'BPSK mapping: bit 0 -> -1, bit 1 -> +1. Unit energy, maximum possible separation.'
+  states:
+    coordinate:
+    - 680
+    - 400
+    rotation: 0
+    state: enabled
+- name: rrc_tx
+  id: interp_fir_filter_xxx
+  parameters:
+    type: ccf
+    interp: sps
+    taps: rrc_tx_taps
+    samp_delay: '0'
+    comment: Pulse shaping AND interpolation by sps in one block - the zeros are never actually multiplied.
+  states:
+    coordinate:
+    - 900
+    - 400
+    rotation: 0
+    state: enabled
+- name: channel
+  id: channels_channel_model
+  parameters:
+    noise_voltage: noise_volt
+    freq_offset: freq_offset
+    epsilon: timing_offset
+    taps: '[1.0 + 0.0j]'
+    seed: '0'
+    block_tags: 'False'
+    comment: AWGN + carrier offset + sample-clock offset. Everything the synchroniser has to undo.
+  states:
+    coordinate:
+    - 1140
+    - 400
+    rotation: 0
+    state: enabled
+- name: sym_sync
+  id: digital_symbol_sync_xx
+  parameters:
+    type: cc
+    ted_type: digital.TED_GARDNER
+    constellation: digital.constellation_bpsk().base()
+    sps: sps
+    ted_gain: '1.0'
+    loop_bw: loop_bw
+    damping: '1.0'
+    max_dev: '1.5'
+    osps: '1'
+    resamp_type: digital.IR_PFB_MF
+    nfilters: nfilts
+    pfb_mf_taps: pfb_mf_taps
+    comment: Timing recovery + matched filtering in one block. Gardner TED works BEFORE carrier lock.
+  states:
+    coordinate:
+    - 1400
+    - 400
+    rotation: 0
+    state: enabled
+- name: costas
+  id: digital_costas_loop_cc
+  parameters:
+    w: loop_bw
+    order: '2'
+    use_snr: 'False'
+    comment: Carrier recovery. order=2 for BPSK. Removes the data with Re(y)*Im(y), leaving only phase
+      error.
+  states:
+    coordinate:
+    - 1660
+    - 400
+    rotation: 0
+    state: enabled
+- name: to_real
+  id: blocks_complex_to_real
+  parameters:
+    vlen: '1'
+    comment: After Costas lock all the signal is on the real axis; the imaginary part is pure noise.
+  states:
+    coordinate:
+    - 1900
+    - 400
+    rotation: 0
+    state: enabled
+- name: slicer
+  id: digital_binary_slicer_fb
+  parameters:
+    comment: 'Hard decision: y > 0 -> 1, else 0.'
+  states:
+    coordinate:
+    - 2060
+    - 400
+    rotation: 0
+    state: enabled
+- name: diff_dec
+  id: digital_diff_decoder_bb
+  parameters:
+    coding: digital.DIFF_DIFFERENTIAL
+    modulus: '2'
+    comment: b[n] = d[n] XOR d[n-1]. Undoes the differential encoder. Bypass this AND diff_enc together.
+  states:
+    coordinate:
+    - 2220
+    - 400
+    rotation: 0
+    state: enabled
+- name: ber_monitor
+  id: epy_block
+  parameters:
+    _source_code: |
+      import numpy as np
+      from gnuradio import gr
+
+
+      class blk(gr.sync_block):
+          """BER Monitor.
+
+          Compares a received bit stream against a KNOWN repeating reference
+          pattern and reports the running bit error rate.
+
+          Acquisition: buffer two full periods, then cross-correlate the first
+          period against every cyclic shift of the reference.  The shift with the
+          largest |correlation| is the alignment; a negative correlation means the
+          stream is inverted, which is exactly the 180-degree ambiguity a Costas
+          loop leaves behind (see Fundamentals 09).
+
+          Tracking: XOR against the rolled reference and accumulate.  Output is one
+          float per input bit carrying the running BER, so it can drive a Number
+          Sink or a Time Sink directly.
+          """
+
+          def __init__(self, pattern=[0, 1], settle=30000, corr_threshold=0.4):
+              gr.sync_block.__init__(self, name="BER Monitor",
+                                     in_sig=[np.uint8], out_sig=[np.float32])
+              self.ref = np.asarray(pattern, dtype=np.uint8)
+              self.N = len(self.ref)
+              self.settle = int(settle)
+              self.thr = float(corr_threshold)
+              # two concatenated periods of the bipolar reference: sliding a window
+              # over this gives every cyclic shift in one np.correlate call
+              refb = 2.0 * self.ref.astype(np.float64) - 1.0
+              self.tiled = np.concatenate([refb, refb])
+              self.reset()
+
+          def reset(self):
+              self.locked = False
+              self.invert = False
+              self.phase = 0
+              self.errors = 0
+              self.total = 0
+              self.skipped = 0
+              self.acq = np.zeros(0, dtype=np.uint8)
+              self._last_report = 0
+
+          def _align(self, seg):
+              """Correlate one period against all N cyclic shifts of the reference."""
+              a = 2.0 * seg.astype(np.float64) - 1.0
+              corr = np.correlate(self.tiled, a, mode='valid')[:self.N] / self.N
+              s = int(np.argmax(np.abs(corr)))
+              if abs(corr[s]) < self.thr:
+                  return None, False
+              return s, bool(corr[s] < 0)
+
+          def _count(self, bits):
+              idx = (self.phase + np.arange(len(bits))) % self.N
+              ref = self.ref[idx]
+              if self.invert:
+                  ref = 1 - ref
+              self.errors += int(np.count_nonzero(bits != ref))
+              self.total += len(bits)
+              self.phase = int((self.phase + len(bits)) % self.N)
+
+          def work(self, input_items, output_items):
+              n = len(input_items[0])
+              xs = input_items[0]
+
+              # 1. let the sync loops settle before we judge anything
+              if self.skipped < self.settle:
+                  take = min(len(xs), self.settle - self.skipped)
+                  self.skipped += take
+                  xs = xs[take:]
+
+              # 2. acquire alignment
+              if not self.locked and len(xs):
+                  self.acq = np.concatenate([self.acq, xs])
+                  xs = xs[:0]
+                  if len(self.acq) >= 2 * self.N:
+                      s, inv = self._align(self.acq[:self.N])
+                      if s is None:
+                          self.acq = self.acq[self.N:]      # slide on, try again
+                      else:
+                          self.locked, self.invert, self.phase = True, inv, s
+                          self._count(self.acq)
+                          self.acq = self.acq[:0]
+
+              # 3. track
+              if self.locked and len(xs):
+                  self._count(xs)
+
+              self._report()
+              output_items[0][:] = self.ber()
+              return n
+
+          def _report(self, every=200000):
+              if self.total - self._last_report >= every:
+                  self._last_report = self.total
+                  print(f"[BER Monitor] bits={self.total:>10,}  errors={self.errors:>8,}  "
+                        f"BER={self.ber():.3e}", flush=True)
+
+          def ber(self):
+              return np.float32(self.errors / self.total) if self.total else np.float32(0.5)
+    pattern: pattern
+    settle: '100000'
+    corr_threshold: '0.4'
+    comment: Locks to the known pattern, then counts errors. Also prints a summary line every 200k bits.
+  states:
+    coordinate:
+    - 2420
+    - 400
+    rotation: 0
+    state: enabled
+- name: ber_number
+  id: qtgui_number_sink
+  parameters:
+    name: '''Measured BER'''
+    type: float
+    autoscale: 'True'
+    avg: '0'
+    graph_type: qtgui.NUM_GRAPH_NONE
+    nconnections: '1'
+    min: '0'
+    max: '0.5'
+    update_time: '0.25'
+    label1: '''BER'''
+    unit1: ''''''
+    factor1: '1'
+    gui_hint: 2,0,1,1
+    comment: Running bit error rate. Give it 30+ seconds to settle at high Eb/N0.
+  states:
+    coordinate:
+    - 2640
+    - 400
+    rotation: 0
+    state: enabled
+- name: ber_time
+  id: qtgui_time_sink_x
+  parameters:
+    type: float
+    name: '''BER convergence'''
+    ylabel: BER
+    size: '2048'
+    srate: sym_rate
+    nconnections: '1'
+    ymin: '0'
+    ymax: '0.1'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.25'
+    gui_hint: 2,1,1,1
+    comment: Watch the estimate converge - and watch it jump if the loops slip a cycle.
+  states:
+    coordinate:
+    - 2640
+    - 560
+    rotation: 0
+    state: enabled
+- name: chan_spectrum
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '''Channel Spectrum (RRC shaped + noise)'''
+    nconnections: '1'
+    fftsize: '2048'
+    fc: '0'
+    bw: samp_rate
+    ymin: '-100'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,1
+    comment: Occupied bandwidth should be sym_rate*(1+excess_bw) = 135 kHz. Compare with square pulses!
+  states:
+    coordinate:
+    - 1140
+    - 620
+    rotation: 0
+    state: enabled
+- name: eye
+  id: qtgui_eye_sink_x
+  parameters:
+    type: complex
+    name: '''Eye Diagram (before sync)'''
+    ylabel: Amplitude
+    size: '1024'
+    samp_per_symbol: sps
+    srate: samp_rate
+    nconnections: '1'
+    ymin: '-2'
+    ymax: '2'
+    grid: 'True'
+    update_time: '0.10'
+    gui_hint: 0,1,1,1
+    comment: The widest opening is the correct sampling instant. Raise the noise and watch the eye close.
+  states:
+    coordinate:
+    - 1140
+    - 760
+    rotation: 0
+    state: enabled
+- name: const_rx
+  id: qtgui_const_sink_x
+  parameters:
+    type: complex
+    name: '''Constellation AFTER sync'''
+    size: '1024'
+    grid: 'True'
+    autoscale: 'False'
+    ymin: '-2'
+    ymax: '2'
+    xmin: '-2'
+    xmax: '2'
+    nconnections: '1'
+    update_time: '0.10'
+    gui_hint: 1,0,1,1
+    comment: Two tight dots at +/-1 = healthy. A ring = no carrier lock. A radial smear = no timing lock.
+  states:
+    coordinate:
+    - 1900
+    - 620
+    rotation: 0
+    state: enabled
+- name: costas_freq
+  id: qtgui_time_sink_x
+  parameters:
+    type: float
+    name: '''Costas loop frequency estimate (rad/sample)'''
+    ylabel: rad/sample
+    size: '1024'
+    srate: sym_rate
+    nconnections: '1'
+    ymin: '-0.1'
+    ymax: '0.1'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.10'
+    gui_hint: 1,1,1,1
+    comment: The loop WORKING. It should settle at 2*pi*freq_offset*sps. Change freq_offset and watch
+      it hunt.
+  states:
+    coordinate:
+    - 1900
+    - 760
+    rotation: 0
+    state: enabled
+connections:
+- - tx_bits
+  - '0'
+  - throttle
+  - '0'
+- - throttle
+  - '0'
+  - diff_enc
+  - '0'
+- - diff_enc
+  - '0'
+  - chunks_to_syms
+  - '0'
+- - chunks_to_syms
+  - '0'
+  - rrc_tx
+  - '0'
+- - rrc_tx
+  - '0'
+  - channel
+  - '0'
+- - channel
+  - '0'
+  - sym_sync
+  - '0'
+- - channel
+  - '0'
+  - chan_spectrum
+  - '0'
+- - channel
+  - '0'
+  - eye
+  - '0'
+- - sym_sync
+  - '0'
+  - costas
+  - '0'
+- - costas
+  - '0'
+  - to_real
+  - '0'
+- - costas
+  - '0'
+  - const_rx
+  - '0'
+- - costas
+  - '1'
+  - costas_freq
+  - '0'
+- - to_real
+  - '0'
+  - slicer
+  - '0'
+- - slicer
+  - '0'
+  - diff_dec
+  - '0'
+- - diff_dec
+  - '0'
+  - ber_monitor
+  - '0'
+- - ber_monitor
+  - '0'
+  - ber_number
+  - '0'
+- - ber_monitor
+  - '0'
+  - ber_time
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

@@ -1,0 +1,560 @@
+options:
+  parameters:
+    id: lab06_multimode_receiver
+    title: 'Lab 06 - Multimode Receiver: AM / NBFM / WBFM with Channel Selection'
+    author: 'SignalSDR Pro Lab'
+    description: 'One tuner, three demodulators, software channel selection, S-meter and squelch'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1600, 1000)
+    sizing_mode: fixed
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: note_legal
+  id: note
+  parameters:
+    comment: 'Receive only. Check your local regulations.'
+    note: 'Airband 118-137 AM | Marine 156-162 NBFM | NOAA wx 162.4-162.55 NBFM | Broadcast 88-108 WBFM'
+  states:
+    coordinate: [10, 100]
+    rotation: 0
+    state: enabled
+
+- name: note_offset
+  id: note
+  parameters:
+    comment: 'Why we never tune directly onto the signal'
+    note: 'Tune freq ~200 kHz AWAY from your target and use offset_freq to reach it - this dodges the LO/DC spike.'
+  states:
+    coordinate: [10, 160]
+    rotation: 0
+    state: enabled
+
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: 'Front-end rate. 2 MHz of spectrum captured at once - the pool we select channels from.'
+    value: '2000000'
+  states:
+    coordinate: [280, 10]
+    rotation: 0
+    state: enabled
+
+- name: wide_rate
+  id: variable
+  parameters:
+    comment: '2000000/5 = 400000. Wide enough for a whole 200 kHz WBFM channel.'
+    value: 'int(samp_rate/5)'
+  states:
+    coordinate: [440, 10]
+    rotation: 0
+    state: enabled
+
+- name: narrow_rate
+  id: variable
+  parameters:
+    comment: '400000/8 = 50000. Plenty for AM (8 kHz) and NBFM (16 kHz) channels.'
+    value: 'int(wide_rate/8)'
+  states:
+    coordinate: [620, 10]
+    rotation: 0
+    state: enabled
+
+- name: audio_rate
+  id: variable
+  parameters:
+    comment: 'All three demodulator branches deliberately produce the SAME audio rate so the Selector can switch between them.'
+    value: '50000'
+  states:
+    coordinate: [820, 10]
+    rotation: 0
+    state: enabled
+
+- name: wide_taps
+  id: variable_low_pass_filter_taps
+  parameters:
+    comment: 'N = 53*2e6/(22*30e3) = 161 taps. Anti-alias for the decimate-by-5 inside the xlating filter.'
+    gain: '1.0'
+    samp_rate: samp_rate
+    cutoff_freq: '150e3'
+    width: '30e3'
+    win: window.WIN_HAMMING
+    beta: '6.76'
+  states:
+    coordinate: [1020, 10]
+    rotation: 0
+    state: enabled
+
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    comment: 'HARDWARE tuning. Changing this retunes the AD9361 PLL and briefly interrupts the stream.'
+    label: 'Hardware Centre (Hz)'
+    rangeType: float
+    start: '70e6'
+    stop: '6000e6'
+    step: '100e3'
+    value: '100.1e6'
+    widget: counter_slider
+    min_len: '400'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [280, 120]
+    rotation: 0
+    state: enabled
+
+- name: offset_freq
+  id: variable_qtgui_range
+  parameters:
+    comment: 'SOFTWARE tuning inside the captured 2 MHz. Instant, no PLL settling, no gap in the stream.'
+    label: 'Channel Offset (Hz)'
+    rangeType: float
+    start: '-900e3'
+    stop: '900e3'
+    step: '5e3'
+    value: '-200e3'
+    widget: counter_slider
+    min_len: '400'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [620, 120]
+    rotation: 0
+    state: enabled
+
+- name: rf_gain
+  id: variable_qtgui_range
+  parameters:
+    comment: 'See Fundamentals 06: raise until the noise floor starts rising with it, then back off 5 dB.'
+    label: 'RF Gain (dB)'
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '40'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [960, 120]
+    rotation: 0
+    state: enabled
+
+- name: mode
+  id: variable_qtgui_chooser
+  parameters:
+    comment: 'Drives the Selector index. All three demodulators always run; this picks which one you hear.'
+    label: 'Demodulator'
+    type: int
+    num_opts: '3'
+    option0: '0'
+    label0: 'AM (airband, shortwave)'
+    option1: '1'
+    label1: 'NBFM (marine, weather, PMR)'
+    option2: '2'
+    label2: 'WBFM (broadcast 88-108)'
+    value: '2'
+    widget: radio_buttons
+    orient: Qt.QHBoxLayout
+  states:
+    coordinate: [280, 220]
+    rotation: 0
+    state: enabled
+
+- name: narrow_bw
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Channel filter cutoff for the narrowband path. AM airband ~4 kHz, NBFM ~8 kHz. Ignored in WBFM mode.'
+    label: 'Narrow Channel BW (Hz)'
+    rangeType: float
+    start: '3000'
+    stop: '18000'
+    step: '500'
+    value: '8000'
+    widget: counter_slider
+    min_len: '250'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [700, 220]
+    rotation: 0
+    state: enabled
+
+- name: squelch_threshold
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Set ~5 dB above the S-meter reading on an empty channel.'
+    label: 'Squelch (dBFS)'
+    rangeType: float
+    start: '-90'
+    stop: '0'
+    step: '1'
+    value: '-70'
+    widget: counter_slider
+    min_len: '250'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [1060, 220]
+    rotation: 0
+    state: enabled
+
+- name: volume
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Final audio scaling, after the Selector.'
+    label: 'Volume'
+    rangeType: float
+    start: '0'
+    stop: '5'
+    step: '0.1'
+    value: '1.0'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [1380, 220]
+    rotation: 0
+    state: enabled
+
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    comment: 'One tuner. Everything below this line is software - that is the whole point of the lab.'
+    type: fc32
+    dev_addr: '""'
+    dev_args: '""'
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '"TX/RX"'
+    bw0: samp_rate
+    center_freq0: freq
+    gain0: rf_gain
+    gain_type0: default
+  states:
+    coordinate: [60, 400]
+    rotation: 0
+    state: enabled
+
+- name: wide_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    comment: 'The full 2 MHz pool. Find your signal here, read off its offset, dial it into offset_freq.'
+    type: complex
+    name: '"Full Span - pick a channel here"'
+    nconnections: '1'
+    fftsize: '4096'
+    fc: freq
+    bw: samp_rate
+    ymin: '-140'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,2
+  states:
+    coordinate: [300, 560]
+    rotation: 0
+    state: enabled
+
+- name: waterfall_sink
+  id: qtgui_waterfall_sink_x
+  parameters:
+    comment: 'Bursty traffic (airband, marine) is far easier to see here than on the FFT.'
+    type: complex
+    name: '"Full Span Waterfall"'
+    nconnections: '1'
+    fftsize: '4096'
+    fc: freq
+    bw: samp_rate
+    update_time: '0.10'
+    gui_hint: 1,0,1,2
+  states:
+    coordinate: [300, 700]
+    rotation: 0
+    state: enabled
+
+- name: xlating_wide
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    comment: 'THE channel selector: mix by -offset_freq, low-pass 150 kHz, decimate by 5. 2 MSPS -> 400 kSPS.'
+    type: ccf
+    decim: '5'
+    taps: wide_taps
+    center_freq: offset_freq
+    samp_rate: samp_rate
+  states:
+    coordinate: [340, 400]
+    rotation: 0
+    state: enabled
+
+- name: agc_wide
+  id: analog_agc2_xx
+  parameters:
+    comment: 'AGC AFTER the channel filter - so a strong neighbour cannot turn our station down. See Fundamentals 06.'
+    type: complex
+    reference: '0.5'
+    attack_rate: '0.01'
+    decay_rate: '0.001'
+    gain: '1.0'
+    max_gain: '4096'
+  states:
+    coordinate: [620, 340]
+    rotation: 0
+    state: enabled
+
+- name: wbfm_rcv
+  id: analog_wfm_rcv
+  parameters:
+    comment: 'WBFM branch: 400000/8 = 50000 audio. Quadrature demod + de-emphasis, all in one block.'
+    quad_rate: wide_rate
+    audio_decimation: '8'
+  states:
+    coordinate: [860, 340]
+    rotation: 0
+    state: enabled
+
+- name: narrow_lpf
+  id: low_pass_filter
+  parameters:
+    comment: 'Second-stage channel filter. 481 taps, but running at only 50 kSPS output - cheap. 400 kSPS -> 50 kSPS.'
+    type: fir_filter_ccf
+    decim: '8'
+    gain: '1'
+    samp_rate: wide_rate
+    cutoff_freq: narrow_bw
+    width: '2000'
+    win: window.WIN_HAMMING
+    beta: '6.76'
+  states:
+    coordinate: [620, 480]
+    rotation: 0
+    state: enabled
+
+- name: chan_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    comment: 'The selected narrow channel, centred at DC. Your signal should sit exactly in the middle.'
+    type: complex
+    name: '"Selected Narrow Channel"'
+    nconnections: '1'
+    fftsize: '1024'
+    fc: '0'
+    bw: narrow_rate
+    ymin: '-140'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 2,0,1,1
+  states:
+    coordinate: [860, 620]
+    rotation: 0
+    state: enabled
+
+- name: squelch
+  id: analog_pwr_squelch_xx
+  parameters:
+    comment: 'gate=False emits ZEROS when closed. gate=True would emit nothing and starve the audio sink.'
+    type: complex
+    threshold: squelch_threshold
+    alpha: '0.01'
+    ramp: '20'
+    gate: 'False'
+  states:
+    coordinate: [860, 480]
+    rotation: 0
+    state: enabled
+
+- name: agc_narrow
+  id: analog_agc2_xx
+  parameters:
+    comment: 'Normalises level so AM and NBFM audio are comparable regardless of signal strength.'
+    type: complex
+    reference: '0.3'
+    attack_rate: '0.02'
+    decay_rate: '0.0005'
+    gain: '1.0'
+    max_gain: '4096'
+  states:
+    coordinate: [1080, 480]
+    rotation: 0
+    state: enabled
+
+- name: am_demod
+  id: analog_am_demod_cf
+  parameters:
+    comment: 'AM branch: envelope detection |I+jQ| plus a 5 kHz audio low-pass. Immune to tuning offset.'
+    chan_rate: narrow_rate
+    audio_decim: '1'
+    audio_pass: '5000'
+    audio_stop: '5500'
+  states:
+    coordinate: [1320, 400]
+    rotation: 0
+    state: enabled
+
+- name: nbfm_rcv
+  id: analog_nbfm_rx
+  parameters:
+    comment: 'NBFM branch: quad demod with max_dev 5 kHz + de-emphasis. audio_rate == quad_rate, so decimation is 1.'
+    audio_rate: audio_rate
+    quad_rate: narrow_rate
+    tau: '75e-6'
+    max_dev: '5e3'
+  states:
+    coordinate: [1320, 560]
+    rotation: 0
+    state: enabled
+
+- name: mode_selector
+  id: blocks_selector
+  parameters:
+    comment: 'Runtime switch. Input 0=AM, 1=NBFM, 2=WBFM. All branches keep running; only one is forwarded.'
+    type: float
+    enabled: 'True'
+    num_inputs: '3'
+    num_outputs: '1'
+    input_index: mode
+    output_index: '0'
+    vlen: '1'
+    showports: 'True'
+  states:
+    coordinate: [1560, 460]
+    rotation: 0
+    state: enabled
+
+- name: volume_control
+  id: blocks_multiply_const_vxx
+  parameters:
+    comment: 'Scalar audio gain.'
+    type: float
+    const: volume
+    vlen: '1'
+  states:
+    coordinate: [1780, 460]
+    rotation: 0
+    state: enabled
+
+- name: audio_sink
+  id: audio_sink
+  parameters:
+    comment: '50 kHz mono. Every demodulator branch was designed to land exactly here.'
+    samp_rate: audio_rate
+    device_name: '""'
+    num_inputs: '1'
+    ok_to_block: 'True'
+  states:
+    coordinate: [2000, 460]
+    rotation: 0
+    state: enabled
+
+- name: audio_time_sink
+  id: qtgui_time_sink_x
+  parameters:
+    comment: 'Watch the squelch open and close, and check for clipping.'
+    type: float
+    name: '"Demodulated Audio"'
+    ylabel: Amplitude
+    size: '2048'
+    srate: audio_rate
+    nconnections: '1'
+    ymin: '-1.5'
+    ymax: '1.5'
+    grid: 'True'
+    update_time: '0.10'
+    gui_hint: 2,1,1,1
+  states:
+    coordinate: [2000, 620]
+    rotation: 0
+    state: enabled
+
+- name: smeter_mag
+  id: blocks_complex_to_mag_squared
+  parameters:
+    comment: 'S-meter tap, taken AFTER the channel filter so it measures THIS channel, not the whole band.'
+    vlen: '1'
+  states:
+    coordinate: [860, 780]
+    rotation: 0
+    state: enabled
+
+- name: smeter_avg
+  id: blocks_moving_average_xx
+  parameters:
+    comment: '5000 samples = 100 ms at 50 kSPS. Fast enough to follow speech, slow enough to read.'
+    type: float
+    length: '5000'
+    scale: '1.0/5000'
+    max_iter: '5000'
+    vlen: '1'
+  states:
+    coordinate: [1080, 780]
+    rotation: 0
+    state: enabled
+
+- name: smeter_db
+  id: blocks_nlog10_ff
+  parameters:
+    comment: '10*log10(2*P) = dBFS. Use this number to choose the squelch threshold.'
+    n: '10'
+    k: '3.0103'
+    vlen: '1'
+  states:
+    coordinate: [1320, 780]
+    rotation: 0
+    state: enabled
+
+- name: smeter_sink
+  id: qtgui_number_sink
+  parameters:
+    comment: 'Channel power. Empty channel gives you the noise floor; set squelch ~5 dB above it.'
+    name: '"Channel S-Meter"'
+    type: float
+    autoscale: 'False'
+    avg: '0'
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    nconnections: '1'
+    min: '-100'
+    max: '0'
+    update_time: '0.10'
+    label1: '"Channel Power"'
+    unit1: '"dBFS"'
+    factor1: '1'
+    gui_hint: 3,0,1,2
+  states:
+    coordinate: [1560, 780]
+    rotation: 0
+    state: enabled
+
+connections:
+- [usrp_source, '0', xlating_wide, '0']
+- [usrp_source, '0', wide_sink, '0']
+- [usrp_source, '0', waterfall_sink, '0']
+- [xlating_wide, '0', agc_wide, '0']
+- [xlating_wide, '0', narrow_lpf, '0']
+- [agc_wide, '0', wbfm_rcv, '0']
+- [narrow_lpf, '0', squelch, '0']
+- [narrow_lpf, '0', chan_sink, '0']
+- [narrow_lpf, '0', smeter_mag, '0']
+- [squelch, '0', agc_narrow, '0']
+- [agc_narrow, '0', am_demod, '0']
+- [agc_narrow, '0', nbfm_rcv, '0']
+- [am_demod, '0', mode_selector, '0']
+- [nbfm_rcv, '0', mode_selector, '1']
+- [wbfm_rcv, '0', mode_selector, '2']
+- [mode_selector, '0', volume_control, '0']
+- [volume_control, '0', audio_sink, '0']
+- [volume_control, '0', audio_time_sink, '0']
+- [smeter_mag, '0', smeter_avg, '0']
+- [smeter_avg, '0', smeter_db, '0']
+- [smeter_db, '0', smeter_sink, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

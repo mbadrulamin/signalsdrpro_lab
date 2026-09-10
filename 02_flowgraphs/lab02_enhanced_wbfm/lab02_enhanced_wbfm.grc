@@ -52,6 +52,7 @@ blocks:
 - name: freq
   id: variable_qtgui_range
   parameters:
+    comment: 'Tune here. Watch the spectrum sink to find a station rather than guessing.'
     label: 'FM Station (Hz)'
     rangeType: float
     start: '87.5e6'
@@ -69,6 +70,7 @@ blocks:
 - name: gain
   id: variable_qtgui_range
   parameters:
+    comment: 'Too little buries the signal in ADC noise; too much causes front-end intermodulation.'
     label: 'RF Gain (dB)'
     rangeType: float
     start: '0'
@@ -86,6 +88,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
+    comment: 'Now at 2 MSPS so the spectrum display shows several stations at once.'
     type: fc32
     dev_addr: '""'
     nchan: '1'
@@ -105,6 +108,7 @@ blocks:
 - name: freq_sink
   id: qtgui_freq_sink_x
   parameters:
+    comment: 'Averaged FFT. Good for steady signals; use the waterfall for bursty ones.'
     type: complex
     name: '"Spectrum"'
     nconnections: '1'
@@ -130,6 +134,7 @@ blocks:
 - name: waterfall_sink
   id: qtgui_waterfall_sink_x
   parameters:
+    comment: 'Time on the vertical axis. The most expensive block in this flowgraph - disable it if CPU is tight.'
     type: complex
     name: '"Waterfall"'
     nconnections: '1'
@@ -148,6 +153,7 @@ blocks:
 - name: time_sink
   id: qtgui_time_sink_x
   parameters:
+    comment: 'Raw IQ. On a strong FM signal this is a near-constant-amplitude spinning phasor.'
     type: complex
     name: '"IQ Time Domain"'
     nconnections: '1'
@@ -167,6 +173,7 @@ blocks:
 - name: rational_resampler
   id: rational_resampler_xxx
   parameters:
+    comment: '2000000 * 24/125 = 384000. Reduced to lowest terms so the internal filter stays small.'
     type: ccc
     interp: '24'
     decim: '125'
@@ -180,6 +187,7 @@ blocks:
 - name: wbfm_rcv
   id: analog_wfm_rcv
   parameters:
+    comment: '384000/8 = 48000, the rate every sound card supports.'
     quad_rate: quad_rate
     audio_decimation: '8'
   states:
@@ -190,6 +198,7 @@ blocks:
 - name: audio_sink
   id: audio_sink
   parameters:
+    comment: 'audio_rate must equal quad_rate / audio_decimation.'
     samp_rate: audio_rate
     device_name: '""'
     num_inputs: '1'

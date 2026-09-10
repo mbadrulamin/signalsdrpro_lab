@@ -19,6 +19,7 @@ blocks:
 - name: samp_rate
   id: variable
   parameters:
+    comment: 'Front-end rate. 2 MHz of spectrum at 8 bytes/sample = 16 MB/s over USB 3.0.'
     value: '2000000'
   states:
     coordinate: [200, 10]
@@ -28,6 +29,7 @@ blocks:
 - name: audio_rate
   id: variable
   parameters:
+    comment: 'Design the whole chain BACKWARDS from here: 48000 x 8 = 384000, x 125/24 = 2000000.'
     value: '48000'
   states:
     coordinate: [340, 10]
@@ -37,6 +39,7 @@ blocks:
 - name: quad_rate
   id: variable
   parameters:
+    comment: 'Rate into the FM demodulator. Must exceed the 180 kHz Carson bandwidth - 384 kHz has room to spare.'
     value: '384000'
   states:
     coordinate: [480, 10]
@@ -46,6 +49,7 @@ blocks:
 - name: freq
   id: variable_qtgui_range
   parameters:
+    comment: 'Hardware tuning. Changing it retunes the AD9361 PLL and briefly interrupts the sample stream.'
     label: 'FM Station (Hz)'
     rangeType: float
     start: '87.5e6'
@@ -63,6 +67,7 @@ blocks:
 - name: rf_gain
   id: variable_qtgui_range
   parameters:
+    comment: 'See Fundamentals 06 for the procedure: raise until the noise floor moves, then back off 5 dB.'
     label: 'RF Gain (dB)'
     rangeType: float
     start: '0'
@@ -78,6 +83,7 @@ blocks:
 - name: squelch_threshold
   id: variable_qtgui_range
   parameters:
+    comment: 'dBFS. Tune to an empty frequency, read the level, then set this about 5 dB above it.'
     label: 'Squelch (dB)'
     rangeType: float
     start: '-80'
@@ -93,6 +99,7 @@ blocks:
 - name: volume
   id: variable_qtgui_range
   parameters:
+    comment: 'Post-demodulation scalar gain. Purely software; nothing here can clip the front end.'
     label: 'Volume'
     rangeType: float
     start: '0'
@@ -108,6 +115,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
+    comment: 'Live IQ from the SignalSDR Pro emulating a USRP B210.'
     type: fc32
     nchan: '1'
     num_mboards: '1'
@@ -125,6 +133,7 @@ blocks:
 - name: pre_filter
   id: low_pass_filter
   parameters:
+    comment: 'Channel filter. 53*2e6/(22*20e3) = 241 taps - the tap-count equation from Fundamentals 05.'
     type: fir_filter_ccf
     decim: '1'
     gain: '1'
@@ -141,6 +150,7 @@ blocks:
 - name: freq_sink
   id: qtgui_freq_sink_x
   parameters:
+    comment: 'Placed AFTER the filter so you can see what the demodulator will actually receive.'
     type: complex
     name: '"Spectrum"'
     nconnections: '1'
@@ -159,6 +169,7 @@ blocks:
 - name: waterfall_sink
   id: qtgui_waterfall_sink_x
   parameters:
+    comment: 'Reveals intermittent signals that an averaged FFT hides.'
     type: complex
     name: '"Waterfall"'
     nconnections: '1'
@@ -174,6 +185,7 @@ blocks:
 - name: rational_resampler
   id: rational_resampler_xxx
   parameters:
+    comment: '2000000 -> 384000 = 24/125 in lowest terms. Polyphase, so the zero-stuffing costs nothing.'
     type: ccc
     interp: '24'
     decim: '125'
@@ -187,6 +199,7 @@ blocks:
 - name: agc
   id: analog_agc2_xx
   parameters:
+    comment: 'AFTER the channel filter, so a strong neighbouring station cannot turn ours down. Attack fast, decay slow.'
     type: complex
     reference: '0.5'
     attack_rate: '0.01'
@@ -201,6 +214,7 @@ blocks:
 - name: squelch
   id: analog_pwr_squelch_xx
   parameters:
+    comment: 'gate=False emits zeros when closed; gate=True would emit nothing and starve the audio sink.'
     type: complex
     threshold: squelch_threshold
     alpha: '0.01'
@@ -214,6 +228,7 @@ blocks:
 - name: wbfm_rcv
   id: analog_wfm_rcv
   parameters:
+    comment: '384000/8 = 48000. Quadrature demod, de-emphasis and audio filtering in one block.'
     quad_rate: quad_rate
     audio_decimation: '8'
   states:
@@ -224,6 +239,7 @@ blocks:
 - name: volume_control
   id: blocks_multiply_const_vxx
   parameters:
+    comment: 'Simple scalar multiply on the float audio stream.'
     type: float
     const: volume
     vlen: '1'
@@ -235,6 +251,7 @@ blocks:
 - name: audio_sink
   id: audio_sink
   parameters:
+    comment: 'ok_to_block=True lets the sound card provide back-pressure to the whole flowgraph.'
     samp_rate: audio_rate
     device_name: '""'
     num_inputs: '1'

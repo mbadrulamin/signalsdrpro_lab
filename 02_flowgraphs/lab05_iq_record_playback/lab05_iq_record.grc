@@ -1,0 +1,259 @@
+options:
+  parameters:
+    id: lab05_iq_record
+    title: 'Lab 05a - IQ Recorder (SignalSDR Pro as B210)'
+    author: 'SignalSDR Pro Lab'
+    description: 'Capture raw complex baseband to disk for offline, repeatable DSP work'
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1400, 900)
+    sizing_mode: fixed
+  states:
+    coordinate: [10, 10]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: note_howto
+  id: note
+  parameters:
+    comment: 'Read this before pressing Execute'
+    note: 'Set freq + gain, arm with the Record switch, stop with Ctrl+C. File size = samp_rate * 8 bytes/s.'
+  states:
+    coordinate: [10, 100]
+    rotation: 0
+    state: enabled
+
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: '2 MSPS complex = 16 MB/s on disk. Must match the playback flowgraph exactly.'
+    value: '2000000'
+  states:
+    coordinate: [200, 10]
+    rotation: 0
+    state: enabled
+
+- name: rec_file
+  id: variable
+  parameters:
+    comment: 'Encode the parameters into the FILENAME - a raw IQ file carries no metadata of its own.'
+    value: '"/tmp/capture_100M0_2Msps_fc32.iq"'
+  states:
+    coordinate: [380, 10]
+    rotation: 0
+    state: enabled
+
+- name: freq
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Centre frequency. Whatever you set here MUST be written down - the file does not remember it.'
+    label: 'Centre Frequency (Hz)'
+    rangeType: float
+    start: '87.5e6'
+    stop: '108e6'
+    step: '100e3'
+    value: '100.0e6'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [200, 110]
+    rotation: 0
+    state: enabled
+
+- name: gain
+  id: variable_qtgui_range
+  parameters:
+    comment: 'Set this BEFORE recording. Gain cannot be changed after the fact - it is baked into the samples.'
+    label: 'RF Gain (dB)'
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '40'
+    widget: counter_slider
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+  states:
+    coordinate: [500, 110]
+    rotation: 0
+    state: enabled
+
+- name: recording
+  id: variable_qtgui_chooser
+  parameters:
+    comment: 'Arm / disarm the file writer without stopping the flowgraph.'
+    label: 'Record'
+    type: int
+    num_opts: '2'
+    option0: '0'
+    label0: 'OFF (monitor only)'
+    option1: '1'
+    label1: 'ON (writing to disk)'
+    value: '0'
+    widget: radio_buttons
+    orient: Qt.QHBoxLayout
+  states:
+    coordinate: [800, 110]
+    rotation: 0
+    state: enabled
+
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    comment: 'The only hardware block. Everything downstream is pure software.'
+    type: fc32
+    dev_addr: '""'
+    dev_args: '"num_recv_frames=512"'
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '"TX/RX"'
+    bw0: samp_rate
+    center_freq0: freq
+    gain0: gain
+    gain_type0: default
+  states:
+    coordinate: [60, 300]
+    rotation: 0
+    state: enabled
+
+- name: record_gate
+  id: blocks_copy
+  parameters:
+    comment: 'Copy with enabled=False drops every sample, so the File Sink writes nothing until you arm it.'
+    type: complex
+    enabled: 'bool(recording)'
+    vlen: '1'
+  states:
+    coordinate: [420, 300]
+    rotation: 0
+    state: enabled
+
+- name: file_sink
+  id: blocks_file_sink
+  parameters:
+    comment: 'Raw interleaved float32 I,Q - the same layout every SDR tool expects (GQRX, inspectrum, NumPy).'
+    file: rec_file
+    type: complex
+    vlen: '1'
+    unbuffered: 'False'
+    append: 'False'
+  states:
+    coordinate: [660, 300]
+    rotation: 0
+    state: enabled
+
+- name: freq_sink
+  id: qtgui_freq_sink_x
+  parameters:
+    comment: 'Check the signal is present and NOT clipping before you commit gigabytes to disk.'
+    type: complex
+    name: '"Live Spectrum - check before recording"'
+    nconnections: '1'
+    fftsize: '4096'
+    fc: freq
+    bw: samp_rate
+    ymin: '-140'
+    ymax: '10'
+    update_time: '0.10'
+    average: '0.2'
+    grid: 'True'
+    gui_hint: 0,0,1,2
+  states:
+    coordinate: [420, 460]
+    rotation: 0
+    state: enabled
+
+- name: waterfall_sink
+  id: qtgui_waterfall_sink_x
+  parameters:
+    comment: 'Time-vs-frequency view. Useful for spotting bursty signals you would miss on the FFT alone.'
+    type: complex
+    name: '"Waterfall"'
+    nconnections: '1'
+    fftsize: '4096'
+    fc: freq
+    bw: samp_rate
+    update_time: '0.10'
+    gui_hint: 1,0,1,2
+  states:
+    coordinate: [420, 620]
+    rotation: 0
+    state: enabled
+
+- name: mag_squared
+  id: blocks_complex_to_mag_squared
+  parameters:
+    comment: 'Instantaneous power |x|^2 of every sample.'
+    vlen: '1'
+  states:
+    coordinate: [180, 760]
+    rotation: 0
+    state: enabled
+
+- name: power_average
+  id: blocks_moving_average_xx
+  parameters:
+    comment: 'Average 100k samples (50 ms at 2 MSPS) to get a steady reading.'
+    type: float
+    length: '100000'
+    scale: '1.0/100000'
+    max_iter: '100000'
+    vlen: '1'
+  states:
+    coordinate: [380, 760]
+    rotation: 0
+    state: enabled
+
+- name: power_db
+  id: blocks_nlog10_ff
+  parameters:
+    comment: '10*log10(2*P) converts mean power to dBFS. 0 dBFS = full scale sine. Keep this below -6.'
+    n: '10'
+    k: '3.0103'
+    vlen: '1'
+  states:
+    coordinate: [600, 760]
+    rotation: 0
+    state: enabled
+
+- name: power_sink
+  id: qtgui_number_sink
+  parameters:
+    comment: 'Aim for -30 to -10 dBFS. Above -3 you are clipping; below -50 you are wasting ADC bits.'
+    name: '"Wideband Level"'
+    type: float
+    autoscale: 'False'
+    avg: '0'
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    nconnections: '1'
+    min: '-90'
+    max: '0'
+    update_time: '0.10'
+    label1: '"dBFS"'
+    unit1: '"dB"'
+    factor1: '1'
+    gui_hint: 2,0,1,2
+  states:
+    coordinate: [820, 760]
+    rotation: 0
+    state: enabled
+
+connections:
+- [usrp_source, '0', record_gate, '0']
+- [record_gate, '0', file_sink, '0']
+- [usrp_source, '0', freq_sink, '0']
+- [usrp_source, '0', waterfall_sink, '0']
+- [usrp_source, '0', mag_squared, '0']
+- [mag_squared, '0', power_average, '0']
+- [power_average, '0', power_db, '0']
+- [power_db, '0', power_sink, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

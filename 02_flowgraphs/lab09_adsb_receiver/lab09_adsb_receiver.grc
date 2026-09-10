@@ -1,0 +1,515 @@
+options:
+  parameters:
+    id: lab09_adsb_receiver
+    title: Lab 09 - ADS-B Aircraft Receiver (1090 MHz Mode S)
+    author: SignalSDR Pro Lab
+    description: Decode aircraft identity, altitude, position and velocity from 1090 MHz extended squitter
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    window_size: (1400, 900)
+    sizing_mode: fixed
+  states:
+    coordinate:
+    - 10
+    - 10
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_adsb
+  id: note
+  parameters:
+    note: 'ADS-B: 1090 MHz, PPM, 1 Mbit/s, 112-bit frames, CRC-24. Aircraft broadcast position twice a
+      second.'
+    comment: What we are receiving.
+  states:
+    coordinate:
+    - 10
+    - 100
+    rotation: 0
+    state: enabled
+- name: note_rate
+  id: note
+  parameters:
+    note: 'samp_rate MUST be 2 MSPS: exactly 2 samples per 1 us bit = 1 sample per PPM half-bit.'
+    comment: The one rate in this repo that is NOT negotiable.
+  states:
+    coordinate:
+    - 10
+    - 160
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: '2000000'
+    comment: 2 samples per microsecond. The decoder block hard-codes this geometry.
+  states:
+    coordinate:
+    - 300
+    - 10
+    rotation: 0
+    state: enabled
+- name: threshold
+  id: variable_qtgui_range
+  parameters:
+    label: '''Preamble threshold'''
+    rangeType: float
+    start: '0.01'
+    stop: '1.0'
+    step: '0.01'
+    value: '0.25'
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: 'Too low: thousands of noise triggers (the CRC rejects them, but you burn CPU). Too high:
+      you miss aircraft.'
+  states:
+    coordinate:
+    - 300
+    - 100
+    rotation: 0
+    state: enabled
+- name: pulse_ratio
+  id: variable_qtgui_range
+  parameters:
+    label: '''Pulse/gap ratio'''
+    rangeType: float
+    start: '1.5'
+    stop: '10.0'
+    step: '0.1'
+    value: '3.0'
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: A real preamble has its four pulses well above the gaps between them.
+  states:
+    coordinate:
+    - 700
+    - 100
+    rotation: 0
+    state: enabled
+- name: freq
+  id: variable
+  parameters:
+    value: 1090e6
+    comment: 1090 MHz worldwide. 978 MHz (UAT) is a US-only general-aviation alternative.
+  states:
+    coordinate:
+    - 1100
+    - 10
+    rotation: 0
+    state: enabled
+- name: rf_gain
+  id: variable_qtgui_range
+  parameters:
+    label: '''RF Gain (dB)'''
+    rangeType: float
+    start: '0'
+    stop: '76'
+    step: '1'
+    value: '60'
+    widget: counter_slider
+    min_len: '350'
+    orient: QtCore.Qt.Horizontal
+    comment: Much higher than the FM labs. A 1 W transmitter 100 km away at 1090 MHz is a genuinely weak
+      signal.
+  states:
+    coordinate:
+    - 1100
+    - 100
+    rotation: 0
+    state: enabled
+- name: usrp_source
+  id: uhd_usrp_source
+  parameters:
+    type: fc32
+    dev_addr: ''''''
+    dev_args: ''''''
+    nchan: '1'
+    num_mboards: '1'
+    samp_rate: samp_rate
+    sync: none
+    ant0: '''TX/RX'''
+    bw0: samp_rate
+    center_freq0: freq
+    gain0: rf_gain
+    gain_type0: default
+    comment: You need an antenna cut for 1090 MHz. A 69 mm quarter-wave whip works; an FM whip will not.
+  states:
+    coordinate:
+    - 60
+    - 400
+    rotation: 0
+    state: enabled
+- name: to_mag
+  id: blocks_complex_to_mag
+  parameters:
+    vlen: '1'
+    comment: ADS-B is on-off keyed, so ALL the information is in |I+jQ|. No carrier recovery, no PLL,
+      no phase tracking.
+  states:
+    coordinate:
+    - 500
+    - 400
+    rotation: 0
+    state: enabled
+- name: adsb_decoder
+  id: epy_block
+  parameters:
+    _source_code: |
+      import time
+      import numpy as np
+      from gnuradio import gr
+
+      import math
+
+      GEN = 0x1FFF409          # x^24+x^23+...+x^10+x^3+1  (25 bits, degree 24)
+      CHARSET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ##### ###############0123456789######"
+
+
+      def crc24(bits):
+          """Remainder of the whole message (parity included) modulo GEN.
+          Zero means the frame is intact -- and for DF17 the parity is plain CRC."""
+          reg = 0
+          for b in bits:
+              reg = ((reg << 1) | b) & 0x1FFFFFF
+              if reg & 0x1000000:
+                  reg ^= GEN
+          # flush is unnecessary: the parity bits are already part of `bits`
+          return reg & 0xFFFFFF
+
+
+      def bits_from_hex(h):
+          n = len(h) * 4
+          v = int(h, 16)
+          return [(v >> i) & 1 for i in range(n - 1, -1, -1)]
+
+
+      def getbits(bits, start, length):
+          v = 0
+          for b in bits[start:start + length]:
+              v = (v << 1) | b
+          return v
+
+
+      def nl(lat):
+          """CPR longitude-zone count for a latitude."""
+          if abs(lat) >= 87.0:
+              return 1
+          if lat == 0:
+              return 59
+          try:
+              return int(math.floor(2 * math.pi / math.acos(
+                  1 - (1 - math.cos(math.pi / 30.0)) / math.cos(math.radians(abs(lat))) ** 2)))
+          except ValueError:
+              return 1
+
+
+      def cpr_global(even, odd, even_first=True):
+          """even/odd = (lat_cpr, lon_cpr) as 17-bit integers."""
+          lat_e, lon_e = even[0] / 131072.0, even[1] / 131072.0
+          lat_o, lon_o = odd[0] / 131072.0, odd[1] / 131072.0
+          j = math.floor(59 * lat_e - 60 * lat_o + 0.5)
+          rlat_e = (360.0 / 60) * ((j % 60) + lat_e)
+          rlat_o = (360.0 / 59) * ((j % 59) + lat_o)
+          if rlat_e >= 270:
+              rlat_e -= 360
+          if rlat_o >= 270:
+              rlat_o -= 360
+          if nl(rlat_e) != nl(rlat_o):
+              return None
+          if even_first:
+              n = max(nl(rlat_e), 1)
+              m = math.floor(lon_e * (nl(rlat_e) - 1) - lon_o * nl(rlat_e) + 0.5)
+              lon = (360.0 / n) * ((m % n) + lon_e)
+              lat = rlat_e
+          else:
+              n = max(nl(rlat_o) - 1, 1)
+              m = math.floor(lon_e * (nl(rlat_o) - 1) - lon_o * nl(rlat_o) + 0.5)
+              lon = (360.0 / n) * ((m % n) + lon_o)
+              lat = rlat_o
+          if lon >= 180:
+              lon -= 360
+          return lat, lon
+
+
+      def altitude(ac12):
+          """12-bit AC field -> feet, or None."""
+          if ac12 == 0:
+              return None
+          q = (ac12 >> 4) & 1
+          if q:
+              n = ((ac12 >> 5) << 4) | (ac12 & 0xF)
+              return n * 25 - 1000
+          return None                      # Gillham-coded, rarely seen in ADS-B
+
+
+      def callsign(me_bits):
+          """me_bits: the 56-bit ME field as a bit list. TC 1-4."""
+          s = ''.join(CHARSET[getbits(me_bits, 8 + 6 * i, 6)] for i in range(8))
+          return s.replace('#', '').strip()
+
+
+      def decode_frame(bits):
+          """bits: 112-bit list. Returns a dict, or None if the CRC fails."""
+          if len(bits) != 112 or crc24(bits) != 0:
+              return None
+          df = getbits(bits, 0, 5)
+          if df not in (17, 18):
+              return {'df': df, 'icao': getbits(bits, 8, 24)}
+          icao = getbits(bits, 8, 24)
+          me = bits[32:88]
+          tc = getbits(me, 0, 5)
+          out = {'df': df, 'icao': icao, 'tc': tc}
+          if 1 <= tc <= 4:
+              out['type'] = 'identification'
+              out['callsign'] = callsign(me)
+          elif 9 <= tc <= 18:
+              out['type'] = 'airborne_position'
+              out['altitude_ft'] = altitude(getbits(me, 8, 12))
+              out['odd'] = getbits(me, 21, 1)
+              out['lat_cpr'] = getbits(me, 22, 17)
+              out['lon_cpr'] = getbits(me, 39, 17)
+          elif tc == 19:
+              out['type'] = 'velocity'
+              st = getbits(me, 5, 3)
+              if st in (1, 2):
+                  ew_sign = getbits(me, 13, 1)
+                  ew = getbits(me, 14, 10) - 1
+                  ns_sign = getbits(me, 24, 1)
+                  ns = getbits(me, 25, 10) - 1
+                  mult = 4 if st == 2 else 1
+                  vx = (-ew if ew_sign else ew) * mult
+                  vy = (-ns if ns_sign else ns) * mult
+                  out['speed_kt'] = round(math.hypot(vx, vy))
+                  out['heading_deg'] = round((math.degrees(math.atan2(vx, vy)) + 360) % 360)
+                  vr_sign = getbits(me, 36, 1)
+                  vr = (getbits(me, 37, 9) - 1) * 64
+                  out['vert_rate_fpm'] = -vr if vr_sign else vr
+          else:
+              out['type'] = f'tc{tc}'
+          return out
+
+
+      # --------------------------------------------------------------------------
+      PREAMBLE_HIGH = [0, 2, 7, 9]                       # pulses at 0, 1.0, 3.5, 4.5 us
+      PREAMBLE_LOW = [1, 3, 4, 5, 6, 8, 10, 11, 12, 13, 14, 15]
+      PREAMBLE_LEN = 16                                  # 8 us at 2 samples/us
+      FRAME_BITS = 112
+      FRAME_LEN = PREAMBLE_LEN + 2 * FRAME_BITS          # 240 samples = 120 us
+
+
+      class blk(gr.sync_block):
+          """ADS-B Decoder (Mode S, DF17 extended squitter).
+
+          Input : signal MAGNITUDE at 2 MSPS (exactly 2 samples per 1 us bit,
+                  so one sample per PPM half-bit).
+          Output: cumulative count of CRC-valid frames.
+
+          Stages:
+            1. preamble correlation   four pulses at 0, 1.0, 3.5, 4.5 us; the
+                                      spacing is deliberately non-uniform so a
+                                      shifted copy correlates poorly with itself
+            2. PPM slicing            bit = 1 if the first half-bit is louder
+            3. CRC-24 (0xFFF409)      remainder must be 0; this is what separates
+                                      real frames from noise-triggered preambles
+            4. payload decode         identification / position / velocity, plus
+                                      globally unambiguous CPR position from an
+                                      even+odd frame pair
+          """
+
+          def __init__(self, threshold=0.25, ratio=3.0, verbose=True):
+              gr.sync_block.__init__(self, name="ADS-B Decoder",
+                                     in_sig=[np.float32], out_sig=[np.float32])
+              self.threshold = float(threshold)
+              self.ratio = float(ratio)
+              self.verbose = bool(verbose)
+              self.buf = np.zeros(0, dtype=np.float64)
+              self.frames = 0
+              self.candidates = 0
+              self.aircraft = {}
+
+          # ------------------------------------------------------------------ --
+          def work(self, input_items, output_items):
+              n = len(input_items[0])
+              self.buf = np.concatenate([self.buf, input_items[0].astype(np.float64)])
+              usable = len(self.buf) - FRAME_LEN
+              if usable > 0:
+                  self._scan(usable)
+                  self.buf = self.buf[usable:]
+              output_items[0][:] = np.float32(self.frames)
+              return n
+
+          def _scan(self, usable):
+              m = self.buf
+              hi = sum(m[i:i + usable] for i in PREAMBLE_HIGH) / len(PREAMBLE_HIGH)
+              lo = sum(m[i:i + usable] for i in PREAMBLE_LOW) / len(PREAMBLE_LOW)
+              cand = np.flatnonzero(((hi - lo) > self.threshold) & (hi > self.ratio * lo))
+              self.candidates += len(cand)
+              skip_until = -1
+              for p in cand:
+                  if p < skip_until:
+                      continue
+                  d = m[p + PREAMBLE_LEN: p + FRAME_LEN]
+                  bits = (d[0::2] > d[1::2]).astype(np.uint8).tolist()
+                  if crc24(bits) != 0:
+                      continue
+                  info = decode_frame(bits)
+                  if info is None:
+                      continue
+                  self.frames += 1
+                  skip_until = p + FRAME_LEN
+                  self._track(info)
+
+          # ------------------------------------------------------------------ --
+          def _track(self, info):
+              icao = info.get('icao')
+              if icao is None:
+                  return
+              ac = self.aircraft.setdefault(icao, {'callsign': None, 'alt': None,
+                                                   'lat': None, 'lon': None,
+                                                   'speed': None, 'heading': None,
+                                                   'even': None, 'odd': None,
+                                                   'even_t': 0.0, 'odd_t': 0.0,
+                                                   'count': 0})
+              ac['count'] += 1
+              t = info.get('type')
+              if t == 'identification':
+                  ac['callsign'] = info['callsign']
+              elif t == 'airborne_position':
+                  if info['altitude_ft'] is not None:
+                      ac['alt'] = info['altitude_ft']
+                  key = 'odd' if info['odd'] else 'even'
+                  ac[key] = (info['lat_cpr'], info['lon_cpr'])
+                  ac[key + '_t'] = time.time()
+                  if ac['even'] and ac['odd']:
+                      pos = cpr_global(ac['even'], ac['odd'],
+                                       even_first=ac['even_t'] >= ac['odd_t'])
+                      if pos:
+                          ac['lat'], ac['lon'] = pos
+              elif t == 'velocity':
+                  ac['speed'] = info.get('speed_kt')
+                  ac['heading'] = info.get('heading_deg')
+              if self.verbose:
+                  self._print(icao, ac)
+
+          def _print(self, icao, ac):
+              parts = [f"ICAO {icao:06X}"]
+              if ac['callsign']:
+                  parts.append(f"{ac['callsign']:<8}")
+              if ac['alt'] is not None:
+                  parts.append(f"{ac['alt']:>6} ft")
+              if ac['lat'] is not None:
+                  parts.append(f"{ac['lat']:9.4f},{ac['lon']:9.4f}")
+              if ac['speed'] is not None:
+                  parts.append(f"{ac['speed']:>3} kt {ac['heading']:>3}deg")
+              parts.append(f"msgs={ac['count']}")
+              print("[ADS-B] " + "  ".join(parts), flush=True)
+    threshold: threshold
+    ratio: pulse_ratio
+    verbose: 'True'
+    comment: Preamble correlation, PPM slicing, CRC-24, payload decode. Prints one line per aircraft update.
+  states:
+    coordinate:
+    - 760
+    - 400
+    rotation: 0
+    state: enabled
+- name: frame_sink
+  id: qtgui_number_sink
+  parameters:
+    name: '''CRC-valid frames'''
+    type: float
+    autoscale: 'True'
+    avg: '0'
+    graph_type: qtgui.NUM_GRAPH_NONE
+    nconnections: '1'
+    min: '0'
+    max: '10000'
+    update_time: '0.25'
+    label1: '''frames'''
+    unit1: ''''''
+    factor1: '1'
+    gui_hint: 2,0,1,2
+    comment: A decent antenna near an airport gives hundreds per minute. Zero means gain, antenna, or
+      threshold.
+  states:
+    coordinate:
+    - 1040
+    - 400
+    rotation: 0
+    state: enabled
+- name: pulse_sink
+  id: qtgui_time_sink_x
+  parameters:
+    type: float
+    name: '''Signal magnitude - look for 120 us bursts'''
+    ylabel: Magnitude
+    size: '512'
+    srate: samp_rate
+    nconnections: '1'
+    ymin: '0'
+    ymax: '1.0'
+    grid: 'True'
+    autoscale: 'True'
+    update_time: '0.05'
+    tr_mode: qtgui.TRIG_MODE_NORM
+    tr_slope: qtgui.TRIG_SLOPE_POS
+    tr_level: '0.2'
+    tr_chan: '0'
+    gui_hint: 1,0,1,2
+    comment: 512 samples = 256 us, so a whole 120 us frame fits. Set to NORM trigger so bursts hold still.
+  states:
+    coordinate:
+    - 760
+    - 600
+    rotation: 0
+    state: enabled
+- name: spectrum
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '''1090 MHz spectrum'''
+    nconnections: '1'
+    fftsize: '2048'
+    fc: 1090e6
+    bw: samp_rate
+    ymin: '-120'
+    ymax: '0'
+    update_time: '0.10'
+    average: '0.1'
+    grid: 'True'
+    gui_hint: 0,0,1,2
+    comment: ADS-B bursts appear as brief wideband flashes, not a steady carrier.
+  states:
+    coordinate:
+    - 500
+    - 600
+    rotation: 0
+    state: enabled
+connections:
+- - usrp_source
+  - '0'
+  - spectrum
+  - '0'
+- - usrp_source
+  - '0'
+  - to_mag
+  - '0'
+- - to_mag
+  - '0'
+  - adsb_decoder
+  - '0'
+- - adsb_decoder
+  - '0'
+  - frame_sink
+  - '0'
+- - to_mag
+  - '0'
+  - pulse_sink
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2
