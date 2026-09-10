@@ -71,6 +71,17 @@ the hardware **beside** the signal and use the xlating filter to come back. That
 defaults to 100.1 MHz and `offset_freq` to −200 kHz, putting the actual reception at 99.9 MHz
 with the DC spike safely 200 kHz away.
 
+> **This is worth 8.8 dB, measured.** Running this exact flowgraph on a live SignalSDR Pro
+> against BFM 89.9 MHz:
+>
+> | Configuration | Audio SNR |
+> |---|---|
+> | hardware at 90.1 MHz, `offset_freq` = −200 kHz | **75.7 dB** |
+> | hardware at 89.9 MHz, `offset_freq` = 0 | **66.9 dB** |
+>
+> Same station, same gain, same antenna, same 6-second window. The only difference is where the
+> LO sits relative to the signal.
+
 ---
 
 ## 📐 Architecture
@@ -363,6 +374,12 @@ You set `gate = True` on the squelch. Set it back to `False`.
 ### "Switching modes produces a loud pop"
 Normal — the three demodulators have different DC levels. A high-pass at 50 Hz after the
 Selector removes it. (Worth adding as an exercise.)
+
+### "`IndexError: input_index must be < ninputs` when I call `set_mode()`"
+You called it **before** `tb.start()`. A Selector's input count is not resolved until the
+flowgraph is flattened, which happens at start. This never bites you in the GUI — you change
+modes while it is running — but it will if you drive the flowgraph from a script. Start first,
+then set the mode.
 
 ### "The Selector will not connect / GRC complains about types"
 All three demodulator outputs must be `float` at the same rate. If you change `audio_rate` you

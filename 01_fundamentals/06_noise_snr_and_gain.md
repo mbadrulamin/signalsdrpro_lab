@@ -229,9 +229,44 @@ internally it drives several stages. What matters is the trade-off it controls:
 4. Back off 5 dB. That is your operating point. For FM broadcast on a decent antenna this is
    typically **30–45 dB**.
 
+### Set the analog bandwidth, or none of this works
+
+Before you tune gain at all, tell the front end how much bandwidth you actually want. In GNU
+Radio that is the USRP Source's **`bw0`** parameter (`set_bandwidth()` in the generated Python).
+
+If you leave it unset, the AD9361's baseband filter opens all the way — **56 MHz** on a B210 —
+and you receive 28 times more noise and out-of-band energy than you asked for. Worse, the chip's
+DC-offset and quadrature calibration is tied to that filter setting, so a wide-open filter also
+leaves a large residual **LO leakage spike at 0 Hz**.
+
+Measured on a SignalSDR Pro at 89.9 MHz, 2 MSPS, gain 55 dB (repeated twice):
+
+| `set_bandwidth` | Analog BW | $\lvert DC\rvert / \text{rms}$ | Wanted-signal rms |
+|---|---|---|---|
+| not called | 56.000 MHz | **0.843** | 0.0160 |
+| called with `samp_rate` | 2.000 MHz | **0.162** | 0.0149 |
+
+The wanted signal is essentially unchanged. **All** the extra energy is DC and junk — and it is
+84 % of everything the ADC sees.
+
+Why that is catastrophic downstream: an AGC placed after the channel filter normalises *total*
+amplitude. If 84 % of that total is a static DC vector, the AGC scales the wanted signal down
+by roughly $\sqrt{1 - 0.84^2} = 0.54$, and the FM demodulator then measures a small phase
+excursion riding on a large constant vector — which compresses and distorts it.
+
+In this repo, adding one line to the Lab 01 and Lab 03 flowgraphs changed their measured audio
+SNR on a real station from 34.6 dB to **53.2 dB** and from 19.4 dB to **62.6 dB** respectively.
+
+> **Rule: always set the analog bandwidth to your sample rate.** It costs nothing, it is one
+> parameter, and leaving it out can cost you 40 dB.
+
 ### Symptoms of too much gain
 
 - The waterfall shows evenly-spaced "ghost" carriers that move when you change gain → **IMD**.
+- The noise floor rises **1 dB for every 1 dB of gain** → you are already front-end-noise-limited
+  and further gain buys nothing. (Measured on a B210 at 1090 MHz: 70 → 76 dB of gain raised the
+  noise floor by exactly 6.0 dB. At that point the limiting factor was the antenna, not the
+  receiver.)
 - A strong local station appears at several frequencies at once → front-end compression.
 - Audio distorts on strong stations but is fine on weak ones → clipping.
 - `uhd` prints `O` (overflow) — that is a *USB* problem, not gain; lower the sample rate.

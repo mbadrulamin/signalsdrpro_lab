@@ -76,7 +76,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
-    comment: 'The only hardware block. fc32 = complex float32 IQ, the format every later lab assumes.'
+    comment: 'The only hardware block. fc32 = complex float32 IQ, the format every later lab assumes. Also sets the AD9361 analog filter to samp_rate: without that it defaults to 56 MHz and LO/DC leakage dominates (measured 0.84 of total power vs 0.16).'
     type: fc32
     dev_addr: '""'
     dev_args: '""'
@@ -85,7 +85,7 @@ blocks:
     samp_rate: samp_rate
     sync: none
     ant0: '"TX/RX"'
-    bw0: '0'
+    bw0: samp_rate
     center_freq0: freq
     gain0: gain
     gain_type0: default

@@ -397,6 +397,8 @@ decoded from first principles by code you understand end to end, is the pay-off 
 
 ## 🔬 Verification
 
+### In simulation — the decoder is correct
+
 The generated flowgraph was executed headlessly against a synthetic capture containing 80
 frames built from four canonical Mode S messages at 20 dB SNR:
 
@@ -409,8 +411,6 @@ $ QT_QPA_PLATFORM=offscreen python3 lab09_adsb_from_file.py
 CRC-valid frames: 80 / 80        preamble candidates: 147
 ```
 
-The four source frames and their expected decodes are the standard reference vectors:
-
 | Hex frame | Expected | Decoded |
 |---|---|---|
 | `8D40621D58C382D690C8AC2863A7` | pos even, 38000 ft | ✅ |
@@ -418,10 +418,37 @@ The four source frames and their expected decodes are the standard reference vec
 | `8D4840D6202CC371C32CE0576098` | callsign KLM1023 | ✅ |
 | `8D485020994409940838175B284F` | 159 kt, 183°, −832 ft/min | ✅ |
 
-CPR global decoding of the even/odd pair gives **52.2572 °N, 3.9194 °E**, matching the
-published value to the full precision of the encoding.
+CPR global decoding of the even/odd pair gives **52.2572 °N, 3.9194 °E**, matching the published
+value to the full precision of the encoding.
 
 `03_scripts/simulate_adsb_decode.py --selftest` re-runs these vectors and the CRC directly.
+
+### On the air — no aircraft, and the reason is measurable
+
+Run against a live SignalSDR Pro at 1090 MHz, **zero frames were received**, on either antenna
+port, at any gain:
+
+| Antenna port | Gain | Median magnitude | Peak | CRC-valid frames |
+|---|---|---|---|---|
+| TX/RX | 70 dB | 0.0674 | 0.316 | **0** |
+| TX/RX | 76 dB | 0.1279 | 0.604 | **0** |
+| RX2 | 70 dB | 0.0669 | 0.325 | **0** |
+| RX2 | 76 dB | 0.1205 | 0.564 | **0** |
+
+**Note what the numbers say.** Raising the gain 70 → 76 dB raised the noise floor from 0.0674 to
+0.1279 — a factor of 1.90, or **6.0 dB for 6 dB of gain**. That 1:1 tracking is the definition
+of front-end-noise-limited operation from
+[Fundamentals 06](../../01_fundamentals/06_noise_snr_and_gain.md): the receiver is already
+hearing its own noise, and **more gain cannot possibly help**. The problem is upstream of the
+gain stage.
+
+The antenna in use was an FM-band whip — roughly ten wavelengths long at 1090 MHz, with a
+radiation pattern shredded into many narrow lobes and a badly mismatched feedpoint. That is the
+**first item** in the troubleshooting list below, and this is what it looks like when it
+happens.
+
+So: the decoder is verified, the reception is not. If you build the 69 mm quarter-wave and
+point this at a busy sky, please report what you get.
 
 ---
 
@@ -430,7 +457,13 @@ published value to the full precision of the encoding.
 ### "Zero frames, ever"
 In order of likelihood:
 1. **Wrong antenna.** An FM whip at 1090 MHz is not an antenna, it is a resistor. Build the
-   69 mm quarter-wave.
+   69 mm quarter-wave. *(This is what happened in the verification run above — 0 frames on
+   every port at every gain.)*
+
+   **How to tell it is the antenna and not the gain:** raise the gain by 6 dB and watch the
+   noise floor. If it also rises by 6 dB, you are front-end-noise-limited and more gain is
+   useless — the signal is not arriving. If the noise floor barely moves, you were gain-starved
+   and should keep going.
 2. **Antenna indoors.** Walls cost ~10 dB. Go outside or to a window with sky visibility.
 3. **Gain too low.** Try 60–70 dB. Unlike the FM labs, you are noise-limited, not signal-limited.
 4. **No aircraft.** Check [FlightRadar24](https://www.flightradar24.com/) for traffic overhead

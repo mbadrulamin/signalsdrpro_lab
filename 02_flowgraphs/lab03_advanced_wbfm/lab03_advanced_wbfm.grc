@@ -115,13 +115,14 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
-    comment: 'Live IQ from the SignalSDR Pro emulating a USRP B210.'
+    comment: 'Live IQ from the SignalSDR Pro emulating a USRP B210. Also sets the AD9361 analog filter to samp_rate: without that it defaults to 56 MHz and LO/DC leakage dominates (measured 0.84 of total power vs 0.16).'
     type: fc32
     nchan: '1'
     num_mboards: '1'
     samp_rate: samp_rate
     sync: none
     ant0: '"TX/RX"'
+    bw0: samp_rate
     center_freq0: freq
     gain0: rf_gain
     gain_type0: default

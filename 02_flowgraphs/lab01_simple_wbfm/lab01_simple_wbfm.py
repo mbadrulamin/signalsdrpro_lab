@@ -95,6 +95,7 @@ class lab01_simple_wbfm(gr.top_block, Qt.QWidget):
 
         self.usrp_source.set_center_freq(freq, 0)
         self.usrp_source.set_antenna("TX/RX", 0)
+        self.usrp_source.set_bandwidth(samp_rate, 0)
         self.usrp_source.set_gain(gain, 0)
         self.audio_sink = audio.sink(50000, "", True)
 
@@ -120,6 +121,7 @@ class lab01_simple_wbfm(gr.top_block, Qt.QWidget):
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
         self.usrp_source.set_samp_rate(self.samp_rate)
+        self.usrp_source.set_bandwidth(self.samp_rate, 0)
 
     def get_gain(self):
         return self.gain

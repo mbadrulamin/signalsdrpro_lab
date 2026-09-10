@@ -215,39 +215,106 @@ Claims in this repository are checked, and the checks are in the repo so you can
 | **Compile** | `grcc` generates Python, and that Python compiles | `validate_flowgraph.py <dir> --compile` |
 | **Numerical** | The DSP produces the mathematically correct answer | the `simulate_*.py` scripts |
 | **Execution** | The generated flowgraph actually runs and produces the right output | headless runs against synthetic captures |
+| **Hardware** | The shipped flowgraph works on a real radio, on real signals | headless runs against a live SignalSDR Pro |
 
-All 12 flowgraphs pass structural + deep + compile.
+All 12 flowgraphs pass structural + deep + compile. Labs 01, 03, 04, 05, 06 and 08 have
+additionally been run against live RF.
 
-### Results that were measured, not asserted
+### Results measured on real hardware
 
-- **Lab 07** — the generated flowgraph was executed headlessly at Eb/N0 = 8 dB and converged to
-  a BER of **3.9 × 10⁻⁴**; differentially-encoded BPSK theory predicts **3.82 × 10⁻⁴**.
-- **Lab 08** — the generated flowgraph was executed against a synthetic FM+RDS capture and
-  recovered the correct PI code, PS name, PTY and RadioText, decoding **90 CRC-valid groups**
-  from 8 seconds against a theoretical maximum of ~91.
-- **Lab 09** — the generated flowgraph was executed against a synthetic 1090 MHz capture and
-  recovered **80 of 80** frames, with ICAO address, callsign, altitude, velocity and CPR
-  position all matching the published Mode S reference vectors.
-- **Fundamentals 05** — the tap-count equation is the one `firdes` uses internally; the doc's
-  worked examples were checked against `firdes.low_pass()` directly.
-- **Fundamentals 08** — the Eb/N0-to-`noise_voltage` formula was calibrated empirically against
-  `analog.noise_source_c`, not assumed. (An earlier draft had a spurious factor of 2, which
-  would have shifted every BER curve by 3 dB.)
+Every lab below was run against a **live SignalSDR Pro (B210, serial 194431, internal GPSDO)**
+on a real FM broadcast — **BFM 89.9 MHz** — with the shipped flowgraphs, not reimplementations.
+Audio SNR is measured as the in-band (0.1–5 kHz) peak minus the out-of-band (0.40–0.48 × rate)
+mean of the demodulated output.
 
-### What is *not* verified
+| Lab | Measurement | Result |
+|---|---|---|
+| 01 | Audio SNR, 1 MSPS, tuned directly | **53.2 dB** |
+| 03 | Audio SNR, 2 MSPS, LPF + resampler + AGC + squelch | **62.6 dB** |
+| 04 | Pilot PLL lock frequency | **18999.79 Hz** (target 19000, 11 ppm) |
+| 04 | Recovered 38 kHz subcarrier purity | **47.8 dB** above its neighbourhood |
+| 04 | L/R correlation after the stereo matrix | **0.78** (genuine separation) |
+| 05 | Record 6 s → play back through the shipped playback flowgraph | **79.7 dB** audio SNR |
+| 06 | Audio SNR, offset-tuned (DC spike dodged) | **75.7 dB** |
+| 06 | Audio SNR, tuned directly onto the station | **66.9 dB** |
+| 08 | RDS groups decoded in 30 s | **287** = 9.6/s vs 11.4/s theoretical max (**84 %**) |
+| 08 | RDS control run on an empty channel | **0 groups from 11,766 alignment attempts** |
+| 09 | ADS-B frames at 1090 MHz | **0** — see below |
 
-> **Honest note from the author:** **no over-the-air RF testing has been done** — the
-> SignalSDR Pro was not connected to the authoring machine. Everything above is simulation,
-> static analysis and headless execution against synthetic signals.
->
-> That is a real limitation, and it is exactly why Labs 05, 08 and 09 ship file-based
-> flowgraphs and synthetic signal generators: when a lab does not work on your hardware, run
-> the offline version first. If the offline version works, the problem is RF — antenna, gain,
-> placement, or simply nothing on the air — and not the flowgraph. If it fails, you have a
-> deterministic, reproducible bug you can actually chase.
->
-> Please run these against real hardware and report what you find. That is the spirit of this
-> lab.
+### What the hardware taught us that simulation could not
+
+**1. A one-line bug in Labs 01–04, worth up to 43 dB.**
+The USRP Source blocks in Labs 01–04 never set the analog filter bandwidth. Without it, the
+AD9361 defaults to **56 MHz**, and LO/DC leakage swamps the wanted signal. Measured at 89.9 MHz,
+gain 55, repeated twice:
+
+| `set_bandwidth` | Analog BW | \|DC\|/rms | Wanted-signal rms |
+|---|---|---|---|
+| not called | 56.000 MHz | **0.843** | 0.0160 |
+| called with `samp_rate` | 2.000 MHz | **0.162** | 0.0149 |
+
+The wanted signal is unchanged; the extra energy is pure DC and out-of-band junk. Downstream,
+the AGC then normalises mostly DC, and the FM demodulator sees a tiny phase excursion riding on
+a large static vector. Adding `bw0: samp_rate`:
+
+| Lab | Before | After |
+|---|---|---|
+| 01 | 34.6 dB | **53.2 dB** (+18.6) |
+| 03 | 19.4 dB | **62.6 dB** (+43.2) |
+
+Labs 05–09 already set it. With the fix, the labs now improve monotonically —
+01 (53.2) → 03 (62.6) → 06 (75.7) — which is what the pedagogy claims and what simulation
+could never have shown.
+
+**2. The DC-spike penalty is 8.8 dB, measured.**
+Lab 06 tuned 200 kHz off and translated back in software scored **75.7 dB**; the same lab tuned
+directly onto the station scored **66.9 dB**. That is the justification for Lab 06's default
+`offset_freq = −200 kHz`, no longer a rule of thumb but a number.
+
+**3. Lab 08 decodes real RDS — and the station scrolls its PS.**
+BFM 89.9 transmits a *dynamic* Programme Service name, so the 8-character field never settles:
+
+```
+seg0 'BU'  seg1 'SI'  seg2 'NE'  seg3 'SS'   ->  "BUSINESS"
+seg0 'BF'  seg1 'M '  seg2 '89'  seg3 '.9'   ->  "BFM 89.9"
+seg0 'FI'  seg1 'NA'  seg2 'NC'  seg3 'E '   ->  "FINANCE "
+```
+
+287 CRC-valid groups in 30 s, PI constant at `0x6000` throughout. The control run on an empty
+channel produced **zero** groups from 11,766 alignment attempts, which is the CRC doing exactly
+its job. Of five stations surveyed, only 89.9 MHz carries decodable RDS here.
+
+A useful negative lesson came first: a crude spectral test on the 57 kHz band showed only
++1.9 dB and led to a premature "no RDS in this band" conclusion. **The decoder is far more
+sensitive than an eyeball on a spectrum**; trust the CRC, not the FFT.
+
+**4. Lab 09 receives nothing, for exactly the reason its troubleshooting says.**
+Zero ADS-B frames on either antenna port. Raising the gain from 70 to 76 dB raised the noise
+floor by 6.0 dB (0.0674 → 0.1279) — a 1:1 track, so the receiver is front-end-noise-limited and
+more gain cannot help. The antenna is an FM-band whip, roughly ten wavelengths long at
+1090 MHz. **This is the first item in Lab 09's troubleshooting list, confirmed.** Build the
+69 mm quarter-wave.
+
+### Known issue
+
+`set_mode()` on Lab 06 raises `IndexError: input_index must be < ninputs` if called **before**
+`start()`, because a Selector's input count is not resolved until the flowgraph is flattened.
+This does not affect normal GUI use — you change modes while it runs — but it will bite you if
+you drive the flowgraph programmatically. Start the flowgraph first, then set the mode.
+
+### Still not verified
+
+- **Lab 07** is pure simulation by design, so "over the air" does not apply. Its BER was checked
+  against theory by execution.
+- **Lab 09** has never decoded a real aircraft here — only synthetic frames. The decoder is
+  verified against the published Mode S reference vectors; the *reception* is not.
+- **Lab 06's AM and NBFM branches** were not exercised on real signals (no airband or marine
+  traffic reachable with this antenna). Only the WBFM branch was measured.
+- **Lab 08's RadioText path** was not exercised: the one RDS station here sends group type 0
+  only, never type 2.
+
+Corrections and additional results from other locations and antennas are welcome — that is the
+spirit of this lab.
 
 ---
 

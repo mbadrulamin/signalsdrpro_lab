@@ -31,10 +31,11 @@ This is the lab where all ten fundamentals meet. To read those eight characters 
 
 Nothing is left over. That is why this is the last analog-radio lab.
 
-> **This lab has been verified.** The flowgraph was run against a synthetic FM+RDS capture with
-> known contents and recovered `PI=0x4D01`, `PS='SDR LAB '`, `PTY=Pop Music` and the full
-> RadioText — 90 CRC-valid groups from 8 seconds of signal, against a theoretical maximum of
-> ~91. See [Verification](#-verification).
+> **This lab has been verified on the air.** Run against a live SignalSDR Pro receiving
+> **BFM 89.9 MHz**, the shipped flowgraph decoded **287 CRC-valid RDS groups in 30 seconds**
+> (9.6/s against a theoretical maximum of 11.4/s — an 84 % success rate) and recovered the
+> station's scrolling Programme Service name. A control run on an empty channel produced
+> **zero** groups from 11,766 alignment attempts. See [Verification](#-verification).
 
 ---
 
@@ -417,24 +418,78 @@ Then wait a minute. You have just synchronised a clock over the radio.
 
 ## 🔬 Verification
 
-The generated flowgraph was executed headlessly against a synthetic capture with known
-contents (PI `0x4D01`, PS `SDR LAB `, RadioText `SignalSDR Pro Lab RDS test`, 30 dB SNR,
-8 seconds):
+### On the air
+
+The shipped `lab08_rds_from_file.grc` was run on a live capture from a SignalSDR Pro
+(B210, internal GPSDO) tuned 200 kHz away from **BFM 89.9 MHz**, 2 MSPS, gain 62 dB:
+
+```
+valid groups: 287   failed alignments: 8040
+group types: {0: 287}
+PI codes   : {'0x6000': 287}
+
+  t(s)  grp  seg  chars
+  0.00    0    0  'BU'
+  0.00    0    1  'SI'
+  0.00    0    2  'NE'
+  0.00    0    3  'SS'          -> "BUSINESS"
+  0.16    0    0  'BF'
+  0.24    0    1  'M '
+  0.33    0    2  '89'
+  0.42    0    3  '.9'          -> "BFM 89.9"
+  1.65    0    1  'NA'
+  1.73    0    2  'NC'
+  1.82    0    3  'E '
+  1.91    0    0  'FI'          -> "FINANCE "
+```
+
+287 groups in 30 s is **9.6 groups/second against a theoretical maximum of 11.4** — an 84 %
+success rate on a real, unmodified broadcast. The PI code was `0x6000` on every single group.
+
+**The station scrolls its PS.** That is why the 8-character buffer never settles, and it is
+precisely the "dynamic PS" case in the troubleshooting section below. Watching the raw segment
+addresses cycle 0→1→2→3 with changing content is how you tell a scrolling name from a broken
+decoder.
+
+### The control that makes the above trustworthy
+
+The same flowgraph, same gain, on an **empty** FM channel (104.0 MHz):
+
+| Capture | Alignment attempts | CRC-valid groups |
+|---|---|---|
+| BFM 89.9 MHz | 9,164 | **25** (in a 10 s run) |
+| empty 104.0 MHz | 11,766 | **0** |
+
+Zero false positives from pure noise across nearly twelve thousand attempts. The CRC-plus-offset
+scheme from [Fundamentals 10](../../01_fundamentals/10_error_detection_and_framing.md) is doing
+exactly what it promises: `A, B, C/C′, D` in sequence is 40 bits of check, and noise does not
+pass it.
+
+> ⚠️ **A negative lesson worth keeping.** Before running the decoder, a crude spectral test on
+> the 57 kHz band was used to survey the FM band for RDS. It measured only **+1.9 dB** at
+> 57 kHz on this very station and produced a confident — and wrong — "no RDS in this band"
+> conclusion. RDS is transmitted at 2–4 % deviation; it barely dents an averaged FFT while
+> being perfectly decodable. **Trust the CRC, not the eyeball.** If you want to know whether a
+> station has RDS, run the decoder.
+
+Of five stations surveyed at this location, only 89.9 MHz yielded groups. The RadioText path is
+therefore **not** verified on the air: this station transmits group type 0 only, never type 2.
+
+### In simulation
+
+The same flowgraph, run against a synthetic FM+RDS capture with known contents, recovered
+`PI=0x4D01`, `PS='SDR LAB '`, `PTY=Pop Music` and the full RadioText — 90 CRC-valid groups from
+8 seconds against a theoretical maximum of ~91:
 
 ```
 $ QT_QPA_PLATFORM=offscreen python3 lab08_rds_from_file.py
-[RDS] PI=0x4D01  PS='  R     '  PTY=Pop Music  TP=1  groups=0
-[RDS] PI=0x4D01  PS='  R LA  '  PTY=Pop Music  TP=1  groups=1
-[RDS] PI=0x4D01  PS='  R LAB '  PTY=Pop Music  TP=1  groups=2
-[RDS] RadioText: SignalSDR Pro Lab RDS test
 [RDS] PI=0x4D01  PS='SDR LAB '  PTY=Pop Music  TP=1  groups=19
-groups: 90   (theoretical maximum for 8 s: 8 x 11.4 = 91)
+[RDS] RadioText: SignalSDR Pro Lab RDS test
 ```
 
-Every field recovered correctly, and essentially every transmitted group passed CRC. The
-codec itself is separately round-trip tested by `03_scripts/simulate_rds_decode.py --selftest`,
-which checks the CRC syndromes for all five offset words, the biphase and differential codecs,
-and the group parser.
+The codec itself is separately round-trip tested by `03_scripts/simulate_rds_decode.py
+--selftest`, which checks the CRC syndromes for all five offset words, the biphase and
+differential codecs, and the group parser.
 
 ---
 
@@ -453,10 +508,15 @@ confirm the AGC is bringing the level up — the subcarrier is tiny.
 Almost always the **biphase pairing**. The decoder should flip it automatically after 20,000
 chips (~8 s). If it oscillates between pairings, your chips are noisy — improve the signal.
 
-### "Groups decode but the PS name is garbage"
-Two possibilities: (a) you weakened the CRC acceptance test (see Exercise 3), or (b) the
-station is transmitting a scrolling "dynamic PS", which some stations do to display song titles
-in the 8-character field. That is not a bug — it is a (frowned-upon) broadcaster habit.
+### "Groups decode but the PS name keeps changing"
+**Most likely the station is scrolling its PS**, and this is confirmed behaviour, not a bug —
+BFM 89.9 in the verification run above cycles "BFM 89.9" / "BUSINESS" / "FINANCE". Some
+broadcasters abuse the 8-character field to scroll song titles. Log the raw segment addresses:
+if they cycle 0→1→2→3 with *self-consistent* two-character pairs, the decoder is fine and the
+station is scrolling.
+
+The other possibility is that you weakened the CRC acceptance test (see Exercise 3), in which
+case the fragments will be individually incoherent rather than forming words.
 
 ### "It worked yesterday and now decodes nothing"
 Check the station first, not the code. RDS transmission is entirely at the broadcaster's

@@ -103,6 +103,7 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
 
         self.usrp_source.set_center_freq(freq, 0)
         self.usrp_source.set_antenna("TX/RX", 0)
+        self.usrp_source.set_bandwidth(samp_rate, 0)
         self.usrp_source.set_gain(rf_gain, 0)
         self.subcarrier_to_real = blocks.complex_to_real(1)
         self.subcarrier_doubler = blocks.multiply_vcc(1)
@@ -271,6 +272,7 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
         self.usrp_source.set_samp_rate(self.samp_rate)
+        self.usrp_source.set_bandwidth(self.samp_rate, 0)
         self.rf_lowpass.set_taps(firdes.low_pass(1, self.samp_rate, 100000, 20000, window.WIN_HAMMING, 6.76))
 
     def get_rf_gain(self):

@@ -162,10 +162,33 @@ Add a **QT GUI Frequency Sink** connected to the USRP Source output. You'll see:
 | Situation | What to change |
 |---|---|
 | Can't hear any stations | Increase `gain` to 50 dB; check antenna |
-| Audio is distorted | Decrease `gain` to 30 dB |
+| Audio is distorted **on strong stations only** | See "no volume control" below — lower `gain` |
+| Audio is distorted at all signal levels | Decrease `gain` to 30 dB |
 | Only hear hiss | Change `freq` — you're between stations |
 | Choppy audio | Lower `samp_rate` to 500 kSPS |
 | `O` characters in console | Buffer overflow — lower `samp_rate` |
+
+### The one thing this flowgraph cannot do: control volume
+
+There are three blocks. None of them is a volume control, and `WBFM Receive` has no automatic
+gain either — its output amplitude follows the transmitter's modulation depth directly.
+
+On a live SignalSDR Pro receiving a strong local station at `gain = 55`, this flowgraph's audio
+was measured peaking at **1.86**, where the Audio Sink clips at **±1.0**. The audio is loud and
+audibly distorted, and the only lever you have is the RF `gain` slider — which is the wrong tool,
+because it also changes the noise figure.
+
+That is not a bug; it is what "three blocks" costs you. [Lab 03](../lab03_advanced_wbfm/README.md)
+adds an AGC and a Multiply Const, and the problem disappears. Keep this in mind as you read
+Lab 02 and Lab 03 — every block they add exists because something like this went wrong.
+
+### A note on the `bw0` parameter
+
+The USRP Source sets `bw0: samp_rate`, which configures the AD9361's analog filter. It looks
+like a detail and it is not: leaving it unset lets the analog filter default to **56 MHz**, and
+LO/DC leakage then accounts for ~84 % of everything the ADC sees. Measured on real hardware,
+adding this one parameter improved this flowgraph's audio SNR from 34.6 dB to **53.2 dB**. See
+[Fundamentals 06](../../01_fundamentals/06_noise_snr_and_gain.md).
 
 ---
 
