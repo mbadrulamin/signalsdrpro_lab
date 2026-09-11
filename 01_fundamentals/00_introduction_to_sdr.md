@@ -31,7 +31,7 @@ AM instead, you built a *different* radio. The mode was welded into the metal.
 An SDR replaces that chain with three things: **a wideband front end, an analogue-to-digital
 converter, and a computer.**
 
-![Superheterodyne versus software-defined radio](./images/sdr_vs_superhet.svg)
+![Superheterodyne versus software-defined radio](../images/sdr_vs_superhet.svg)
 
 The key is the **digital boundary** — the point where the signal stops being a voltage and
 becomes a stream of numbers. Everything to the left of it is physics, fixed at manufacture.
@@ -126,7 +126,7 @@ The [SignalSDR Pro](https://signalens.com/signalsdrpro/) by Signalens is the dev
 built around. It is roughly the size of a Raspberry Pi and pairs an **Analog Devices AD9361** RF
 transceiver with an **AMD Zynq-7020** system-on-chip.
 
-![SignalSDR Pro hardware block diagram](./images/signalsdr_pro_block_diagram.svg)
+![SignalSDR Pro hardware block diagram](../images/signalsdr_pro_block_diagram.svg)
 
 ### 3.1 Specifications
 
@@ -274,7 +274,7 @@ The workflow that actually works is: **browse** with SDR++ → **record** with
 
 ## 5. Other SDRs, and how to choose
 
-![Comparison of common SDR platforms](./images/sdr_landscape.svg)
+![Comparison of common SDR platforms](../images/sdr_landscape.svg)
 
 > **A note on photographs.** This repository deliberately contains no product photos: they are
 > copyrighted by their manufacturers. The diagram above is original work drawn from published
@@ -317,7 +317,7 @@ Radio spectrum is a **regulated national resource**. In Malaysia it is administe
 [Malaysian Communications and Multimedia Commission (MCMC / SKMM)](https://www.mcmc.gov.my/en/spectrum/spectrum-management)
 under the Communications and Multimedia Act 1998.
 
-![Radio spectrum in Malaysia](./images/malaysia_spectrum.svg)
+![Radio spectrum in Malaysia](../images/malaysia_spectrum.svg)
 
 > ⚠️ **This chart is a simplified orientation aid drawn from published MCMC documents — not a
 > legal reference.** Allocations change. Always check the current

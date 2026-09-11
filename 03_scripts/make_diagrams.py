@@ -295,15 +295,169 @@ def diagram_landscape():
     return svg(W, y + 58, "\n".join(b), "Comparison of common SDR platforms")
 
 
+
+# ------------------------------------------- 5. signal signatures ---------
+def _spectrum(cx, cy, w, h, shape, seed=0):
+    """Draw a small, realistic-looking spectrum trace for one signal type."""
+    import random
+    rng = random.Random(seed)
+    n = 120
+    pts = []
+    for i in range(n):
+        u = i / (n - 1)
+        x = u * 2 - 1                      # -1 .. +1 across the box
+        if shape == "fm":                  # wide flat-ish hump
+            v = 0.92 if abs(x) < 0.55 else max(0, 0.92 - (abs(x) - 0.55) * 4.2)
+        elif shape == "am":                # carrier spike + skirts
+            v = 0.25 if abs(x) < 0.42 else 0
+            v = max(v, 0.95 if abs(x) < 0.035 else 0)
+        elif shape == "ssb":               # one-sided, ragged
+            v = (0.75 - abs(x - 0.35) * 1.9) if 0.05 < x < 0.75 else 0
+            v = max(v, 0)
+        elif shape == "nbfm":              # narrow block
+            v = 0.85 if abs(x) < 0.18 else 0
+        elif shape == "ofdm":              # flat top, steep skirts
+            v = 0.9 if abs(x) < 0.7 else max(0, 0.9 - (abs(x) - 0.7) * 9)
+        elif shape == "fsk":               # two humps
+            v = max(0.85 - abs(abs(x) - 0.32) * 6, 0)
+        elif shape == "ook":               # single narrow spike
+            v = 0.9 if abs(x) < 0.06 else max(0, 0.35 - abs(x) * 1.2)
+        elif shape == "chirp":             # broad flat (a swept carrier, averaged)
+            v = 0.55 if abs(x) < 0.62 else 0
+        else:                              # noise floor only
+            v = 0
+        v += rng.uniform(-0.05, 0.05) + 0.08
+        pts.append((cx + u * w, cy + h - max(0.02, min(v, 1.0)) * h))
+    d = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    return (f"<rect x='{cx}' y='{cy}' width='{w}' height='{h}' fill='#f7f9fb' stroke='#d8dee4'/>"
+            f"<polyline points='{d}' fill='none' stroke='#33689c' stroke-width='1.5'/>")
+
+
+SIGS = [
+    ("fm",    "FM broadcast",    "~200 kHz", "Wide rounded hump. Always on."),
+    ("am",    "AM (airband)",    "~8 kHz",   "Sharp centre carrier with skirts."),
+    ("ssb",   "SSB voice",       "~3 kHz",   "All on ONE side. Ragged, speech-shaped."),
+    ("nbfm",  "NBFM voice",      "~12 kHz",  "Narrow flat block. Bursty."),
+    ("ofdm",  "OFDM (DVB-T2)",   "7.6 MHz",  "FLAT TOP, near-vertical skirts."),
+    ("fsk",   "2-FSK data",      "varies",   "Two humps. The gap is the deviation."),
+    ("ook",   "OOK remote",      "narrow",   "Brief spike, on-off keyed."),
+    ("chirp", "LoRa chirp",      "125 kHz+", "Flat when averaged; diagonal on a waterfall."),
+]
+
+
+def diagram_signatures():
+    W = 940
+    b = [txt(20, 30, "What signals look like on a spectrum display", 17, weight="700"),
+         txt(20, 50, "Shape and width identify most signals before you demodulate anything. "
+                     "Traces are illustrative.", 11.5, fill=MUTED)]
+    bw, bh = 200, 78
+    for i, (shape, name, width, note) in enumerate(SIGS):
+        col, row = i % 4, i // 4
+        x = 25 + col * (bw + 28)
+        y = 80 + row * (bh + 72)
+        b.append(_spectrum(x, y, bw, bh, shape, seed=i * 7))
+        b.append(txt(x, y + bh + 17, name, 12.5, weight="700"))
+        b.append(txt(x + bw, y + bh + 17, width, 10.5, "end", fill="#b4534f", weight="600"))
+        for j, ln in enumerate(_wrap(note, 34)):
+            b.append(txt(x, y + bh + 32 + j * 12, ln, 10, fill=MUTED))
+    b.append(txt(20, 80 + 2 * (bh + 72) + 6,
+                 "Measure the width first: it narrows the candidates faster than anything else.",
+                 12, fill=MUTED, style="font-style='italic'"))
+    return svg(W, 80 + 2 * (bh + 72) + 24, "\n".join(b), "Spectrum signatures of common signals")
+
+
+def _wrap(s, n):
+    out, line = [], ""
+    for word in s.split():
+        if len(line) + len(word) + 1 > n:
+            out.append(line); line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        out.append(line)
+    return out
+
+
+# ------------------------------------------------- 6. antennas ------------
+def diagram_antennas():
+    W, H = 940, 430
+    b = [txt(20, 30, "Four antennas you can build in an afternoon", 17, weight="700"),
+         txt(20, 50, "L = quarter wavelength = 75000 / f(MHz) millimetres. "
+                     "Dimensions shown for 1090 MHz (ADS-B), where L = 69 mm.", 11.5, fill=MUTED)]
+    gy, gh = 90, 220
+
+    # --- 1. quarter-wave ground plane
+    x = 60
+    b.append(txt(x + 60, gy - 8, "1. Quarter-wave ground plane", 12.5, "middle", weight="700"))
+    b.append(line(x + 60, gy + 30, x + 60, gy + 130, "#33689c", 3))
+    b.append(txt(x + 68, gy + 78, "L", 11, fill="#b4534f", weight="700"))
+    for dx, dy in [(-55, 30), (55, 30), (-38, 20), (38, 20)]:
+        b.append(line(x + 60, gy + 130, x + 60 + dx, gy + 130 + dy, "#4a5a68", 2))
+    b.append(f"<circle cx='{x+60}' cy='{gy+130}' r='5' fill='#1a1a1a'/>")
+    b.append(txt(x + 60, gy + 175, "4 radials, also L,", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 188, "sloping down 45 deg", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 206, "omnidirectional", 10.5, "middle", fill="#2f7d46", weight="600"))
+
+    # --- 2. dipole
+    x = 265
+    b.append(txt(x + 60, gy - 8, "2. Half-wave dipole", 12.5, "middle", weight="700"))
+    b.append(line(x + 60, gy + 30, x + 60, gy + 78, "#33689c", 3))
+    b.append(line(x + 60, gy + 88, x + 60, gy + 136, "#33689c", 3))
+    b.append(f"<circle cx='{x+60}' cy='{gy+83}' r='4' fill='#1a1a1a'/>")
+    b.append(txt(x + 70, gy + 56, "L", 11, fill="#b4534f", weight="700"))
+    b.append(txt(x + 70, gy + 114, "L", 11, fill="#b4534f", weight="700"))
+    b.append(txt(x + 60, gy + 175, "two elements of L,", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 188, "fed in the middle", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 206, "no ground plane needed", 10.5, "middle", fill="#2f7d46", weight="600"))
+
+    # --- 3. V-dipole
+    x = 470
+    b.append(txt(x + 60, gy - 8, "3. V-dipole (satellites)", 12.5, "middle", weight="700"))
+    b.append(line(x + 60, gy + 110, x + 10, gy + 45, "#33689c", 3))
+    b.append(line(x + 60, gy + 110, x + 110, gy + 45, "#33689c", 3))
+    b.append(f"<circle cx='{x+60}' cy='{gy+110}' r='4' fill='#1a1a1a'/>")
+    b.append(f"<path d='M {x+34} {gy+92} A 34 34 0 0 1 {x+86} {gy+92}' fill='none' "
+             f"stroke='#b4534f' stroke-width='1.2'/>")
+    b.append(txt(x + 60, gy + 84, "120 deg", 10, "middle", fill="#b4534f", weight="700"))
+    b.append(txt(x + 60, gy + 175, "two elements of L at 120 deg,", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 188, "horizontal, pointing N-S", 10, "middle", fill=MUTED))
+    b.append(txt(x + 60, gy + 206, "for overhead passes", 10.5, "middle", fill="#2f7d46", weight="600"))
+
+    # --- 4. Yagi
+    x = 675
+    b.append(txt(x + 85, gy - 8, "4. Yagi (directional)", 12.5, "middle", weight="700"))
+    for i, (dx, hl, lab) in enumerate([(0, 52, "reflector"), (36, 46, "driven"),
+                                       (66, 42, ""), (92, 40, ""), (116, 38, "directors")]):
+        col = "#b4534f" if lab == "driven" else "#33689c"
+        b.append(line(x + 20 + dx, gy + 85 - hl / 2, x + 20 + dx, gy + 85 + hl / 2, col, 2.6))
+    b.append(line(x + 20, gy + 85, x + 136, gy + 85, "#4a5a68", 2))
+    b.append(f"<circle cx='{x+56}' cy='{gy+85}' r='4' fill='#1a1a1a'/>")
+    b.append(arrow(x + 140, gy + 85, x + 175, gy + 85))
+    b.append(txt(x + 158, gy + 76, "gain", 10, "middle", fill="#2f7d46", weight="700"))
+    b.append(txt(x + 85, gy + 175, "reflector, driven element,", 10, "middle", fill=MUTED))
+    b.append(txt(x + 85, gy + 188, "then directors", 10, "middle", fill=MUTED))
+    b.append(txt(x + 85, gy + 206, "points at ONE thing", 10.5, "middle", fill="#2f7d46", weight="600"))
+
+    b.append(line(20, H - 52, W - 20, H - 52, "#d8dee4", 1.2))
+    b.append(txt(20, H - 30, "Cut the element LONG, measure, then trim. You can always remove wire; "
+                             "you cannot put it back.", 11.5, fill="#b4534f", weight="600"))
+    b.append(txt(20, H - 12, "Every one of these is a piece of wire and an SMA connector. "
+                             "The cheapest part of your station matters the most.",
+                 11.5, fill=MUTED, style="font-style='italic'"))
+    return svg(W, H, "\n".join(b), "Four buildable antenna designs")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--outdir', default='../01_fundamentals/images')
+    ap.add_argument('--outdir', default='../images')
     a = ap.parse_args()
     out = pathlib.Path(a.outdir); out.mkdir(parents=True, exist_ok=True)
     figs = {'sdr_vs_superhet.svg': diagram_architecture(),
             'signalsdr_pro_block_diagram.svg': diagram_signalsdr(),
             'malaysia_spectrum.svg': diagram_malaysia(),
-            'sdr_landscape.svg': diagram_landscape()}
+            'sdr_landscape.svg': diagram_landscape(),
+            'signal_signatures.svg': diagram_signatures(),
+            'antennas.svg': diagram_antennas()}
     bad = 0
     for name, data in figs.items():
         (out / name).write_text(data)

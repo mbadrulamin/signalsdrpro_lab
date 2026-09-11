@@ -48,6 +48,12 @@ The SignalSDR Pro is a compact, credit-card-sized SDR built around the **Analog 
 
 ## 📚 Learning Path (Read in Order)
 
+### ⏱️ Brand new? — [**Your First 30 Minutes**](./QUICKSTART.md)
+Plug the radio in and hear a real station today. No theory, no flowgraphs, just proof that the
+whole chain works. Everything else is easier once you have heard something.
+
+---
+
 ### Start Here — Introduction to SDR
 **[📻 Introduction to Software-Defined Radio](./01_fundamentals/00_introduction_to_sdr.md)** —
 what SDR is, why it exists, a full tour of the SignalSDR Pro hardware with block diagram, the
@@ -167,6 +173,18 @@ modulation, difficulty, the hardware it needs, and which labs prepare you for it
 
 ---
 
+### Part 5 — Reference
+Lookup material, not meant to be read front to back.
+
+| # | Document | Use it when… |
+|---|---|---|
+| 01 | [Glossary](./05_reference/01_glossary.md) | An acronym stops you. **202 terms**, plain English first |
+| 02 | [Signal Identification](./05_reference/02_signal_identification.md) | "What *is* that thing on my waterfall?" |
+| 03 | [Antennas](./05_reference/03_antennas.md) | **Always.** The cheapest part that matters most |
+| 04 | [Malaysia](./05_reference/04_malaysia.md) | Local bands, law, licensing, community — plus a measured FM band survey |
+
+---
+
 ### Part 3 — Scripts & Tools
 | Script | Purpose |
 |---|---|
@@ -209,6 +227,8 @@ python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
 ```
 signalsdrpro_lab/
 ├── README.md                       ← You are here
+├── QUICKSTART.md                   ← 30 minutes to your first station
+├── images/                         ← original SVG diagrams
 ├── 00_setup/                       ← Environment setup
 │   ├── 01_install_uhd.md
 │   ├── 02_flash_b210_firmware.md
@@ -252,7 +272,7 @@ signalsdrpro_lab/
 │   ├── analyze_dvbt2.py                ← DVB-T2 waveform verification
 │   ├── simulate_stereo_decode.py
 │   └── simulate_stereo_decode_pure.py
-└── 04_applications/                ← What else is out there (589 entries)
+├── 04_applications/                ← What else is out there (589 entries)
     ├── README.md                       ← index, difficulty ladder, spectrum map
     ├── 01_broadcast_and_media.md
     ├── 02_aviation.md
@@ -269,7 +289,12 @@ signalsdrpro_lab/
     ├── 13_security_research.md
     ├── 14_test_measurement_and_infrastructure.md
     ├── 15_transmit_projects.md
-    └── 16_oddities_and_historical.md
+│   └── 16_oddities_and_historical.md
+└── 05_reference/                   ← Lookup material
+    ├── 01_glossary.md                  ← 202 terms
+    ├── 02_signal_identification.md
+    ├── 03_antennas.md
+    └── 04_malaysia.md
 ```
 
 Each lab folder contains a `README.md`, one or more `.grc` flowgraphs, and the `.py` that
@@ -448,5 +473,5 @@ Enjoy the journey! 🎧
 ---
 
 *Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
-*1 introduction · 11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications*
+*1 quickstart · 1 introduction · 11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications · 4 reference documents*
 *All flowgraphs structurally, deeply and compile-validated against GNU Radio 3.10.9.2; six labs verified on live RF*
