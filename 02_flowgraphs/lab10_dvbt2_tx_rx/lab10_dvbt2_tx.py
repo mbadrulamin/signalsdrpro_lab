@@ -82,7 +82,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         # Blocks
         ##################################################
 
-        self._tx_gain_range = qtgui.Range(0, 60, 1, 0, 300)
+        self._tx_gain_range = qtgui.Range(0, 89, 1, 0, 300)
         self._tx_gain_win = qtgui.RangeWidget(self._tx_gain_range, self.set_tx_gain, "TX RF gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_layout.addWidget(self._tx_gain_win)
         self._tx_amplitude_range = qtgui.Range(0.0, 0.5, 0.01, 0.0, 300)

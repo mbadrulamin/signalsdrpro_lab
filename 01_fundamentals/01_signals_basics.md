@@ -1,6 +1,6 @@
 # 📊 Fundamentals 01 — Signals & Systems Basics
 
-> **Prerequisite:** None. We start from zero.  
+> **Prerequisite:** None. We start from zero. (New to SDR entirely? Read [the introduction](./00_introduction_to_sdr.md) first.)  
 > **Time to read:** 30 minutes
 
 ---

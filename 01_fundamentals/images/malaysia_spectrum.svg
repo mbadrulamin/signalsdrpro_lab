@@ -1,0 +1,107 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1040 785' width='1040' height='785' role='img'>
+<title>Malaysian radio spectrum overview</title>
+<rect width='1040' height='785' fill='#ffffff'/>
+<defs><marker id='a' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M0,0 L10,5 L0,10 z' fill='#1a1a1a'/></marker></defs>
+<text x='20' y='30' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='17' font-weight='700' fill='#1a1a1a' >Radio spectrum in Malaysia - the bands an SDR user meets</text>
+<text x='20' y='50' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11.5' font-weight='400' fill='#5a6570' >Simplified from the MCMC Spectrum Plan and Class Assignment. Indicative only - always check the current MCMC documents.</text>
+<line x1='215' y1='92' x2='910' y2='92' stroke='#1a1a1a' stroke-width='1.4'/>
+<line x1='298.81414962415835' y1='87' x2='298.81414962415835' y2='97' stroke='#1a1a1a' stroke-width='1.4'/>
+<text x='298.81414962415835' y='80' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#5a6570' >1 MHz</text>
+<line x1='459.1078130799601' y1='87' x2='459.1078130799601' y2='97' stroke='#1a1a1a' stroke-width='1.4'/>
+<text x='459.1078130799601' y='80' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#5a6570' >10 MHz</text>
+<line x1='619.401476535762' y1='87' x2='619.401476535762' y2='97' stroke='#1a1a1a' stroke-width='1.4'/>
+<text x='619.401476535762' y='80' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#5a6570' >100 MHz</text>
+<line x1='779.6951399915638' y1='87' x2='779.6951399915638' y2='97' stroke='#1a1a1a' stroke-width='1.4'/>
+<text x='779.6951399915638' y='80' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#5a6570' >1 GHz</text>
+<line x1='904.4278546382711' y1='87' x2='904.4278546382711' y2='97' stroke='#1a1a1a' stroke-width='1.4'/>
+<text x='904.4278546382711' y='80' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#5a6570' >6 GHz</text>
+<rect x='594.5716738931633' y='100' width='309.85618074510785' height='26' rx='4' fill='#2f7d46' fill-opacity='0.16' stroke='#2f7d46' stroke-width='1.4'/>
+<text x='749.4997642657172' y='118' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='12' font-weight='700' fill='#2f7d46' >SignalSDR Pro tunes here:  70 MHz - 6 GHz</text>
+<rect x='215' y='100' width='379.5716738931633' height='26' rx='4' fill='#b4534f' fill-opacity='0.10' stroke='#b4534f' stroke-width='1.2' stroke-dasharray='5 4'/>
+<text x='404.78583694658164' y='118' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#b4534f' >needs an upconverter</text>
+<rect x='254.1560745917628' y='150' width='77.65945146102322' height='16' rx='3' fill='#33689c' fill-opacity='0.72'/>
+<text x='205' y='161' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >MW broadcast</text>
+<text x='338.815526052786' y='161' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >0.5265-1.607 MHz</text>
+<rect x='393.55806082349983' y='173' width='132.33458552179735' height='16' rx='3' fill='#33689c' fill-opacity='0.72'/>
+<text x='205' y='184' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Shortwave broadcast bands</text>
+<text x='532.8926463452972' y='184' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >3.9-26.1 MHz</text>
+<rect x='434.27801043736144' y='196' width='3.0' height='16' rx='3' fill='#2f7d46' fill-opacity='0.72'/>
+<text x='205' y='207' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >40 m amateur</text>
+<text x='444.27801043736144' y='207' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >7-7.2 MHz</text>
+<rect x='482.5312112524251' y='219' width='3.0' height='16' rx='3' fill='#2f7d46' fill-opacity='0.72'/>
+<text x='205' y='230' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >20 m amateur</text>
+<text x='492.5312112524251' y='230' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >14-14.35 MHz</text>
+<rect x='610.105734903774' y='242' width='14.653357845442315' height='16' rx='3' fill='#33689c' fill-opacity='0.72'/>
+<text x='205' y='253' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >FM broadcast</text>
+<text x='631.7590927492163' y='253' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >87.5-108 MHz</text>
+<rect x='624.7590927492163' y='265' width='16.557824365801252' height='16' rx='3' fill='#b97d29' fill-opacity='0.72'/>
+<text x='205' y='276' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Aeronautical (AM)</text>
+<text x='648.3169171150175' y='276' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >108-137 MHz</text>
+<rect x='644.7859805477001' y='288' width='3.0' height='16' rx='3' fill='#2f7d46' fill-opacity='0.72'/>
+<text x='205' y='299' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >2 m amateur</text>
+<text x='654.7859805477001' y='299' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >144-148 MHz</text>
+<rect x='650.3581259094291' y='311' width='3.0' height='16' rx='3' fill='#7a52a1' fill-opacity='0.72'/>
+<text x='205' y='322' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Maritime VHF</text>
+<text x='660.3581259094291' y='322' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >156-162 MHz</text>
+<rect x='721.4264531875197' y='334' width='3.0' height='16' rx='3' fill='#b4534f' fill-opacity='0.72'/>
+<text x='205' y='345' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >SRD 100 mW</text>
+<text x='731.4264531875197' y='345' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >433-435 MHz</text>
+<rect x='720.942455964303' y='357' width='3.0' height='16' rx='3' fill='#2f7d46' fill-opacity='0.72'/>
+<text x='205' y='368' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >70 cm amateur</text>
+<text x='730.942455964303' y='368' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >430-440 MHz</text>
+<rect x='727.1345043850753' y='380' width='27.131563953128875' height='16' rx='3' fill='#33689c' fill-opacity='0.72'/>
+<text x='205' y='391' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >DTT - DVB-T2 (MYTV)</text>
+<text x='761.2660683382041' y='391' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >470-694 MHz</text>
+<rect x='755.1630483665889' y='403' width='9.258597307306218' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='414' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Mobile 700 (n28)</text>
+<text x='771.4216456738951' y='414' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >703-803 MHz</text>
+<rect x='770.7960641252376' y='426' width='6.057266861684525' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='437' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Mobile 900</text>
+<text x='783.8533309869222' y='437' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >880-960 MHz</text>
+<rect x='773.8148489196411' y='449' width='3.0' height='16' rx='3' fill='#b4534f' fill-opacity='0.72'/>
+<text x='205' y='460' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >SRD 500 mW (LoRa AS923)</text>
+<text x='783.8148489196411' y='460' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >919-923 MHz</text>
+<rect x='785.6943704567875' y='472' width='3.0' height='16' rx='3' fill='#b97d29' fill-opacity='0.72'/>
+<text x='205' y='483' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >ADS-B</text>
+<text x='795.6943704567875' y='483' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >1.09-1.091 GHz</text>
+<rect x='817.0429400972747' y='495' width='6.597965917927922' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='506' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Mobile 1800</text>
+<text x='830.6409060152026' y='506' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >1.71-1.88 GHz</text>
+<rect x='825.106531801986' y='518' width='8.520971533522811' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='529' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Mobile 2100</text>
+<text x='840.6275033355088' y='529' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >1.92-2.17 GHz</text>
+<rect x='840.6405928125967' y='541' width='3.0' height='16' rx='3' fill='#b4534f' fill-opacity='0.72'/>
+<text x='205' y='552' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >ISM 2.4 GHz</text>
+<text x='850.6405928125967' y='552' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >2.4-2.5 GHz</text>
+<rect x='843.4824018172384' y='564' width='5.099305514394928' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='575' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >Mobile 2600</text>
+<text x='855.5817073316333' y='575' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >2.5-2.69 GHz</text>
+<rect x='862.8096389674919' y='587' width='9.821137737361369' height='16' rx='3' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='205' y='598' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >5G 3.5 GHz (n78)</text>
+<text x='879.6307767048532' y='598' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >3.3-3.8 GHz</text>
+<rect x='893.7933284088996' y='610' width='9.168900442588324' height='16' rx='3' fill='#b4534f' fill-opacity='0.72'/>
+<text x='205' y='621' text-anchor='end' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='600' fill='#1a1a1a' >ISM / RLAN 5 GHz</text>
+<text x='909.9622288514879' y='621' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='9.5' font-weight='400' fill='#5a6570' >5.15-5.875 GHz</text>
+<line x1='20' y1='645' x2='1020' y2='645' stroke='#d8dee4' stroke-width='1.2'/>
+<text x='20' y='669' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='12' font-weight='700' fill='#1a1a1a' >Category</text>
+<rect x='95' y='659' width='14' height='12' rx='2' fill='#33689c' fill-opacity='0.72'/>
+<text x='115' y='669' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Broadcasting</text>
+<rect x='395' y='659' width='14' height='12' rx='2' fill='#2f7d46' fill-opacity='0.72'/>
+<text x='415' y='669' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Amateur</text>
+<rect x='695' y='659' width='14' height='12' rx='2' fill='#b97d29' fill-opacity='0.72'/>
+<text x='715' y='669' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Aeronautical</text>
+<rect x='95' y='679' width='14' height='12' rx='2' fill='#7a52a1' fill-opacity='0.72'/>
+<text x='115' y='689' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Maritime</text>
+<rect x='395' y='679' width='14' height='12' rx='2' fill='#b4534f' fill-opacity='0.72'/>
+<text x='415' y='689' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Licence-exempt (SRD/ISM)</text>
+<rect x='695' y='679' width='14' height='12' rx='2' fill='#4a5a68' fill-opacity='0.72'/>
+<text x='715' y='689' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10.5' font-weight='400' fill='#5a6570' >Mobile / cellular</text>
+<text x='20' y='725' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='12' font-weight='700' fill='#1a1a1a' >This lab uses</text>
+<rect x='610.5024006694357' y='714' width='14.256692079780578' height='14' rx='2' fill='#1a1a1a' fill-opacity='0.75'/>
+<text x='617.630746709326' y='739' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10' font-weight='600' fill='#1a1a1a' >Labs 01-08</text>
+<rect x='785.6943704567875' y='714' width='4.0' height='14' rx='2' fill='#1a1a1a' fill-opacity='0.75'/>
+<text x='787.6943704567875' y='739' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10' font-weight='600' fill='#1a1a1a' >Lab 09</text>
+<rect x='727.1345043850753' y='714' width='27.131563953128875' height='14' rx='2' fill='#1a1a1a' fill-opacity='0.75'/>
+<text x='740.7002863616397' y='739' text-anchor='middle' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='10' font-weight='600' fill='#1a1a1a' >Lab 10</text>
+<text x='20' y='765' text-anchor='start' font-family='DejaVu Sans, Segoe UI, Helvetica, Arial, sans-serif' font-size='11' font-weight='400' fill='#b4534f' font-style='italic'>Transmitting in any of these bands without an assignment is an offence under the Communications and Multimedia Act 1998.</text>
+</svg>

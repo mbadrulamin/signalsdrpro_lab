@@ -48,6 +48,14 @@ The SignalSDR Pro is a compact, credit-card-sized SDR built around the **Analog 
 
 ## 📚 Learning Path (Read in Order)
 
+### Start Here — Introduction to SDR
+**[📻 Introduction to Software-Defined Radio](./01_fundamentals/00_introduction_to_sdr.md)** —
+what SDR is, why it exists, a full tour of the SignalSDR Pro hardware with block diagram, the
+software landscape, how this radio compares with the alternatives, and **frequency allocation in
+Malaysia**. Assumes nothing. Read this before the setup guide.
+
+---
+
 ### Part 0 — Setup (Do this first!)
 Everything here is required before you can run any flowgraph.
 
@@ -63,11 +71,12 @@ Everything here is required before you can run any flowgraph.
 ### Part 1 — Fundamentals (Theory from Zero)
 You cannot build good SDR systems without understanding these.
 
-**Read 01–04 before Lab 01.** Documents 05–10 are referenced by the labs that need them, and
+**Read 01–04 before Lab 01.** Documents 05–11 are referenced by the labs that need them, and
 each lab's header tells you which.
 
 | # | Document | What You'll Learn | Needed by |
 |---|---|---|---|
+| **00** | **[Introduction to SDR](./01_fundamentals/00_introduction_to_sdr.md)** | **What SDR is, the hardware, the tools, Malaysian spectrum** | **Everyone** |
 | 01 | [Signals & Systems Basics](./01_fundamentals/01_signals_basics.md) | Time vs frequency, amplitude, phase, bandwidth | Lab 01 |
 | 02 | [IQ Sampling](./01_fundamentals/02_iq_sampling.md) | Why SDRs use I/Q, complex numbers, negative frequencies | Lab 01 |
 | 03 | [RF Basics](./01_fundamentals/03_rf_basics.md) | What is RF, spectrum, mixers, filters | Lab 01 |
@@ -167,6 +176,7 @@ modulation, difficulty, the hardware it needs, and which labs prepare you for it
 | [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Generate a synthetic 1090 MHz capture for Lab 09, and self-test the Mode S decoder against published reference frames. |
 | [make_test_ts.py](./03_scripts/make_test_ts.py) | Generate a standards-valid MPEG-2 transport stream (PAT/PMT/SDT/NIT) for Lab 10. No ffmpeg required. |
 | [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Verify a DVB-T2 waveform: bandwidth, cyclic prefix, symbol period, P1 preamble, frame period, PAPR. |
+| [make_diagrams.py](./03_scripts/make_diagrams.py) | Regenerate the introduction's four SVG figures. Self-checks that nothing overflows its viewBox. |
 | [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Mathematical verification of Lab 04's stereo matrix. |
 
 Run everything at once:
@@ -208,6 +218,8 @@ signalsdrpro_lab/
 │   ├── 06_fix_uhd_version_conflict.md  ← UHD version mismatch guide
 │   └── fix_uhd_version_conflict.sh     ← Automated fix script
 ├── 01_fundamentals/                ← Theory
+│   ├── 00_introduction_to_sdr.md       ← START HERE
+│   ├── images/                         ← original SVG diagrams
 │   ├── 01_signals_basics.md            ┐
 │   ├── 02_iq_sampling.md               │ read before Lab 01
 │   ├── 03_rf_basics.md                 │
@@ -236,6 +248,7 @@ signalsdrpro_lab/
 │   ├── simulate_rds_decode.py          ← RDS signal generator + self-test
 │   ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
 │   ├── make_test_ts.py                 ← MPEG-2 transport stream generator
+│   ├── make_diagrams.py                ← regenerates the introduction's figures
 │   ├── analyze_dvbt2.py                ← DVB-T2 waveform verification
 │   ├── simulate_stereo_decode.py
 │   └── simulate_stereo_decode_pure.py
@@ -435,5 +448,5 @@ Enjoy the journey! 🎧
 ---
 
 *Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
-*11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications*
+*1 introduction · 11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications*
 *All flowgraphs structurally, deeply and compile-validated against GNU Radio 3.10.9.2; six labs verified on live RF*
