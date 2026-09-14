@@ -64,13 +64,14 @@ This is the most sophisticated signal in the repository by a wide margin. It lay
 Twelve stages. Every one exists to defeat a specific channel impairment, and by the end of this
 lab you should be able to say which.
 
-> **Verified, now carrying real video.** The waveform passes all five structural checks in
-> `03_scripts/analyze_dvbt2.py`: occupied bandwidth **7.571 MHz**, cyclic prefix at **13.7×**,
-> OFDM symbol period **exactly 1152 samples**, P1 preamble at **24.2× peak-to-mean**, and a T2
-> frame period of **2,284,871 samples against 2,285,312 predicted — 0.019 % error**. The
-> multiplex inside it is a real H.264 + MP2 service muxed to **6.169661 Mbit/s against the
-> 6.169662 Mbit/s the modulator consumes — 0.0000 % error**, confirmed from the file's own PCR
-> timestamps. See [Verification](#-verification).
+> **Verified, in the mode real broadcasters use.** The lab now transmits **32K extended,
+> 256QAM, CR 2/3, GI 1/128, PP7 — 40.000738 Mbit/s**, which is what UK Freeview HD and
+> Malaysian MYTV put on air. The waveform passes all five structural checks in
+> `03_scripts/analyze_dvbt2.py`: occupied bandwidth **7.693 MHz** against 7.768 predicted,
+> cyclic prefix at **19.9×**, OFDM symbol period **33,022 samples against 33,024**, P1 preamble
+> at **23.9×**, and a T2 frame of **1,983,028 samples against 1,983,488 — 0.023 % error**. The
+> multiplex inside it is a real H.264 + MP2 service muxed to **40.000737 Mbit/s against the
+> 40.000738 the modulator consumes — 0.0000 % error**, confirmed from the file's own PCR.
 >
 > **Not verified:** no television has locked to it yet. That is
 > [the one measurement left](#what-was-not-tested), and it needs your TV.
@@ -157,13 +158,22 @@ So this lab does what the industry does: **transmit with software, receive with 
 | Quantity | Value | Why |
 |---|---|---|
 | Elementary sample rate | **9.142857 MSPS** | $\frac{64}{7}$ MHz — **fixed by the standard** for an 8 MHz channel |
-| FFT size | 1024 | Lab default (see [config table](#-changing-the-configuration)) |
-| Carrier spacing | 8928.6 Hz | $f_s / N_{fft}$ |
-| Useful symbol $T_u$ | 112 µs | $1/\Delta f$ |
-| Guard interval | 128 samples = 14 µs | GI 1/8 → tolerates a 4.2 km path difference |
-| Symbol period | **1152 samples** | $1024 + 128$ |
-| Active carriers | 853 | → occupied bandwidth **7.616 MHz** |
-| T2 frame | 2,285,312 samples = **249.96 ms** | P1 (2048) + 16 P2 + 1966 data symbols |
+| FFT size | 32768 (`FFTSIZE_32K_T2GI`) | What broadcasters use. See [config table](#-changing-the-configuration) |
+| Carrier spacing | 279.02 Hz | $f_s / N_{fft}$ — thirty-two times finer than the 1K mode |
+| Useful symbol $T_u$ | 3.584 ms | $1/\Delta f$ |
+| Guard interval | 256 samples = 28 µs | GI 1/128 → tolerates an 8.4 km path difference |
+| Symbol period | **33,024 samples** = 3.612 ms | $32768 + 256$ |
+| Active carriers | 27,841 (extended) | → occupied bandwidth **7.768 MHz** |
+| P2 symbols | 1 | $N_{P2}$ is 1 for 16K and 32K, 16 for 1K |
+| T2 frame | 1,983,488 samples = **216.94 ms** | P1 (2048) + 1 P2 + 59 data symbols |
+| **Payload rate** | **40.000738 Mbit/s** | $\frac{202 \times (43040 - 80)}{216.94\ \text{ms}}$ |
+
+> **Why 32K rather than something gentler?** Because a television has to recognise it. 1K is a
+> legal DVB-T2 mode and part of the validation vectors, but no broadcaster transmits it, and a
+> consumer tuner that only scans what it expects to find may simply never look. 32K extended
+> with GI 1/128 and PP7 is the single most deployed DVB-T2 mode in the world.
+>
+> The cost is nothing here: this configuration runs at **7.8× real time** on an i7-10875H.
 
 > **The sample rate is not a free choice.** Unlike every other lab in this repo, you cannot pick
 > a convenient rate and resample: 64/7 MHz *defines* the carrier spacing, and a receiver's FFT
@@ -180,35 +190,41 @@ So this lab does what the industry does: **transmit with software, receive with 
 DVB-T2 carries an MPEG-2 Transport Stream, and **the rate is not a free choice**. This
 configuration swallows exactly:
 
-$$\frac{48 \text{ FEC blocks} \times (32208 - 80)\ \text{bits}}{2{,}285{,}312 / 9{,}142{,}857\ \text{s}}
-= \mathbf{6{,}169{,}662\ \text{bit/s}}$$
+$$\frac{202 \text{ FEC blocks} \times (43040 - 80)\ \text{bits}}{1{,}983{,}488 / 9{,}142{,}857\ \text{s}}
+= \mathbf{40{,}000{,}738\ \text{bit/s}}$$
 
 ```bash
 cd 03_scripts
-./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts --standard dvbt2
+./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts \
+    --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
+    --t2-fecblocks 202 --t2-datasyms 59 --video-bitrate 12000000
 ```
+
+`--video-bitrate` matters at 40 Mbit/s: a broadcaster fills that with six or seven programmes,
+and you have one. Capping the video at 12 Mbit/s gives excellent 1080p and lets the muxer stuff
+the remaining 28 Mbit/s with null packets — which is precisely what a real multiplex with spare
+capacity looks like.
 
 That computes the rate from the modulation parameters, encodes H.264 + MP2 inside it, stuffs
 null packets up to exactly that figure, and then checks its own work by recovering the rate
 from the PCR timestamps in the finished file:
 
 ```
-  PCR-derived mux rate: 6.169661 Mbit/s
-  expected            : 6.169662 Mbit/s  (-0.0000 % error)
+  PCR-derived mux rate: 40.000737 Mbit/s
+  expected            : 40.000738 Mbit/s  (-0.0000 % error)
 ```
 
 No ffmpeg? This still works, it just has no picture:
 
 ```bash
-./make_test_ts.py --out /tmp/bintang_dvbt2.ts --seconds 10 --rate 6169662
+./make_test_ts.py --out /tmp/bintang_dvbt2.ts --seconds 10 --rate 40000738
 ```
 
 > #### ⚠️ Correction to earlier versions of this lab
 >
 > This page used to say `--rate 4e6`, and the ffmpeg example used `-muxrate 4000000`. **That is
 > wrong**, and it is wrong in a way that hides itself. The file source loops, so the modulator
-> never starves — it simply reads the file 1.54× faster than the stream's own clock says it
-> should. With a pictureless test stream nothing visibly breaks. Put video in it and the
+> never starves — it simply reads the file faster than the stream's own clock says it should. With a pictureless test stream nothing visibly breaks. Put video in it and the
 > television's clock recovery fights the PCR for a few seconds and then gives up.
 >
 > The rate is arithmetic. Compute it, stuff to it, and verify it from the PCR.
@@ -350,22 +366,34 @@ The transport stream generator was verified by parsing its own output back: **0 
 all 446 PSI sections CRC-valid**, and the service name round-trips through the SDT.
 
 **The video stream was then built and put through the same modulator.** `Bintang.mp4`
-(1920×1080 H.264 + AAC, 209 s) re-encoded to 1280×720 H.264 High@4.0 with MP2 audio:
+(1920×1080 H.264 + AAC, 209 s) re-encoded to 1920×1080 H.264 High@4.0 at 12 Mbit/s with MP2
+audio, muxed up to the mode's full 40 Mbit/s:
 
 ```
 /tmp/bintang_dvbt2.ts
-  161,208,684 bytes = 857,493 packets of 188
-  sync byte 0x47 present on 857,493/857,493 (100.000 %)
-  PID 256 video 79.88 % | PID 257 audio 3.25 % | PID 8191 null 16.31 %
-  PAT 0.25 % | PMT 4096 0.25 % | SDT 17 0.05 %
-  PCR-derived mux rate: 6.169661 Mbit/s
-  expected            : 6.169662 Mbit/s  (-0.0000 % error)
+  1,045,172,276 bytes = 5,559,427 packets of 188
+  sync byte 0x47 present on 5,559,427/5,559,427 (100.000 %)
+  PID 8191 null 74.58 % | PID 256 video 24.83 % | PID 257 audio 0.50 %
+  PAT 0.04 % | PMT 4096 0.04 % | SDT 17 0.01 %
+  PCR-derived mux rate: 40.000737 Mbit/s
+  expected            : 40.000738 Mbit/s  (-0.0000 % error)
 ```
 
-That stream was modulated and re-analysed, and it still passes all five checks — occupied
-bandwidth 7.571 MHz, cyclic prefix 13.7×, symbol period exactly 1152, P1 at 24.2×, T2 frame
-2,284,871 samples against 2,285,312 predicted. **The waveform now carries a real picture**, and
-the rate it was muxed at was confirmed from the file's own PCR timestamps rather than assumed.
+The payload rate was also confirmed against the running chain rather than only derived:
+86,779,200 transport bytes went in and **exactly 80.0000 T2 frames of 1,983,488 samples** came
+out — 1,084,740 bytes per frame, 40.000738 Mbit/s.
+
+That stream was modulated and analysed, and passes all five checks — occupied bandwidth
+**7.693 MHz** against 7.768 predicted, cyclic prefix **19.9×**, symbol period **33,022 against
+33,024**, P1 at **23.9×**, T2 frame **1,983,028 against 1,983,488**. **The waveform now carries
+a real picture, in the mode a television expects to find.**
+
+**Real-time transmission was checked on the radio** with `tx_amplitude = 0`, so nothing
+radiated. Six underflows occurred, all of them in the **first 1.6 seconds** while the buffers
+prime; across the following 70 seconds there were **none**. The chain runs at 7.8× real time on
+average but delivers a whole T2 frame at once every 216.9 ms, so it needs a reservoir — the
+`tx_scale` block holds 4,194,304 samples (about two frames) and the USRP sink is given 1024 send
+frames. Without those, a chain with 7.8× headroom still stutters.
 
 On hardware, the USRP **TX** chain was queried (without ever starting a flowgraph, so no samples
 were streamed): it delivers the DVB-T2 elementary rate to **0.019 ppm** and supports the required
@@ -377,13 +405,19 @@ were streamed): it delivers the DVB-T2 elementary rate to **0.019 ppm** and supp
   independent measurements, it now carries a decodable H.264 + MP2 service, and the chain is the
   gr-dtv reference implementation used for the DVB-T2 validation vectors — but "a TV locks" is a
   claim only you can verify. **This is the one remaining measurement in this lab.**
-- **1K FFT is unusual for broadcasting.** It is a legal DVB-T2 mode and part of the validation
-  vectors every tuner is tested against, but Malaysian and European broadcasters use 32K. If
-  your television refuses to find the service, that is the first thing to suspect — see
-  [Changing the Configuration](#-changing-the-configuration).
+- **The mode is now the one broadcasters use** (32K extended / 256QAM / CR 2/3 / GI 1/128 /
+  PP7), so "my TV does not support this mode" is no longer a likely explanation if it fails to
+  find the service. If it still does not, suspect signal level or the channel frequency before
+  the configuration.
+- **256QAM needs a good signal.** It is the least forgiving constellation in the standard,
+  wanting roughly 20 dB C/N against QPSK's 5 dB. Over a cable that is easy; over the air with
+  improvised antennas it may not be. If the TV sees the channel but cannot lock, drop to
+  `germany-g7` (64QAM CR 2/3, 31.7 Mbit/s) before suspecting anything else.
 - **The video path was verified by decoding the transport stream, not by watching a television.**
-  `ffprobe` reports H.264 High@4.0 1280×720 yuv420p plus MP2 48 kHz stereo, and still frames
+  `ffprobe` reports H.264 High@4.0 1920×1080 yuv420p plus MP2 48 kHz stereo, and still frames
   decode correctly out of the finished multiplex.
+- **Nothing was transmitted at non-zero amplitude in this configuration.** The real-time check
+  ran with `tx_amplitude = 0`.
 - **The 12 stages are not individually verified.** The LDPC and BCH encoders are exercised, but
   proving they are *correct* would need a receiver.
 
@@ -407,21 +441,34 @@ signal no receiver can decode, usually with no error message.
 | `constellation` | bitinterleaver, modulator, cellinterleaver, framemapper |
 | `rate` | bbheader, bbscrambler, bch, ldpc, bitinterleaver, framemapper |
 | `numdatasyms` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ the variable** |
-| `carriermode` | framemapper, freqinterleaver, pilotgenerator |
+| `carriermode` | framemapper, freqinterleaver, pilotgenerator, p1insertion |
+| `l1constellation` | framemapper (alone — but it must suit the mode) |
+| `fecblocks` | cellinterleaver, framemapper **+ the variable** |
 
 ### Known-good presets
 
-These come from the official gr-dtv validation vectors, so every combination is legal. **Do not
-invent combinations** — the standard restricts which pilot patterns may be used with which
-FFT/guard-interval pairs.
+These come from the official gr-dtv profiles shipped in `/usr/share/gnuradio/examples/dtv/`, so
+every combination is legal. **Do not invent combinations** — the standard restricts which pilot
+patterns may be used with which FFT/guard-interval pairs, and *gr-dtv does not check*: it will
+accept `32K` with `GI 1/4` and `PP1` and hand you a signal no receiver on earth can decode, with
+no error message.
 
-| Preset | FFT | Const. | Rate | GI | PP | Carriers | datasyms | fecblocks | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| **vv011 (lab default)** | 1K | QPSK | 1/2 | 1/8 | PP3 | normal | 1966 | 48 | Lightest CPU, most robust |
-| vv010 | 2K | 16QAM | 3/5 | 1/8 | PP2 | normal | 983 | 93 | |
-| vv009 | 4K | 64QAM | 2/3 | 1/32 | PP7 | normal | 100 | 31 | |
-| vv004 | 8K T2GI | 64QAM | 3/4 | 19/256 | PP5 | extended | 81 | 50 | |
-| germany-g1 | 16K | 64QAM | 1/2 | 19/128 | PP2 | extended | 118 | 139 | Closest to a real broadcast |
+| Preset | FFT | Const. | Rate | GI | PP | Carriers | datasyms | fecblocks | Mbit/s | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **vv003 (lab default)** | 32K T2GI | 256QAM | 2/3 | 1/128 | PP7 | extended | 59 | 202 | **40.00** | **What Freeview HD and MYTV transmit** |
+| vv016 | 32K T2GI | 256QAM | 3/4 | 1/128 | PP7 | extended | 59 | 200 | 44.6 | Same, less protection |
+| vv001 / vv019 | 32K T2GI | 256QAM | 3/5 | 1/128 | PP7 | extended | 59 | 202 | 36.0 | vv019 has rotation off |
+| germany-g6 | 32K | 256QAM | 3/5 | 1/32 | PP4 | normal | 55 | 179 | 33.0 | Real German broadcast |
+| germany-g7 | 32K | 64QAM | 2/3 | 1/16 | PP2 | extended | 63 | 150 | 31.7 | Real German broadcast |
+| vv036 | 32K | 256QAM | 3/5 | 1/8 | PP2 | normal | 53 | 162 | 30.2 | UK DTG test profile |
+| vv008 | 16K | 256QAM | 4/5 | 1/32 | PP6 | extended | 100 | 168 | 37.5 | |
+| germany-g1 | 16K | 64QAM | 1/2 | 19/128 | PP2 | extended | 118 | 139 | 21.5 | Real German broadcast |
+| vv015 | 8K | 256QAM | 3/5 | 1/32 | PP7 | extended | 238 | 200 | 36.0 | |
+| vv011 (old default) | 1K | QPSK | 1/2 | 1/8 | PP3 | normal | 1966 | 48 | 6.17 | Lightest CPU; **no broadcaster uses it** |
+
+Ten parameters move together for a mode change, not seven — `carriermode` and
+`l1constellation` matter too, and the L1 constellation is easy to miss: vv003 signals its L1 in
+**64QAM**, while the old 1K default used **BPSK**.
 
 The corresponding `.grc` files are in `/usr/share/gnuradio/examples/dtv/` — open one alongside
 yours and copy the values across.

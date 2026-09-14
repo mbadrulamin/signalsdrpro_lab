@@ -279,6 +279,16 @@ def build(args):
     audio = args.audio_bitrate
     overhead = int(mux_i * 0.04) + 100_000
     video = mux_i - audio - overhead
+    if args.video_bitrate:
+        # A high-capacity mode does not oblige you to fill it with one service.
+        # 32K/256QAM/CR2/3 carries 40 Mbit/s; a broadcaster puts six or seven
+        # programmes in that. With one programme the remainder becomes null
+        # packets, which is exactly what -muxrate already does.
+        if args.video_bitrate > video:
+            print(f"--video-bitrate {args.video_bitrate:,} exceeds the {video:,} bit/s "
+                  f"this mode leaves for video after audio and overhead.", file=sys.stderr)
+            return 2
+        video = args.video_bitrate
     if video < 300_000:
         print(f"mode {args.mode_str} gives only {mux_i/1e6:.3f} Mbit/s -- "
               f"too little for {audio/1e3:.0f} kbit/s audio plus video.\n"
@@ -286,8 +296,9 @@ def build(args):
               file=sys.stderr)
         return 2
 
-    print(f"  transport rate {mux_i:,} bit/s  "
-          f"= video {video:,} + audio {audio:,} + overhead {overhead:,}")
+    stuffing = mux_i - video - audio - overhead
+    print(f"  transport rate {mux_i:,} bit/s  = video {video:,} + audio {audio:,} "
+          f"+ overhead {overhead:,}" + (f" + null stuffing {stuffing:,}" if stuffing > 0 else ""))
 
     vf = f"scale={args.width}:-2" if args.width else "null"
     cmd = [ffmpeg, '-y']
@@ -368,6 +379,9 @@ def main():
                     help='mp2 is the DVB baseline every television decodes; '
                          'aac is smaller but not universal on older sets')
     ap.add_argument('--audio-bitrate', type=int, default=192_000)
+    ap.add_argument('--video-bitrate', type=int, default=0,
+                    help='cap the video rate and let null packets fill the rest '
+                         '(0 = use everything the mode leaves over)')
     ap.add_argument('--service-name', default='SDR LAB TV')
     ap.add_argument('--provider', default='SignalSDR Pro')
     ap.add_argument('--ts-id', type=int, default=1)

@@ -31,8 +31,11 @@ blocks:
 - name: note_cfg
   id: note
   parameters:
-    note: 'Config = official gr-dtv vv011: 1K FFT, QPSK, CR1/2, GI1/8, PP3. To change it you must edit SEVEN blocks
-      together - see README.'
+    note: 'Config = official gr-dtv profile vv003-cr23: 32K extended, 256QAM, CR 2/3, GI 1/128, PP7
+
+      -> 40.000738 Mbit/s. This is the mode UK Freeview HD and Malaysian MYTV broadcast.
+
+      To change it you must edit TEN blocks together - see README.'
     comment: DVB-T2 parameters are GRC enums, so they cannot be driven from one variable.
   states:
     coordinate:
@@ -44,8 +47,9 @@ blocks:
   id: note
   parameters:
     note: "VIDEO: make the stream first, at EXACTLY this mode's rate --\n  03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4\
-      \ /tmp/bintang_dvbt2.ts --standard dvbt2\nThat is 6,169,662 bit/s for 1K/QPSK/CR1/2/GI1/8 with 48 FEC blocks\
-      \ x 1966 symbols.\nNo ffmpeg? 03_scripts/make_test_ts.py --rate 6169662 gives a valid, pictureless mux."
+      \ /tmp/bintang_dvbt2.ts \\\n      --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \\\n      --t2-fecblocks\
+      \ 202 --t2-datasyms 59 --video-bitrate 12000000\nNo ffmpeg? 03_scripts/make_test_ts.py --rate 40000738 gives a\
+      \ valid, pictureless mux."
     comment: A real television will list the service by the name in the SDT.
     alias: ''
     affinity: ''
@@ -59,8 +63,8 @@ blocks:
   id: variable
   parameters:
     value: (8000000.0 * 8) / 7
-    comment: 'The DVB-T2 elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS. Not negotiable - it defines
-      the OFDM carrier spacing.'
+    comment: 'The DVB-T2 elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS. Not negotiable - it defines the
+      OFDM carrier spacing.'
   states:
     coordinate:
     - 330
@@ -70,8 +74,9 @@ blocks:
 - name: fft_len
   id: variable
   parameters:
-    value: '1024'
-    comment: FFT size in samples. Must match FFTSIZE_1K in the five blocks that take it.
+    value: '32768'
+    comment: FFT size. 32K is what real broadcasters use - UK Freeview HD and Malaysian MYTV both run 32K. Must match
+      FFTSIZE_32K_T2GI in the five blocks that take it.
   states:
     coordinate:
     - 560
@@ -81,8 +86,9 @@ blocks:
 - name: cp_len
   id: variable
   parameters:
-    value: fft_len // 8
-    comment: Guard interval = 1/8 of the useful symbol. Must match GI_1_8 everywhere.
+    value: fft_len // 128
+    comment: 'Guard interval 1/128 = 256 samples = 28 us. Short, because a 32K symbol is already 3.58 ms long: the guard
+      is a fraction of the symbol, and 28 us still covers 8.4 km of echo.'
   states:
     coordinate:
     - 700
@@ -92,8 +98,9 @@ blocks:
 - name: num_data_syms
   id: variable
   parameters:
-    value: '1966'
-    comment: OFDM data symbols per T2 frame. Fixed by the standard for this FFT/GI/PP combination.
+    value: '59'
+    comment: Data symbols per T2 frame. With 1 P2 symbol that makes a frame of 2048 + 60 x 33024 = 1,983,488 samples
+      = 216.9 ms.
   states:
     coordinate:
     - 860
@@ -103,8 +110,9 @@ blocks:
 - name: fec_blocks
   id: variable
   parameters:
-    value: '48'
-    comment: FEC blocks per T2 frame. Sets the payload bitrate.
+    value: '202'
+    comment: 'LDPC blocks per T2 frame. This is what sets the payload rate: 202 x (43040 - 80) bits per 216.9 ms = 40.000738
+      Mbit/s.'
   states:
     coordinate:
     - 1060
@@ -115,7 +123,7 @@ blocks:
   id: variable
   parameters:
     value: '3'
-    comment: Time-interleaver blocks per frame. Interleaving over time is what makes DVB-T2 survive impulsive noise.
+    comment: Time-interleaver blocks per frame.
   states:
     coordinate:
     - 1220
@@ -126,8 +134,8 @@ blocks:
   id: variable
   parameters:
     value: '''/tmp/bintang_dvbt2.ts'''
-    comment: 'The transport stream rate is fixed by the modulation and is not negotiable: 6,169,662 bit/s. make_video_ts.py
-      computes it; --verify checks it from the PCR.'
+    comment: Transport stream, which MUST be muxed at exactly 40,000,738 bit/s. make_video_ts.py computes that from the
+      modulation and --verify checks it against the PCR.
   states:
     coordinate:
     - 330
@@ -156,7 +164,7 @@ blocks:
   parameters:
     standard: STANDARD_DVBT2
     framesize1: FECFRAME_NORMAL
-    rate1: C1_2
+    rate1: C2_3
     framesize2: FECFRAME_NORMAL
     rate2: C1_3
     rate3: C1_4
@@ -179,7 +187,7 @@ blocks:
   parameters:
     standard: STANDARD_DVBT2
     framesize1: FECFRAME_NORMAL
-    rate1: C1_2
+    rate1: C2_3
     framesize2: FECFRAME_NORMAL
     rate2: C1_3
     rate3: C1_4
@@ -197,7 +205,7 @@ blocks:
   parameters:
     standard: STANDARD_DVBT2
     framesize1: FECFRAME_NORMAL
-    rate1: C1_2
+    rate1: C2_3
     framesize2: FECFRAME_NORMAL
     rate2: C1_3
     rate3: C1_4
@@ -215,15 +223,14 @@ blocks:
   parameters:
     standard: STANDARD_DVBT2
     framesize1: FECFRAME_NORMAL
-    rate1: C1_2
+    rate1: C2_3
     framesize2: FECFRAME_NORMAL
     rate2: C1_3
     rate3: C1_4
     rate4: C1_5_MEDIUM
     rate5: C1_4
     constellation: MOD_OTHER
-    comment: STAGE 4 - LDPC inner code, 64800-bit codewords. This is what gets DVB-T2 within ~1 dB of the Shannon
-      limit.
+    comment: STAGE 4 - LDPC inner code, 64800-bit codewords. This is what gets DVB-T2 within ~1 dB of the Shannon limit.
   states:
     coordinate:
     - 1000
@@ -234,8 +241,8 @@ blocks:
   id: dtv_dvbt2_interleaver_bb
   parameters:
     framesize: FECFRAME_NORMAL
-    rate: C1_2
-    constellation: MOD_QPSK
+    rate: C2_3
+    constellation: MOD_256QAM
     comment: STAGE 5 - Bit interleaver. Spreads each LDPC codeword across constellation bits of differing reliability.
   states:
     coordinate:
@@ -247,7 +254,7 @@ blocks:
   id: dtv_dvbt2_modulator_bc
   parameters:
     framesize: FECFRAME_NORMAL
-    constellation: MOD_QPSK
+    constellation: MOD_256QAM
     rotation: ROTATION_ON
     comment: STAGE 6 - Map bits to constellation points. ROTATION_ON rotates the constellation so I and Q each carry
       full information.
@@ -261,11 +268,11 @@ blocks:
   id: dtv_dvbt2_cellinterleaver_cc
   parameters:
     framesize: FECFRAME_NORMAL
-    constellation: MOD_QPSK
+    constellation: MOD_256QAM
     fecblocks: fec_blocks
     tiblocks: ti_blocks
-    comment: STAGE 7 - Cell and TIME interleaving. Spreads one codeword over hundreds of ms so a burst of noise
-      cannot kill it.
+    comment: STAGE 7 - Cell and TIME interleaving. Spreads one codeword over hundreds of ms so a burst of noise cannot
+      kill it.
   states:
     coordinate:
     - 1720
@@ -276,17 +283,17 @@ blocks:
   id: dtv_dvbt2_framemapper_cc
   parameters:
     framesize: FECFRAME_NORMAL
-    rate: C1_2
-    constellation: MOD_QPSK
+    rate: C2_3
+    constellation: MOD_256QAM
     rotation: ROTATION_ON
     fecblocks: fec_blocks
     tiblocks: ti_blocks
-    carriermode: CARRIERS_NORMAL
-    fftsize1: FFTSIZE_1K
+    carriermode: CARRIERS_EXTENDED
+    fftsize1: FFTSIZE_32K_T2GI
     fftsize2: FFTSIZE_2K
-    guardinterval: GI_1_8
-    l1constellation: L1_MOD_BPSK
-    pilotpattern: PILOT_PP3
+    guardinterval: GI_1_128
+    l1constellation: L1_MOD_64QAM
+    pilotpattern: PILOT_PP7
     t2frames: '2'
     numdatasyms: num_data_syms
     paprmode1: PAPR_OFF
@@ -298,8 +305,8 @@ blocks:
     reservedbiasbits: RESERVED_OFF
     l1scrambled: L1_SCRAMBLED_OFF
     inband: INBAND_OFF
-    comment: STAGE 8 - Build the T2 frame and the P2 symbols carrying L1 signalling, which tells the receiver how
-      everything above was configured.
+    comment: STAGE 8 - Build the T2 frame and the P2 symbols carrying L1 signalling, which tells the receiver how everything
+      above was configured.
   states:
     coordinate:
     - 60
@@ -309,18 +316,18 @@ blocks:
 - name: freqinterleaver
   id: dtv_dvbt2_freqinterleaver_cc
   parameters:
-    carriermode: CARRIERS_NORMAL
-    fftsize: FFTSIZE_1K
-    pilotpattern: PILOT_PP3
-    guardinterval: GI_1_8
+    carriermode: CARRIERS_EXTENDED
+    fftsize: FFTSIZE_32K_T2GI
+    pilotpattern: PILOT_PP7
+    guardinterval: GI_1_128
     numdatasyms: num_data_syms
     paprmode1: PAPR_OFF
     paprmode2: PAPR_OFF
     version: VERSION_111
     preamble1: PREAMBLE_T2_SISO
     preamble2: PREAMBLE_T2_SISO
-    comment: STAGE 9 - Frequency interleaver. Scatters cells across OFDM carriers so a notch in the channel does
-      not wipe out consecutive data.
+    comment: STAGE 9 - Frequency interleaver. Scatters cells across OFDM carriers so a notch in the channel does not
+      wipe out consecutive data.
   states:
     coordinate:
     - 340
@@ -330,10 +337,10 @@ blocks:
 - name: pilotgenerator
   id: dtv_dvbt2_pilotgenerator_cc
   parameters:
-    carriermode: CARRIERS_NORMAL
-    fftsize: FFTSIZE_1K
-    pilotpattern: PILOT_PP3
-    guardinterval: GI_1_8
+    carriermode: CARRIERS_EXTENDED
+    fftsize: FFTSIZE_32K_T2GI
+    pilotpattern: PILOT_PP7
+    guardinterval: GI_1_128
     numdatasyms: num_data_syms
     paprmode1: PAPR_OFF
     paprmode2: PAPR_OFF
@@ -358,8 +365,8 @@ blocks:
     cp_len: cp_len
     rolloff: '0'
     tagname: '""'
-    comment: STAGE 11 - Copy the last 1/8 of each symbol to its front. This is what makes OFDM immune to multipath
-      up to the guard length.
+    comment: STAGE 11 - Copy the last 1/8 of each symbol to its front. This is what makes OFDM immune to multipath up
+      to the guard length.
   states:
     coordinate:
     - 900
@@ -370,9 +377,9 @@ blocks:
   id: dtv_dvbt2_p1insertion_cc
   parameters:
     carriermode: CARRIERS_EXTENDED
-    fftsize1: FFTSIZE_1K
+    fftsize1: FFTSIZE_32K_T2GI
     fftsize2: FFTSIZE_2K
-    guardinterval: GI_1_8
+    guardinterval: GI_1_128
     numdatasyms: num_data_syms
     preamble1: PREAMBLE_T2_SISO
     preamble2: PREAMBLE_T2_SISO
@@ -393,8 +400,8 @@ blocks:
     type: complex
     const: tx_amplitude
     vlen: '1'
-    comment: Digital backoff. OFDM has a high peak-to-average ratio (~10 dB), so keep the average well below full
-      scale or the peaks clip.
+    comment: Digital backoff. OFDM has a high peak-to-average ratio (~10 dB), so keep the average well below full scale
+      or the peaks clip.
   states:
     coordinate:
     - 1460
@@ -438,8 +445,8 @@ blocks:
     autoscale: 'True'
     update_time: '0.10'
     gui_hint: 0,1,1,1
-    comment: A sum of ~1000 independent carriers is Gaussian by the central limit theorem. That is why the PAPR
-      is so high.
+    comment: A sum of ~1000 independent carriers is Gaussian by the central limit theorem. That is why the PAPR is so
+      high.
   states:
     coordinate:
     - 1740

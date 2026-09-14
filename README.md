@@ -368,8 +368,9 @@ mean of the demodulated output.
 | 11 | Lock threshold, 16QAM CR 2/3 (standard says 13.5 dB) | **perfect at 13 dB, broken at 12 dB** |
 | 11 | Receiver throughput, locked / unlocked (needs 9.14) | **16.4 / 1.55 MSPS** |
 | 11 | UHF band scan, channels 21–48, FM whip | **no television found**; one bursty carrier on ch22 |
-| 10 | DVB-T2 waveform carrying real H.264 video | **5/5 structural checks pass** |
-| 10 | Video multiplex rate vs the modulator's own rate | **6.169661 vs 6.169662 Mbit/s (0.0000 %)** |
+| 10 | DVB-T2 in the broadcast mode (32K/256QAM/CR2⁄3/GI1⁄128/PP7) | **5/5 structural checks pass** |
+| 10 | Video multiplex rate vs the modulator's own rate | **40.000737 vs 40.000738 Mbit/s (0.0000 %)** |
+| 10 | 32K chain throughput / underflows after start-up | **7.8× real time**, 0 in 70 s |
 | 12 | Full duplex 40 s of 1080p video: packets decoded | **422,304**, 0 sync errors, **0 continuity errors** |
 | 12 | Video recovered over the air, byte for byte | **79,357,996 bytes, 0 mismatches — 100.000000 %** |
 | 12 | Frames decoded out of the received stream | **975 video frames + 39.45 s of audio** |
@@ -465,10 +466,9 @@ you drive the flowgraph programmatically. Start the flowgraph first, then set th
 ### Still not verified
 
 - **No television has locked to the DVB-T2 transmitter.** The waveform passes all five
-  structural checks and now carries a decodable H.264 + MP2 service, but a consumer set finding
-  it in a channel scan is the one measurement that cannot be made from this side of the glass.
-  Lab 10's 1K FFT is legal and part of the DVB-T2 validation vectors, but broadcasters use 32K —
-  that is the first thing to change if a set refuses it.
+  structural checks and carries a decodable H.264 + MP2 service in **the mode Freeview HD and
+  MYTV actually broadcast**, but a consumer set finding it in a channel scan is the one
+  measurement that cannot be made from this side of the glass.
 - **Nobody has watched the picture live.** Labs 11–12 were verified by decoding frames and audio
   out of the received stream and by `cmp` against the source, not by a person watching `ffplay`.
 - **No real broadcast television has been decoded here.** The band is empty at this location

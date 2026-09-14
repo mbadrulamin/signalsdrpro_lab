@@ -67,15 +67,15 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         ##################################################
         # Variables
         ##################################################
-        self.fft_len = fft_len = 1024
+        self.fft_len = fft_len = 32768
         self.tx_gain = tx_gain = 0
         self.tx_amplitude = tx_amplitude = 0.0
         self.ts_file = ts_file = '/tmp/bintang_dvbt2.ts'
         self.ti_blocks = ti_blocks = 3
         self.samp_rate = samp_rate = (8000000.0 * 8) / 7
-        self.num_data_syms = num_data_syms = 1966
-        self.fec_blocks = fec_blocks = 48
-        self.cp_len = cp_len = fft_len // 8
+        self.num_data_syms = num_data_syms = 59
+        self.fec_blocks = fec_blocks = 202
+        self.cp_len = cp_len = fft_len // 128
         self.center_freq = center_freq = 474e6
 
         ##################################################
@@ -89,7 +89,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         self._tx_amplitude_win = qtgui.RangeWidget(self._tx_amplitude_range, self.set_tx_amplitude, "TX digital amplitude", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_layout.addWidget(self._tx_amplitude_win)
         self.usrp_sink = uhd.usrp_sink(
-            ",".join(('', '')),
+            ",".join(("send_frame_size=8192,num_send_frames=1024", '')),
             uhd.stream_args(
                 cpu_format="fc32",
                 args='',
@@ -105,6 +105,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         self.usrp_sink.set_bandwidth(samp_rate, 0)
         self.usrp_sink.set_gain(tx_gain, 0)
         self.tx_scale = blocks.multiply_const_cc(tx_amplitude)
+        self.tx_scale.set_min_output_buffer(4194304)
         self.ts_source = blocks.file_source(gr.sizeof_char*1, ts_file, True, 0, 0)
         self.ts_source.set_begin_tag(pmt.PMT_NIL)
         self.timeplot = qtgui.time_sink_c(
@@ -209,10 +210,10 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         for c in range(0, 1):
             self.top_grid_layout.setColumnStretch(c, 1)
         self.pilotgenerator = dtv.dvbt2_pilotgenerator_cc(
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.PILOT_PP3,
-            dtv.GI_1_8,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_32K_T2GI,
+            dtv.PILOT_PP7,
+            dtv.GI_1_128,
             num_data_syms,
             dtv.PAPR_OFF,
             dtv.VERSION_111,
@@ -220,28 +221,28 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
             dtv.MISO_TX1,
             dtv.EQUALIZATION_OFF,
             dtv.BANDWIDTH_8_0_MHZ,
-            1024
+            32768
             )
         self.p1insertion = dtv.dvbt2_p1insertion_cc(
             dtv.CARRIERS_EXTENDED,
-            dtv.FFTSIZE_1K,
-            dtv.GI_1_8,
+            dtv.FFTSIZE_32K_T2GI,
+            dtv.GI_1_128,
             num_data_syms,
             dtv.PREAMBLE_T2_SISO,
             dtv.SHOWLEVELS_OFF,
             3.3
             )
-        self.modulator = dtv.dvbt2_modulator_bc(dtv.FECFRAME_NORMAL, dtv.MOD_QPSK, dtv.ROTATION_ON)
+        self.modulator = dtv.dvbt2_modulator_bc(dtv.FECFRAME_NORMAL, dtv.MOD_256QAM, dtv.ROTATION_ON)
         self.ldpc = dtv.dvb_ldpc_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2,
+            dtv.C2_3,
             dtv.MOD_OTHER)
         self.freqinterleaver = dtv.dvbt2_freqinterleaver_cc(
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.PILOT_PP3,
-            dtv.GI_1_8,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_32K_T2GI,
+            dtv.PILOT_PP7,
+            dtv.GI_1_128,
             num_data_syms,
             dtv.PAPR_OFF,
             dtv.VERSION_111,
@@ -249,16 +250,16 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
             )
         self.framemapper = dtv.dvbt2_framemapper_cc(
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2,
-            dtv.MOD_QPSK,
+            dtv.C2_3,
+            dtv.MOD_256QAM,
             dtv.ROTATION_ON,
             fec_blocks,
             ti_blocks,
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.GI_1_8,
-            dtv.L1_MOD_BPSK,
-            dtv.PILOT_PP3,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_32K_T2GI,
+            dtv.GI_1_128,
+            dtv.L1_MOD_64QAM,
+            dtv.PILOT_PP7,
             2,
             num_data_syms,
             dtv.PAPR_OFF,
@@ -273,22 +274,22 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
             fft_len + cp_len,
             0,
             "")
-        self.cellinterleaver = dtv.dvbt2_cellinterleaver_cc(dtv.FECFRAME_NORMAL, dtv.MOD_QPSK, fec_blocks, ti_blocks)
-        self.bitinterleaver = dtv.dvbt2_interleaver_bb(dtv.FECFRAME_NORMAL, dtv.C1_2, dtv.MOD_QPSK)
+        self.cellinterleaver = dtv.dvbt2_cellinterleaver_cc(dtv.FECFRAME_NORMAL, dtv.MOD_256QAM, fec_blocks, ti_blocks)
+        self.bitinterleaver = dtv.dvbt2_interleaver_bb(dtv.FECFRAME_NORMAL, dtv.C2_3, dtv.MOD_256QAM)
         self.bch = dtv.dvb_bch_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2
+            dtv.C2_3
             )
         self.bbscrambler = dtv.dvb_bbscrambler_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2
+            dtv.C2_3
             )
         self.bbheader = dtv.dvb_bbheader_bb(
         dtv.STANDARD_DVBT2,
         dtv.FECFRAME_NORMAL,
-        dtv.C1_2,
+        dtv.C2_3,
         dtv.RO_0_35,
         dtv.INPUTMODE_NORMAL,
         dtv.INBAND_OFF,
@@ -330,7 +331,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
 
     def set_fft_len(self, fft_len):
         self.fft_len = fft_len
-        self.set_cp_len(self.fft_len // 8)
+        self.set_cp_len(self.fft_len // 128)
 
     def get_tx_gain(self):
         return self.tx_gain
