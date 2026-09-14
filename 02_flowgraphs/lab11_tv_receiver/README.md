@@ -58,11 +58,11 @@ Build a receiver that does what a television does:
 
 And, unlike a television, explain every number it displays.
 
-> **Verified on real hardware.** Transport stream through the modulator and back out of the
-> demodulator: **0 mismatches in 4,201,236 bytes**. Over the air, full duplex, 25 seconds:
-> **267,104 packets decoded against 267,380 expected — 99.9 % of real time** — MER 17.7 dB,
-> zero sync errors, **99.9566 % byte-exact**, and the service name recovered from the SDT.
-> See [Verification](#-verification).
+> **Verified on real hardware, with a picture.** Transport stream through the modulator and back
+> out of the demodulator: **0 mismatches in 4,201,236 bytes**. Over the air, full duplex, 40
+> seconds of a real 1080p video: **79,357,996 bytes recovered byte-identical — 0 mismatches, 0
+> continuity errors, 0 sync errors** — decoded to 975 video frames and 39.45 s of audio, with
+> the service name read out of the SDT. See [Verification](#-verification).
 
 ---
 
@@ -247,18 +247,20 @@ Run it yourself: `03_scripts/dvbt_chain.py --snr 24 18 13 12 10`
 One SignalSDR Pro transmitting on TX/RX and receiving on RX2 simultaneously, 474 MHz:
 
 ```
-  MER              : 17.7 dB
-  level            : -17.0 dBFS
-  packets decoded  : 267,104  (expect ~267,380 in 25 s)
+  MER              : 15.7 dB
+  level            : -19.8 dBFS
+  packets decoded  : 422,304  (expect ~427,807 in 40 s)
   sync errors      : 0
-  continuity errors: 32  (rate 1.20e-04)
-  service names    : SELFTEST
-  byte comparison  : 5,529,832 bytes, 2400 mismatches -> 99.956599 % exact
-  VERDICT: PASS - watchable, occasional artefacts
+  continuity errors: 0  (rate 0.00e+00)
+  service names    : SDR LAB TV
+  byte comparison  : 79,357,996 bytes, 0 mismatches -> 100.000000 % exact
+  VERDICT: PASS - clean
 ```
 
-267,104 of 267,380 is **99.9 % of real time**. The service name came out of the Service
-Description Table — the receiver read the channel's own name off the air.
+That was 40 seconds of real video — 1920×1080 H.264 at 15.1 Mbit/s with MP2 audio — recovered
+**byte-identical**, then decoded into **975 video frames and 39.45 s of audio**. The service
+name came out of the Service Description Table: the receiver read the channel's own name off
+the air.
 
 Run it yourself: `03_scripts/verify_tv_link.py` (see [Lab 12](../lab12_fullduplex_tv/) first —
 it transmits).
@@ -309,6 +311,8 @@ consequence, in [Troubleshooting](#-troubleshooting) below.
 - **No real broadcast was ever decoded here.** The band is empty at this location with this
   antenna, so every decode in this lab came from our own transmitter (Lab 12). The receiver has
   never been proved against a third-party DVB-T station.
+- **Nobody has sat and watched it.** The picture was verified by decoding frames out of the
+  received stream, not by a person watching `ffplay` run.
 - **DVB-T2 reception is impossible**, not untested — see the top of this page.
 - **2K mode** decodes correctly in file loopback but was not run over the air.
 - **Hierarchical modulation** (`alpha1/2/4`) is wired through the API but never exercised.

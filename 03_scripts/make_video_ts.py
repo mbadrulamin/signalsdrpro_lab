@@ -42,6 +42,57 @@ CODE_RATES = {'1/2': (1, 2), '2/3': (2, 3), '3/4': (3, 4), '5/6': (5, 6), '7/8':
 GUARDS = {'1/32': 32, '1/16': 16, '1/8': 8, '1/4': 4}
 RS_RATE = 188.0 / 204.0                    # outer Reed-Solomon (204,188)
 
+# ---------------------------------------------------------------------------
+# DVB-T2 (ETSI EN 302 755).  Its payload rate is not a closed-form function of
+# "mode" the way DVB-T's is: a T2 frame is an explicit number of OFDM symbols
+# carrying an explicit number of LDPC blocks, so the rate follows from those
+# two counts and nothing else.
+# ---------------------------------------------------------------------------
+# Kbch: BCH payload bits per FEC block.  Nldpc = 64800 (normal) / 16200 (short).
+DVBT2_KBCH = {
+    'normal': {'1/2': 32208, '3/5': 38688, '2/3': 43040,
+               '3/4': 48408, '4/5': 51648, '5/6': 53840},
+    'short':  {'1/2': 7032, '3/5': 9552, '2/3': 10632,
+               '3/4': 11712, '4/5': 12432, '5/6': 13152},
+}
+# Number of P2 preamble symbols, by FFT size (EN 302 755 table 14)
+DVBT2_NP2 = {1024: 16, 2048: 8, 4096: 4, 8192: 2, 16384: 1, 32768: 1}
+DVBT2_FFT = {'1k': 1024, '2k': 2048, '4k': 4096,
+             '8k': 8192, '16k': 16384, '32k': 32768}
+DVBT2_GUARDS = {'1/128': 128, '1/32': 32, '1/16': 16, '19/256': 256.0 / 19,
+                '1/8': 8, '19/128': 128.0 / 19, '1/4': 4}
+BBHEADER_BITS = 80          # 10-byte BBHEADER in front of every BBFRAME
+P1_SAMPLES = 2048           # C + A + B = 542 + 1024 + 482
+
+
+def dvbt2_bitrate(fft, guard, code_rate, fecblocks, numdatasyms,
+                  framesize='normal', chan_bw=8e6):
+    """Useful transport-stream bit rate of one DVB-T2 PLP, in bit/s.
+
+    Per T2 frame the chain swallows exactly
+
+        fecblocks x (Kbch - 80)   bits
+
+    and emits exactly
+
+        2048 + (NP2 + numdatasyms) x (Nfft + Ncp)   samples
+
+    at one sample per elementary period.  Divide one by the other.
+
+    Verified against the running chain: Lab 10's configuration (1K, QPSK,
+    CR 1/2, GI 1/8, 48 FEC blocks, 1966 data symbols) consumed 15,421,440
+    transport bytes while emitting exactly 80.0000 T2 frames of 2,285,312
+    samples -- 192,768 bytes per frame, 6.169662 Mbit/s, which is what this
+    function returns to six decimal places.
+    """
+    nfft = DVBT2_FFT[fft]
+    ncp = int(round(nfft / DVBT2_GUARDS[guard]))
+    kbch = DVBT2_KBCH[framesize][code_rate]
+    fs = 1.0 / ELEMENTARY_T[chan_bw]
+    frame_samples = P1_SAMPLES + (DVBT2_NP2[nfft] + numdatasyms) * (nfft + ncp)
+    frame_bits = fecblocks * (kbch - BBHEADER_BITS)
+    return frame_bits / (frame_samples / fs), frame_samples, frame_bits // 8
+
 
 def dvbt_bitrate(nfft, const, code_rate, guard, chan_bw=8e6):
     """Useful (transport-stream) bit rate in bit/s for one DVB-T mode.
@@ -94,6 +145,26 @@ def list_modes(nfft, chan_bw):
             print(f"{const:>14} {cr:>5}   " + "  ".join(cells))
     print("\nmode string is  <constellation>-<code rate>-<guard>, "
           "e.g.  16qam-2/3-1/32")
+
+
+def list_t2_modes(a):
+    print(f"DVB-T2 payload rate, {int(a.bandwidth/1e6)} MHz channel, "
+          f"{a.t2_fecblocks} FEC blocks x {a.t2_datasyms} data symbols, "
+          f"{a.t2_framesize} FECFRAME\n")
+    print(f"{'FFT':>5} {'GI':>7}  " + "  ".join(f"{r:>8}" for r in DVBT2_KBCH[a.t2_framesize]))
+    print("-" * 72)
+    for fft in DVBT2_FFT:
+        for gi in DVBT2_GUARDS:
+            cells = []
+            for cr in DVBT2_KBCH[a.t2_framesize]:
+                r, _, _ = dvbt2_bitrate(fft, gi, cr, a.t2_fecblocks,
+                                        a.t2_datasyms, a.t2_framesize, a.bandwidth)
+                cells.append(f"{r/1e6:8.3f}")
+            print(f"{fft:>5} {gi:>7}  " + "  ".join(cells))
+    print("\nThese assume the FEC-block and data-symbol counts above. Changing")
+    print("FFT size or guard interval without changing those two is not a valid")
+    print("T2 frame -- the frame mapper will refuse it. Lab 10's numbers are")
+    print("1K / GI 1/8 / CR 1/2 / 48 blocks / 1966 symbols -> 6.170 Mbit/s.")
 
 
 # ---------------------------------------------------------------------------
@@ -181,10 +252,26 @@ def build(args):
               file=sys.stderr)
         return 2
 
-    const, cr, gi = args.mode
-    nfft = 8192 if args.fft == '8k' else 2048
-    mux, Tu, Ts = dvbt_bitrate(nfft, const, cr, gi, args.bandwidth)
-    mux_i = int(mux)                      # ffmpeg wants an integer
+    if args.standard == 'dvbt2':
+        mux, frame_samples, frame_bytes = dvbt2_bitrate(
+            args.t2_fft, args.t2_guard, args.t2_rate, args.t2_fecblocks,
+            args.t2_datasyms, args.t2_framesize, args.bandwidth)
+        mux_i = int(mux)
+        print(f"DVB-T2 mode: {args.t2_fft.upper()} FFT, GI {args.t2_guard}, "
+              f"CR {args.t2_rate}, {args.t2_fecblocks} FEC blocks x "
+              f"{args.t2_datasyms} data symbols")
+        print(f"  T2 frame = {frame_samples:,} samples "
+              f"({frame_samples/(1.0/ELEMENTARY_T[args.bandwidth])*1000:.3f} ms) "
+              f"carrying {frame_bytes:,} transport bytes")
+    else:
+        const, cr, gi = args.mode
+        nfft = 8192 if args.fft == '8k' else 2048
+        mux, Tu, Ts = dvbt_bitrate(nfft, const, cr, gi, args.bandwidth)
+        mux_i = int(mux)
+        print(f"DVB-T mode : {'8K' if nfft == 8192 else '2K'} {const.upper()} "
+              f"CR {cr} GI {gi}, {args.bandwidth/1e6:.0f} MHz")
+        print(f"  Tu = {Tu*1e6:.1f} us   Ts = {Ts*1e6:.1f} us   "
+              f"sample rate {sample_rate(args.bandwidth)/1e6:.6f} Msps")
 
     # Leave room for audio, PSI tables and PES headers.  Everything left over
     # after the reservation goes to video; ffmpeg stuffs the remainder with
@@ -199,10 +286,6 @@ def build(args):
               file=sys.stderr)
         return 2
 
-    print(f"DVB-T mode : {'8K' if nfft == 8192 else '2K'} {const.upper()} "
-          f"CR {cr} GI {gi}, {args.bandwidth/1e6:.0f} MHz")
-    print(f"  Tu = {Tu*1e6:.1f} us   Ts = {Ts*1e6:.1f} us   "
-          f"sample rate {sample_rate(args.bandwidth)/1e6:.6f} Msps")
     print(f"  transport rate {mux_i:,} bit/s  "
           f"= video {video:,} + audio {audio:,} + overhead {overhead:,}")
 
@@ -214,18 +297,36 @@ def build(args):
             '-vf', vf,
             '-r', str(args.fps),
             '-c:v', args.vcodec,
+            # Constant bit rate, not merely an average: a broadcast multiplex
+            # has no room to borrow from later.
             '-b:v', str(video), '-minrate', str(video), '-maxrate', str(video),
-            '-bufsize', str(video),
-            '-g', str(args.gop),
+            '-bufsize', str(video // 2),
+            # Baseline decodability for consumer tuners: 4:2:0 8-bit, High
+            # profile level 4.0, closed GOP with a real IDR every GOP so a
+            # television can start decoding at any keyframe rather than
+            # waiting for an open-GOP recovery point.
+            '-pix_fmt', 'yuv420p',
+            '-profile:v', args.profile, '-level', args.level,
+            '-g', str(args.gop), '-keyint_min', str(args.gop),
+            '-sc_threshold', '0',
+            '-x264opts', f'open-gop=0:min-keyint={args.gop}:keyint={args.gop}',
             '-c:a', args.acodec, '-b:a', str(audio), '-ar', '48000', '-ac', '2',
+            # The SDT service name and provider are METADATA, not muxer
+            # options: ffmpeg has no -mpegts_service_name. This is what a
+            # television shows in its channel list.
+            '-metadata', f'service_name={args.service_name}',
+            '-metadata', f'service_provider={args.provider}',
+            # -f mpegts must precede the muxer's private options, or ffmpeg
+            # has no muxer to resolve them against.
+            '-f', 'mpegts',
             '-muxrate', str(mux_i),
             '-pcr_period', '20',
-            '-mpegts_service_name', args.service_name,
-            '-mpegts_service_provider', args.provider,
+            '-mpegts_flags', '+resend_headers',
+            '-mpegts_service_type', 'digital_tv',
+            '-sdt_period', '0.5', '-pat_period', '0.1', '-nit_period', '0.5',
             '-mpegts_original_network_id', str(args.net_id),
             '-mpegts_transport_stream_id', str(args.ts_id),
-            '-metadata', f'service_name={args.service_name}',
-            '-f', 'mpegts']
+            '-mpegts_service_id', str(args.service_id)]
     if args.duration:
         cmd += ['-t', str(args.duration)]
     cmd += [args.output]
@@ -243,6 +344,16 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('input', nargs='?', help='source video (any format ffmpeg reads)')
     ap.add_argument('output', nargs='?', help='destination .ts')
+    ap.add_argument('--standard', default='dvbt', choices=['dvbt', 'dvbt2'],
+                    help='which modulator this stream will feed (default dvbt)')
+    ap.add_argument('--t2-fft', default='1k', choices=list(DVBT2_FFT))
+    ap.add_argument('--t2-guard', default='1/8', choices=list(DVBT2_GUARDS))
+    ap.add_argument('--t2-rate', default='1/2', choices=list(DVBT2_KBCH['normal']))
+    ap.add_argument('--t2-framesize', default='normal', choices=['normal', 'short'])
+    ap.add_argument('--t2-fecblocks', type=int, default=48)
+    ap.add_argument('--t2-datasyms', type=int, default=1966)
+    ap.add_argument('--profile', default='high', help='H.264 profile')
+    ap.add_argument('--level', default='4.0', help='H.264 level')
     ap.add_argument('--mode', default='16qam-2/3-1/32', dest='mode_str',
                     help='DVB-T mode, e.g. 16qam-2/3-1/32 (default) or qpsk-1/2-1/4')
     ap.add_argument('--fft', default='8k', choices=['8k', '2k'])
@@ -253,11 +364,14 @@ def main():
     ap.add_argument('--gop', type=int, default=25,
                     help='keyframe interval; short GOP = faster channel-change')
     ap.add_argument('--vcodec', default='libx264')
-    ap.add_argument('--acodec', default='mp2')
+    ap.add_argument('--acodec', default='mp2',
+                    help='mp2 is the DVB baseline every television decodes; '
+                         'aac is smaller but not universal on older sets')
     ap.add_argument('--audio-bitrate', type=int, default=192_000)
     ap.add_argument('--service-name', default='SDR LAB TV')
     ap.add_argument('--provider', default='SignalSDR Pro')
     ap.add_argument('--ts-id', type=int, default=1)
+    ap.add_argument('--service-id', type=int, default=1)
     ap.add_argument('--net-id', type=int, default=1)
     ap.add_argument('--duration', type=float, help='seconds to encode')
     ap.add_argument('--loop', action='store_true',
@@ -268,16 +382,24 @@ def main():
     a = ap.parse_args()
 
     if a.list_modes:
-        list_modes(8192 if a.fft == '8k' else 2048, a.bandwidth)
+        if a.standard == 'dvbt2':
+            list_t2_modes(a)
+        else:
+            list_modes(8192 if a.fft == '8k' else 2048, a.bandwidth)
         return 0
 
     if a.verify:
         target = a.output or a.input
         if not target:
             ap.error('--verify needs a .ts path')
-        const, cr, gi = parse_mode(a.mode_str)
-        nfft = 8192 if a.fft == '8k' else 2048
-        mux, _, _ = dvbt_bitrate(nfft, const, cr, gi, a.bandwidth)
+        if a.standard == 'dvbt2':
+            mux, _, _ = dvbt2_bitrate(a.t2_fft, a.t2_guard, a.t2_rate,
+                                      a.t2_fecblocks, a.t2_datasyms,
+                                      a.t2_framesize, a.bandwidth)
+        else:
+            const, cr, gi = parse_mode(a.mode_str)
+            nfft = 8192 if a.fft == '8k' else 2048
+            mux, _, _ = dvbt_bitrate(nfft, const, cr, gi, a.bandwidth)
         return verify_ts(target, expect_rate=mux)
 
     if not a.input or not a.output:

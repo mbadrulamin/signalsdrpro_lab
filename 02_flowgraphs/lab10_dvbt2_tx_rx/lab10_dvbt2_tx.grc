@@ -31,8 +31,8 @@ blocks:
 - name: note_cfg
   id: note
   parameters:
-    note: 'Config = official gr-dtv vv011: 1K FFT, QPSK, CR1/2, GI1/8, PP3. To change it you must edit
-      SEVEN blocks together - see README.'
+    note: 'Config = official gr-dtv vv011: 1K FFT, QPSK, CR1/2, GI1/8, PP3. To change it you must edit SEVEN blocks
+      together - see README.'
     comment: DVB-T2 parameters are GRC enums, so they cannot be driven from one variable.
   states:
     coordinate:
@@ -40,12 +40,27 @@ blocks:
     - 160
     rotation: 0
     state: enabled
+- name: note_video
+  id: note
+  parameters:
+    note: "VIDEO: make the stream first, at EXACTLY this mode's rate --\n  03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4\
+      \ /tmp/bintang_dvbt2.ts --standard dvbt2\nThat is 6,169,662 bit/s for 1K/QPSK/CR1/2/GI1/8 with 48 FEC blocks\
+      \ x 1966 symbols.\nNo ffmpeg? 03_scripts/make_test_ts.py --rate 6169662 gives a valid, pictureless mux."
+    comment: A real television will list the service by the name in the SDT.
+    alias: ''
+    affinity: ''
+  states:
+    coordinate:
+    - 10
+    - 220
+    rotation: 0
+    state: enabled
 - name: samp_rate
   id: variable
   parameters:
     value: (8000000.0 * 8) / 7
-    comment: 'The DVB-T2 elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS. Not negotiable -
-      it defines the OFDM carrier spacing.'
+    comment: 'The DVB-T2 elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS. Not negotiable - it defines
+      the OFDM carrier spacing.'
   states:
     coordinate:
     - 330
@@ -100,8 +115,7 @@ blocks:
   id: variable
   parameters:
     value: '3'
-    comment: Time-interleaver blocks per frame. Interleaving over time is what makes DVB-T2 survive impulsive
-      noise.
+    comment: Time-interleaver blocks per frame. Interleaving over time is what makes DVB-T2 survive impulsive noise.
   states:
     coordinate:
     - 1220
@@ -111,8 +125,9 @@ blocks:
 - name: ts_file
   id: variable
   parameters:
-    value: '''/tmp/dvbt2_test.ts'''
-    comment: MPEG-2 transport stream. Make one with 03_scripts/make_test_ts.py (no ffmpeg needed).
+    value: '''/tmp/bintang_dvbt2.ts'''
+    comment: 'The transport stream rate is fixed by the modulation and is not negotiable: 6,169,662 bit/s. make_video_ts.py
+      computes it; --verify checks it from the PCR.'
   states:
     coordinate:
     - 330
@@ -152,8 +167,7 @@ blocks:
     fecblocks: '168'
     tsrate: '4000000'
     rolloff: RO_0_35
-    comment: STAGE 1 - Baseband framing. Slices the TS into BBFRAMEs and prepends a header saying how
-      they are coded.
+    comment: STAGE 1 - Baseband framing. Slices the TS into BBFRAMEs and prepends a header saying how they are coded.
   states:
     coordinate:
     - 280
@@ -171,8 +185,7 @@ blocks:
     rate3: C1_4
     rate4: C1_5_MEDIUM
     rate5: C1_4
-    comment: STAGE 2 - Energy dispersal. XOR with a PRBS so a run of identical bytes does not produce
-      a line spectrum.
+    comment: STAGE 2 - Energy dispersal. XOR with a PRBS so a run of identical bytes does not produce a line spectrum.
   states:
     coordinate:
     - 520
@@ -190,8 +203,7 @@ blocks:
     rate3: C1_4
     rate4: C1_5_MEDIUM
     rate5: C1_4
-    comment: STAGE 3 - BCH outer code. Mops up the residual errors the LDPC decoder leaves behind (its
-      error floor).
+    comment: STAGE 3 - BCH outer code. Mops up the residual errors the LDPC decoder leaves behind (its error floor).
   states:
     coordinate:
     - 760
@@ -210,8 +222,8 @@ blocks:
     rate4: C1_5_MEDIUM
     rate5: C1_4
     constellation: MOD_OTHER
-    comment: STAGE 4 - LDPC inner code, 64800-bit codewords. This is what gets DVB-T2 within ~1 dB of
-      the Shannon limit.
+    comment: STAGE 4 - LDPC inner code, 64800-bit codewords. This is what gets DVB-T2 within ~1 dB of the Shannon
+      limit.
   states:
     coordinate:
     - 1000
@@ -224,8 +236,7 @@ blocks:
     framesize: FECFRAME_NORMAL
     rate: C1_2
     constellation: MOD_QPSK
-    comment: STAGE 5 - Bit interleaver. Spreads each LDPC codeword across constellation bits of differing
-      reliability.
+    comment: STAGE 5 - Bit interleaver. Spreads each LDPC codeword across constellation bits of differing reliability.
   states:
     coordinate:
     - 1240
@@ -238,8 +249,8 @@ blocks:
     framesize: FECFRAME_NORMAL
     constellation: MOD_QPSK
     rotation: ROTATION_ON
-    comment: STAGE 6 - Map bits to constellation points. ROTATION_ON rotates the constellation so I and
-      Q each carry full information.
+    comment: STAGE 6 - Map bits to constellation points. ROTATION_ON rotates the constellation so I and Q each carry
+      full information.
   states:
     coordinate:
     - 1480
@@ -253,8 +264,8 @@ blocks:
     constellation: MOD_QPSK
     fecblocks: fec_blocks
     tiblocks: ti_blocks
-    comment: STAGE 7 - Cell and TIME interleaving. Spreads one codeword over hundreds of ms so a burst
-      of noise cannot kill it.
+    comment: STAGE 7 - Cell and TIME interleaving. Spreads one codeword over hundreds of ms so a burst of noise
+      cannot kill it.
   states:
     coordinate:
     - 1720
@@ -287,8 +298,8 @@ blocks:
     reservedbiasbits: RESERVED_OFF
     l1scrambled: L1_SCRAMBLED_OFF
     inband: INBAND_OFF
-    comment: STAGE 8 - Build the T2 frame and the P2 symbols carrying L1 signalling, which tells the receiver
-      how everything above was configured.
+    comment: STAGE 8 - Build the T2 frame and the P2 symbols carrying L1 signalling, which tells the receiver how
+      everything above was configured.
   states:
     coordinate:
     - 60
@@ -308,8 +319,8 @@ blocks:
     version: VERSION_111
     preamble1: PREAMBLE_T2_SISO
     preamble2: PREAMBLE_T2_SISO
-    comment: STAGE 9 - Frequency interleaver. Scatters cells across OFDM carriers so a notch in the channel
-      does not wipe out consecutive data.
+    comment: STAGE 9 - Frequency interleaver. Scatters cells across OFDM carriers so a notch in the channel does
+      not wipe out consecutive data.
   states:
     coordinate:
     - 340
@@ -332,8 +343,8 @@ blocks:
     misogroup: MISO_TX1
     equalization: EQUALIZATION_OFF
     bandwidth: BANDWIDTH_8_0_MHZ
-    comment: STAGE 10 - Insert scattered/continual pilots, then IFFT. Output is a time-domain OFDM symbol.
-      The pilots are what the receiver equalises against.
+    comment: STAGE 10 - Insert scattered/continual pilots, then IFFT. Output is a time-domain OFDM symbol. The pilots
+      are what the receiver equalises against.
   states:
     coordinate:
     - 620
@@ -347,8 +358,8 @@ blocks:
     cp_len: cp_len
     rolloff: '0'
     tagname: '""'
-    comment: STAGE 11 - Copy the last 1/8 of each symbol to its front. This is what makes OFDM immune
-      to multipath up to the guard length.
+    comment: STAGE 11 - Copy the last 1/8 of each symbol to its front. This is what makes OFDM immune to multipath
+      up to the guard length.
   states:
     coordinate:
     - 900
@@ -368,8 +379,8 @@ blocks:
     showlevels: SHOWLEVELS_OFF
     vclip: '3.3'
     version: VERSION_111
-    comment: STAGE 12 - Prepend the P1 preamble symbol. A receiver finds this FIRST, by correlation, before
-      it knows anything else.
+    comment: STAGE 12 - Prepend the P1 preamble symbol. A receiver finds this FIRST, by correlation, before it knows
+      anything else.
   states:
     coordinate:
     - 1180
@@ -382,8 +393,8 @@ blocks:
     type: complex
     const: tx_amplitude
     vlen: '1'
-    comment: Digital backoff. OFDM has a high peak-to-average ratio (~10 dB), so keep the average well
-      below full scale or the peaks clip.
+    comment: Digital backoff. OFDM has a high peak-to-average ratio (~10 dB), so keep the average well below full
+      scale or the peaks clip.
   states:
     coordinate:
     - 1460
@@ -427,8 +438,8 @@ blocks:
     autoscale: 'True'
     update_time: '0.10'
     gui_hint: 0,1,1,1
-    comment: A sum of ~1000 independent carriers is Gaussian by the central limit theorem. That is why
-      the PAPR is so high.
+    comment: A sum of ~1000 independent carriers is Gaussian by the central limit theorem. That is why the PAPR
+      is so high.
   states:
     coordinate:
     - 1740
@@ -439,8 +450,7 @@ blocks:
   id: variable
   parameters:
     value: 474e6
-    comment: UHF channel 21. PICK A CHANNEL THAT IS EMPTY WHERE YOU ARE, and only radiate inside a Faraday
-      cage.
+    comment: UHF channel 21. PICK A CHANNEL THAT IS EMPTY WHERE YOU ARE, and only radiate inside a Faraday cage.
   states:
     coordinate:
     - 700
@@ -459,8 +469,8 @@ blocks:
     widget: counter_slider
     min_len: '300'
     orient: QtCore.Qt.Horizontal
-    comment: STARTS AT ZERO ON PURPOSE. Raise it deliberately once you have checked what is connected
-      to the antenna port.
+    comment: STARTS AT ZERO ON PURPOSE. Raise it deliberately once you have checked what is connected to the antenna
+      port.
   states:
     coordinate:
     - 330
@@ -500,8 +510,8 @@ blocks:
     bw0: samp_rate
     center_freq0: center_freq
     gain0: tx_gain
-    comment: THIS RADIATES. Both tx_amplitude and tx_gain default to ZERO - raise them deliberately,
-      and only after checking what is connected to the antenna port.
+    comment: THIS RADIATES. Both tx_amplitude and tx_gain default to ZERO - raise them deliberately, and only after
+      checking what is connected to the antenna port.
   states:
     coordinate:
     - 1740

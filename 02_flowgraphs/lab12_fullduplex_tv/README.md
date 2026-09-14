@@ -160,29 +160,71 @@ so C/N does not move. The answer was 19 dB more transmit gain, and then:
 
 ## 🔬 Verification
 
+### Your own video, transmitted and received
+
+40 seconds of `Bintang.mp4` — 1920×1080 H.264 at 15.1 Mbit/s with MP2 audio — through the
+transmitter, over the air, and back through the demodulator:
+
 ```
-$ 03_scripts/verify_tv_link.py --seconds 25 --channel 21 \
-      --tx-gain 89 --tx-amplitude 1.0 --rx-gain 20
+$ 03_scripts/verify_tv_link.py --ts /tmp/bintang_dvbt.ts --seconds 40 \
+      --channel 21 --tx-gain 89 --tx-amplitude 1.0 --rx-gain 20
 
-  t= 2.0s  level -17.0 dBFS  MER 17.7 dB  TS  1.95 MB  pkts  10,400  CC err  0
-  ...
-  t=26.0s  level -17.0 dBFS  MER 17.7 dB  TS 50.21 MB  pkts 267,104  CC err 32
+  t=40.0s  level -19.8 dBFS  MER 15.7 dB  TS 79.39 MB  pkts 422,304  CC err 0
 
-  packets decoded  : 267,104  (expect ~267,380 in 25 s)
+  packets decoded  : 422,304  (expect ~427,807 in 40 s)
   sync errors      : 0
-  continuity errors: 32  (rate 1.20e-04)
-  service names    : SELFTEST
-  byte comparison  : 5,529,832 bytes, 2400 mismatches -> 99.956599 % exact
-  VERDICT: PASS - watchable, occasional artefacts
+  continuity errors: 0  (rate 0.00e+00)
+  service names    : SDR LAB TV
+  byte comparison  : 79,357,996 bytes, 0 mismatches -> 100.000000 % exact
+  VERDICT: PASS - clean
 ```
+
+**79 MB of video, byte-identical.** Then decoded:
+
+```
+$ ffmpeg -i /tmp/verify_rx.ts -map 0:v -f null -
+  Stream #0:0[0x100]: Video: h264 (High), yuv420p, 1920x1080, 25 fps
+  Stream #0:1[0x101]: Audio: mp2, 48000 Hz, stereo, 192 kb/s
+  frame= 975      <- 39.4 s of video at 25 fps
+```
+
+975 video frames and 39.45 s of audio came out of the radio.
+
+> **The control that makes this airtight.** The decoder still prints a few warnings, because the
+> capture begins mid-GOP — a receiver tuning in has to wait for the next keyframe. To prove the
+> radio was not responsible, the *identical byte range* was cut out of the source file and
+> decoded alongside:
+>
+> ```
+> $ cmp /tmp/rx_slice.ts /tmp/src_slice.ts
+>   (no output - 78,995,720 bytes identical)
+> warnings decoding the RECEIVED slice : 31
+> warnings decoding the SOURCE  slice : 31
+> ```
+>
+> Same bytes, same warnings. Every complaint the decoder makes is inherent to joining a stream
+> in the middle, and none of them came from the channel.
+
+### An earlier measurement, corrected
+
+A first run reported 32 continuity errors and 2,400 byte mismatches at MER 17.7 dB, which was
+blamed on phase noise. It was mostly **the test's own fault**: that run looped a 3-second
+transport stream, and every wrap is a discontinuity in both the continuity counters and the PCR
+— a fault the receiver reports honestly, in a stream that really is broken at the seam. Running
+a 209-second file end to end gives **zero** of either.
+
+If you loop a short stream, expect one burst of errors per lap and do not read it as a radio
+problem.
 
 The robust mode was measured too, and behaved in an instructive way:
 
 | Mode | Bit rate | MER | Byte error rate | Locks live? |
 |---|---|---|---|---|
-| 16QAM 2/3 GI 1/32 | 16.09 Mbit/s | 17.7 dB | 4.3 × 10⁻⁴ | ✅ |
-| QPSK 1/2 GI 1/32 | 6.03 Mbit/s | 14.7 dB | 9.3 × 10⁻⁴ | ✅ |
+| **16QAM 2/3 GI 1/32** | 16.09 Mbit/s | 15.7 dB | **0** (79 MB) | ✅ ← default |
+| QPSK 1/2 GI 1/32 | 6.03 Mbit/s | 14.7 dB | 9.3 × 10⁻⁴ * | ✅ |
 | QPSK 1/2 **GI 1/4** | 4.98 Mbit/s | — | — | ❌ **never locks** |
+
+\* measured with a looping 3-second stream — see [the correction above](#an-earlier-measurement-corrected).
 
 The last row is not a link problem — that mode decodes perfectly from a file. The acquisition
 search window *is* the cyclic prefix, so GI 1/4 is 2048 samples of correlation per symbol
@@ -209,13 +251,9 @@ against your own CPU are different axes.
 
 ## ❓ What was not tested
 
-- **The video path itself was never run**, because ffmpeg is not installed on this machine and
-  installing it needs root. What *was* proved is stronger than a screenshot: the transport
-  stream arrives **byte-identical**, and the service name was recovered from its SDT. A
-  transport stream that survives intact carries whatever is inside it intact — video included.
-  The first thing to do with `sudo apt install ffmpeg` is confirm the picture.
-- **`Bintang.mp4` was inspected but never transcoded** — 1920×1080 H.264 with AAC audio, in a
-  fragmented MP4. The ffmpeg command line is built and documented but has not been run.
+- **No human has watched the picture live.** The stream was decoded frame by frame and stills
+  were extracted from it, but `ffplay` was never left running in front of someone. Everything
+  the decoder can check, checks out.
 - **Two-radio operation** (one transmitting, one receiving, as Lab 10 describes) was not tried;
   everything here is one B210 talking to itself.
 - **No deliberate frequency offset was introduced**, so the synchroniser has never been tested

@@ -64,13 +64,16 @@ This is the most sophisticated signal in the repository by a wide margin. It lay
 Twelve stages. Every one exists to defeat a specific channel impairment, and by the end of this
 lab you should be able to say which.
 
-> **Verified.** The generated waveform passes all five structural checks in
-> `03_scripts/analyze_dvbt2.py`: occupied bandwidth **7.571 MHz**, cyclic prefix present at
-> **13.4×**, OFDM symbol period **exactly 1152 samples**, P1 preamble detected at **24.3×
-> peak-to-mean**, and a T2 frame period of **2,284,869 samples against 2,285,312 predicted —
-> 0.019 % error**. See [Verification](#-verification).
+> **Verified, now carrying real video.** The waveform passes all five structural checks in
+> `03_scripts/analyze_dvbt2.py`: occupied bandwidth **7.571 MHz**, cyclic prefix at **13.7×**,
+> OFDM symbol period **exactly 1152 samples**, P1 preamble at **24.2× peak-to-mean**, and a T2
+> frame period of **2,284,871 samples against 2,285,312 predicted — 0.019 % error**. The
+> multiplex inside it is a real H.264 + MP2 service muxed to **6.169661 Mbit/s against the
+> 6.169662 Mbit/s the modulator consumes — 0.0000 % error**, confirmed from the file's own PCR
+> timestamps. See [Verification](#-verification).
 >
-> **Not verified:** nothing was transmitted. See [What was not tested](#what-was-not-tested).
+> **Not verified:** no television has locked to it yet. That is
+> [the one measurement left](#what-was-not-tested), and it needs your TV.
 
 ---
 
@@ -172,27 +175,55 @@ So this lab does what the industry does: **transmit with software, receive with 
 
 ## 🧪 Running the Lab
 
-### Step 0 — Make a transport stream
+### Step 0 — Make a transport stream, with your own video in it
 
-DVB-T2 carries an MPEG-2 Transport Stream. Generate one with no extra tools:
+DVB-T2 carries an MPEG-2 Transport Stream, and **the rate is not a free choice**. This
+configuration swallows exactly:
+
+$$\frac{48 \text{ FEC blocks} \times (32208 - 80)\ \text{bits}}{2{,}285{,}312 / 9{,}142{,}857\ \text{s}}
+= \mathbf{6{,}169{,}662\ \text{bit/s}}$$
 
 ```bash
 cd 03_scripts
-python3 make_test_ts.py --out /tmp/dvbt2_test.ts --seconds 10 --rate 4e6
+./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts --standard dvbt2
 ```
 
-This writes a standards-valid TS with **PAT, PMT, SDT and NIT** tables and null stuffing at an
-exact constant rate. A real TV will lock to it, find the service, and list it as **"SDR LAB TV"**.
+That computes the rate from the modulation parameters, encodes H.264 + MP2 inside it, stuffs
+null packets up to exactly that figure, and then checks its own work by recovering the rate
+from the PCR timestamps in the finished file:
 
-> ⚠️ **It carries no video.** Generating a compliant MPEG-2 elementary stream from scratch is a
-> different project. The TV will show the channel in its list with a blank picture — which is
-> enough to prove the entire physical layer works. For an actual picture, if you have `ffmpeg`:
+```
+  PCR-derived mux rate: 6.169661 Mbit/s
+  expected            : 6.169662 Mbit/s  (-0.0000 % error)
+```
+
+No ffmpeg? This still works, it just has no picture:
+
+```bash
+./make_test_ts.py --out /tmp/bintang_dvbt2.ts --seconds 10 --rate 6169662
+```
+
+> #### ⚠️ Correction to earlier versions of this lab
 >
-> ```bash
-> ffmpeg -f lavfi -i testsrc2=size=720x576:rate=25 -f lavfi -i sine=frequency=1000 \
->        -c:v mpeg2video -b:v 3000k -c:a mp2 -b:a 192k \
->        -muxrate 4000000 -f mpegts -t 60 /tmp/dvbt2_test.ts
-> ```
+> This page used to say `--rate 4e6`, and the ffmpeg example used `-muxrate 4000000`. **That is
+> wrong**, and it is wrong in a way that hides itself. The file source loops, so the modulator
+> never starves — it simply reads the file 1.54× faster than the stream's own clock says it
+> should. With a pictureless test stream nothing visibly breaks. Put video in it and the
+> television's clock recovery fights the PCR for a few seconds and then gives up.
+>
+> The rate is arithmetic. Compute it, stuff to it, and verify it from the PCR.
+
+#### Settings that matter to a real television
+
+`make_video_ts.py` defaults to these because consumer tuners are less forgiving than ffplay:
+
+| Setting | Value | Why |
+|---|---|---|
+| Video codec | H.264 High@4.0, `yuv420p` | The DVB-T2 baseline. 10-bit or 4:2:2 will not decode |
+| Audio codec | **MP2**, 48 kHz stereo | Every DVB television decodes MP2. AAC is smaller but not universal on older sets |
+| GOP | 25 frames, **closed**, IDR every GOP | The TV can start at any keyframe. Long or open GOPs make channel change feel broken |
+| `-sdt_period 0.5` | SDT twice a second | This is the table that puts the name in the channel list |
+| Rate control | CBR with `minrate = maxrate` | A multiplex has no room to borrow from later |
 
 ### Step 1 — Generate the waveform, with no RF
 
@@ -318,18 +349,41 @@ the 1152 predicted.
 The transport stream generator was verified by parsing its own output back: **0 bad sync bytes,
 all 446 PSI sections CRC-valid**, and the service name round-trips through the SDT.
 
+**The video stream was then built and put through the same modulator.** `Bintang.mp4`
+(1920×1080 H.264 + AAC, 209 s) re-encoded to 1280×720 H.264 High@4.0 with MP2 audio:
+
+```
+/tmp/bintang_dvbt2.ts
+  161,208,684 bytes = 857,493 packets of 188
+  sync byte 0x47 present on 857,493/857,493 (100.000 %)
+  PID 256 video 79.88 % | PID 257 audio 3.25 % | PID 8191 null 16.31 %
+  PAT 0.25 % | PMT 4096 0.25 % | SDT 17 0.05 %
+  PCR-derived mux rate: 6.169661 Mbit/s
+  expected            : 6.169662 Mbit/s  (-0.0000 % error)
+```
+
+That stream was modulated and re-analysed, and it still passes all five checks — occupied
+bandwidth 7.571 MHz, cyclic prefix 13.7×, symbol period exactly 1152, P1 at 24.2×, T2 frame
+2,284,871 samples against 2,285,312 predicted. **The waveform now carries a real picture**, and
+the rate it was muxed at was confirmed from the file's own PCR timestamps rather than assumed.
+
 On hardware, the USRP **TX** chain was queried (without ever starting a flowgraph, so no samples
 were streamed): it delivers the DVB-T2 elementary rate to **0.019 ppm** and supports the required
 9.14 MHz analog bandwidth.
 
 ### What was not tested
 
-- **Nothing was transmitted.** No Faraday cage and no attenuators were available, and an FM-band
-  antenna was attached to the device from the earlier labs. Radiating DVB-T2 into that would have
-  been illegal and irresponsible.
 - **No television has locked to this signal.** The waveform is structurally correct by five
-  independent measurements, and the chain is the gr-dtv reference implementation used for the
-  DVB-T2 validation vectors — but "a TV locks" is a claim only you can verify.
+  independent measurements, it now carries a decodable H.264 + MP2 service, and the chain is the
+  gr-dtv reference implementation used for the DVB-T2 validation vectors — but "a TV locks" is a
+  claim only you can verify. **This is the one remaining measurement in this lab.**
+- **1K FFT is unusual for broadcasting.** It is a legal DVB-T2 mode and part of the validation
+  vectors every tuner is tested against, but Malaysian and European broadcasters use 32K. If
+  your television refuses to find the service, that is the first thing to suspect — see
+  [Changing the Configuration](#-changing-the-configuration).
+- **The video path was verified by decoding the transport stream, not by watching a television.**
+  `ffprobe` reports H.264 High@4.0 1280×720 yuv420p plus MP2 48 kHz stereo, and still frames
+  decode correctly out of the finished multiplex.
 - **The 12 stages are not individually verified.** The LDPC and BCH encoders are exercised, but
   proving they are *correct* would need a receiver.
 

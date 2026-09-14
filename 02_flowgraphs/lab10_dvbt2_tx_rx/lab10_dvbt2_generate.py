@@ -66,7 +66,7 @@ class lab10_dvbt2_generate(gr.top_block, Qt.QWidget):
         ##################################################
         self.fft_len = fft_len = 1024
         self.tx_amplitude = tx_amplitude = 0.25
-        self.ts_file = ts_file = '/tmp/dvbt2_test.ts'
+        self.ts_file = ts_file = '/tmp/bintang_dvbt2.ts'
         self.ti_blocks = ti_blocks = 3
         self.samp_rate = samp_rate = (8000000.0 * 8) / 7
         self.num_data_syms = num_data_syms = 1966
