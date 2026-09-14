@@ -1,0 +1,1221 @@
+options:
+  parameters:
+    id: lab11_tv_receiver
+    title: Lab 11 - DVB-T Television Receiver
+    author: SignalSDR Pro Lab
+    description: Receive a DVB-T channel, measure its quality, and watch the picture
+    generate_options: qt_gui
+    catch_exceptions: 'True'
+    run: 'True'
+    run_options: prompt
+    run_command: '{python} -u {filename}'
+    max_nouts: '0'
+    realtime_scheduling: ''
+    qt_qss_theme: ''
+    thread_safe_setters: ''
+    window_size: (1800, 1000)
+    sizing_mode: fixed
+    placement: (0,0)
+    category: '[GRC Hier Blocks]'
+    comment: ''
+    copyright: ''
+    gen_cmake: 'On'
+    cmake_opt: ''
+    gen_linking: dynamic
+    hier_block_src_path: '.:'
+    output_language: python
+  states:
+    coordinate:
+    - 8
+    - 8
+    rotation: 0
+    state: enabled
+blocks:
+- name: note_what
+  id: note
+  parameters:
+    note: DVB-T television receiver. Demodulates an 8 MHz terrestrial TV channel all the way to MPEG-2 transport
+      stream, and hands it to ffplay for a live picture.
+    comment: Start here. Read the README section "The chain, stage by stage" alongside this flowgraph.
+    alias: ''
+    affinity: ''
+  states:
+    coordinate:
+    - 10
+    - 90
+    rotation: 0
+    state: enabled
+- name: note_mode
+  id: note
+  parameters:
+    note: 'MODE IS FIXED AT: 8K / 16QAM / CR 2/3 / GI 1/32  ->  16.086 Mbit/s. The transmitter MUST match all four.
+      These are GRC enums, so changing mode means editing SIX blocks together.'
+    comment: A mode mismatch does not produce an error message - it produces silence. Check this first.
+    alias: ''
+    affinity: ''
+  states:
+    coordinate:
+    - 10
+    - 150
+    rotation: 0
+    state: enabled
+- name: note_video
+  id: note
+  parameters:
+    note: 'Live picture needs ffmpeg:   sudo apt install ffmpeg   Without it the flowgraph still runs, still measures,
+      and still records the .ts file.'
+    comment: Everything except the picture works with no external tools.
+    alias: ''
+    affinity: ''
+  states:
+    coordinate:
+    - 10
+    - 210
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    value: 64e6 / 7
+    comment: 'DVB-T elementary rate for an 8 MHz channel: 64/7 = 9.142857 MSPS, one sample per elementary period
+      T. Not negotiable - it defines the OFDM carrier spacing.'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 10
+    rotation: 0
+    state: enabled
+- name: fft_len
+  id: variable
+  parameters:
+    value: '8192'
+    comment: '8K mode: 8192 carriers, of which 6817 are transmitted and 6048 carry data. Long symbols (896 us) survive
+      long echoes - which is what lets a single-frequency network work.'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 90
+    rotation: 0
+    state: enabled
+- name: cp_len
+  id: variable
+  parameters:
+    value: fft_len // 32
+    comment: Guard interval 1/32 = 256 samples = 28 us, so echoes up to 8.4 km of extra path are harmless.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 170
+    rotation: 0
+    state: enabled
+- name: occupied
+  id: variable
+  parameters:
+    value: '6817'
+    comment: Transmitted carriers (Kmax-Kmin+1) in 8K mode.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 250
+    rotation: 0
+    state: enabled
+- name: payload
+  id: variable
+  parameters:
+    value: '6048'
+    comment: Data cells per OFDM symbol, after pilots and TPS are removed.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 330
+    rotation: 0
+    state: enabled
+- name: ts_file
+  id: variable
+  parameters:
+    value: '''/tmp/lab11_rx.ts'''
+    comment: Decoded transport stream is written here as well as played. Set to '' to disable recording.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 410
+    rotation: 0
+    state: enabled
+- name: play_video
+  id: variable
+  parameters:
+    value: 'True'
+    comment: Spawn ffplay on the decoded stream. Set False to measure without a picture.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 330
+    - 490
+    rotation: 0
+    state: enabled
+- name: center_freq
+  id: variable
+  parameters:
+    value: 474e6 + 8e6 * (channel - 21)
+    comment: 'UHF channel plan used across Europe, Malaysia and most of Asia-Pacific: channel 21 is centred on 474
+      MHz and every channel is 8 MHz wide.'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 560
+    - 10
+    rotation: 0
+    state: enabled
+- name: channel
+  id: variable_qtgui_range
+  parameters:
+    gui_hint: 0,0,1,1
+    label: '"UHF channel"'
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: int
+    start: '21'
+    step: '1'
+    stop: '48'
+    value: '31'
+    widget: counter_slider
+    comment: Change channel. The USRP retunes immediately - this is the "seek" control. Channel 21-48 covers 470-694
+      MHz, the band left to television after the 700 MHz clearance.
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 560
+    - 90
+    rotation: 0
+    state: enabled
+- name: rx_gain
+  id: variable_qtgui_range
+  parameters:
+    gui_hint: 0,1,1,1
+    label: '"RX gain (dB)"'
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '1'
+    stop: '76'
+    value: '45'
+    widget: counter_slider
+    comment: 'Receive gain in dB. Raise until MER stops improving, then stop: past that point you are amplifying
+      the noise floor along with the signal.'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 560
+    - 170
+    rotation: 0
+    state: enabled
+- name: usrp
+  id: uhd_usrp_source
+  parameters:
+    stream_chans: '[]'
+    dev_addr: '"num_recv_frames=512"'
+    start_time: '-1.0'
+    clock_rate: '0.0'
+    num_mboards: '1'
+    nchan: '1'
+    samp_rate: samp_rate
+    center_freq0: center_freq
+    rx_agc0: Default
+    gain0: rx_gain
+    ant0: RX2
+    bw0: samp_rate
+    lo_source0: internal
+    lo_export0: 'False'
+    dc_offs0: 0+0j
+    iq_imbal0: 0+0j
+    center_freq1: '0'
+    rx_agc1: Default
+    gain1: '0'
+    ant1: '"RX2"'
+    bw1: '0'
+    lo_source1: internal
+    lo_export1: 'False'
+    dc_offs1: 0+0j
+    iq_imbal1: 0+0j
+    center_freq2: '0'
+    rx_agc2: Default
+    gain2: '0'
+    ant2: '"RX2"'
+    bw2: '0'
+    lo_source2: internal
+    lo_export2: 'False'
+    dc_offs2: 0+0j
+    iq_imbal2: 0+0j
+    center_freq3: '0'
+    rx_agc3: Default
+    gain3: '0'
+    ant3: '"RX2"'
+    bw3: '0'
+    lo_source3: internal
+    lo_export3: 'False'
+    dc_offs3: 0+0j
+    iq_imbal3: 0+0j
+    center_freq4: '0'
+    rx_agc4: Default
+    gain4: '0'
+    ant4: '"RX2"'
+    bw4: '0'
+    lo_source4: internal
+    lo_export4: 'False'
+    dc_offs4: 0+0j
+    iq_imbal4: 0+0j
+    center_freq5: '0'
+    rx_agc5: Default
+    gain5: '0'
+    ant5: '"RX2"'
+    bw5: '0'
+    lo_source5: internal
+    lo_export5: 'False'
+    dc_offs5: 0+0j
+    iq_imbal5: 0+0j
+    center_freq6: '0'
+    rx_agc6: Default
+    gain6: '0'
+    ant6: '"RX2"'
+    bw6: '0'
+    lo_source6: internal
+    lo_export6: 'False'
+    dc_offs6: 0+0j
+    iq_imbal6: 0+0j
+    center_freq7: '0'
+    rx_agc7: Default
+    gain7: '0'
+    ant7: '"RX2"'
+    bw7: '0'
+    lo_source7: internal
+    lo_export7: 'False'
+    dc_offs7: 0+0j
+    iq_imbal7: 0+0j
+    center_freq8: '0'
+    rx_agc8: Default
+    gain8: '0'
+    ant8: '"RX2"'
+    bw8: '0'
+    lo_source8: internal
+    lo_export8: 'False'
+    dc_offs8: 0+0j
+    iq_imbal8: 0+0j
+    center_freq9: '0'
+    rx_agc9: Default
+    gain9: '0'
+    ant9: '"RX2"'
+    bw9: '0'
+    lo_source9: internal
+    lo_export9: 'False'
+    dc_offs9: 0+0j
+    iq_imbal9: 0+0j
+    center_freq10: '0'
+    rx_agc10: Default
+    gain10: '0'
+    ant10: '"RX2"'
+    bw10: '0'
+    lo_source10: internal
+    lo_export10: 'False'
+    dc_offs10: 0+0j
+    iq_imbal10: 0+0j
+    center_freq11: '0'
+    rx_agc11: Default
+    gain11: '0'
+    ant11: '"RX2"'
+    bw11: '0'
+    lo_source11: internal
+    lo_export11: 'False'
+    dc_offs11: 0+0j
+    iq_imbal11: 0+0j
+    center_freq12: '0'
+    rx_agc12: Default
+    gain12: '0'
+    ant12: '"RX2"'
+    bw12: '0'
+    lo_source12: internal
+    lo_export12: 'False'
+    dc_offs12: 0+0j
+    iq_imbal12: 0+0j
+    center_freq13: '0'
+    rx_agc13: Default
+    gain13: '0'
+    ant13: '"RX2"'
+    bw13: '0'
+    lo_source13: internal
+    lo_export13: 'False'
+    dc_offs13: 0+0j
+    iq_imbal13: 0+0j
+    center_freq14: '0'
+    rx_agc14: Default
+    gain14: '0'
+    ant14: '"RX2"'
+    bw14: '0'
+    lo_source14: internal
+    lo_export14: 'False'
+    dc_offs14: 0+0j
+    iq_imbal14: 0+0j
+    center_freq15: '0'
+    rx_agc15: Default
+    gain15: '0'
+    ant15: '"RX2"'
+    bw15: '0'
+    lo_source15: internal
+    lo_export15: 'False'
+    dc_offs15: 0+0j
+    iq_imbal15: 0+0j
+    center_freq16: '0'
+    rx_agc16: Default
+    gain16: '0'
+    ant16: '"RX2"'
+    bw16: '0'
+    lo_source16: internal
+    lo_export16: 'False'
+    dc_offs16: 0+0j
+    iq_imbal16: 0+0j
+    center_freq17: '0'
+    rx_agc17: Default
+    gain17: '0'
+    ant17: '"RX2"'
+    bw17: '0'
+    lo_source17: internal
+    lo_export17: 'False'
+    dc_offs17: 0+0j
+    iq_imbal17: 0+0j
+    center_freq18: '0'
+    rx_agc18: Default
+    gain18: '0'
+    ant18: '"RX2"'
+    bw18: '0'
+    lo_source18: internal
+    lo_export18: 'False'
+    dc_offs18: 0+0j
+    iq_imbal18: 0+0j
+    center_freq19: '0'
+    rx_agc19: Default
+    gain19: '0'
+    ant19: '"RX2"'
+    bw19: '0'
+    lo_source19: internal
+    lo_export19: 'False'
+    dc_offs19: 0+0j
+    iq_imbal19: 0+0j
+    center_freq20: '0'
+    rx_agc20: Default
+    gain20: '0'
+    ant20: '"RX2"'
+    bw20: '0'
+    lo_source20: internal
+    lo_export20: 'False'
+    dc_offs20: 0+0j
+    iq_imbal20: 0+0j
+    center_freq21: '0'
+    rx_agc21: Default
+    gain21: '0'
+    ant21: '"RX2"'
+    bw21: '0'
+    lo_source21: internal
+    lo_export21: 'False'
+    dc_offs21: 0+0j
+    iq_imbal21: 0+0j
+    center_freq22: '0'
+    rx_agc22: Default
+    gain22: '0'
+    ant22: '"RX2"'
+    bw22: '0'
+    lo_source22: internal
+    lo_export22: 'False'
+    dc_offs22: 0+0j
+    iq_imbal22: 0+0j
+    center_freq23: '0'
+    rx_agc23: Default
+    gain23: '0'
+    ant23: '"RX2"'
+    bw23: '0'
+    lo_source23: internal
+    lo_export23: 'False'
+    dc_offs23: 0+0j
+    iq_imbal23: 0+0j
+    center_freq24: '0'
+    rx_agc24: Default
+    gain24: '0'
+    ant24: '"RX2"'
+    bw24: '0'
+    lo_source24: internal
+    lo_export24: 'False'
+    dc_offs24: 0+0j
+    iq_imbal24: 0+0j
+    center_freq25: '0'
+    rx_agc25: Default
+    gain25: '0'
+    ant25: '"RX2"'
+    bw25: '0'
+    lo_source25: internal
+    lo_export25: 'False'
+    dc_offs25: 0+0j
+    iq_imbal25: 0+0j
+    center_freq26: '0'
+    rx_agc26: Default
+    gain26: '0'
+    ant26: '"RX2"'
+    bw26: '0'
+    lo_source26: internal
+    lo_export26: 'False'
+    dc_offs26: 0+0j
+    iq_imbal26: 0+0j
+    center_freq27: '0'
+    rx_agc27: Default
+    gain27: '0'
+    ant27: '"RX2"'
+    bw27: '0'
+    lo_source27: internal
+    lo_export27: 'False'
+    dc_offs27: 0+0j
+    iq_imbal27: 0+0j
+    center_freq28: '0'
+    rx_agc28: Default
+    gain28: '0'
+    ant28: '"RX2"'
+    bw28: '0'
+    lo_source28: internal
+    lo_export28: 'False'
+    dc_offs28: 0+0j
+    iq_imbal28: 0+0j
+    center_freq29: '0'
+    rx_agc29: Default
+    gain29: '0'
+    ant29: '"RX2"'
+    bw29: '0'
+    lo_source29: internal
+    lo_export29: 'False'
+    dc_offs29: 0+0j
+    iq_imbal29: 0+0j
+    center_freq30: '0'
+    rx_agc30: Default
+    gain30: '0'
+    ant30: '"RX2"'
+    bw30: '0'
+    lo_source30: internal
+    lo_export30: 'False'
+    dc_offs30: 0+0j
+    iq_imbal30: 0+0j
+    center_freq31: '0'
+    rx_agc31: Default
+    gain31: '0'
+    ant31: '"RX2"'
+    bw31: '0'
+    lo_source31: internal
+    lo_export31: 'False'
+    dc_offs31: 0+0j
+    iq_imbal31: 0+0j
+    show_lo_controls: 'False'
+    comment: 'The radio. Note bw0 = samp_rate: without it the AD9361 keeps its 56 MHz default analog bandwidth and
+      the neighbouring TV channels fold into this one.'
+    type: fc32
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 10
+    - 300
+    rotation: 0
+    state: enabled
+- name: acq
+  id: dtv_dvbt_ofdm_sym_acquisition
+  parameters:
+    type: complex
+    fft_length: fft_len
+    occupied_tones: occupied
+    cp_length: cp_len
+    snr: '10'
+    comment: Finds the OFDM symbol boundary by correlating the cyclic prefix against the end of the symbol, and
+      corrects the fractional frequency offset. Everything downstream assumes this has locked.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 10
+    - 460
+    rotation: 0
+    state: enabled
+- name: ofdm_fft
+  id: fft_vxx
+  parameters:
+    comment: Back to the frequency domain, where the pilots live. shift=True puts DC in the middle, which is what
+      the pilot demodulator expects.
+    type: complex
+    fft_size: fft_len
+    forward: 'True'
+    window: window.rectangular(fft_len)
+    shift: 'True'
+    nthreads: '1'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 260
+    - 460
+    rotation: 0
+    state: enabled
+- name: pilots
+  id: dtv_dvbt_demod_reference_signals
+  parameters:
+    cell_id: '0'
+    comment: Uses the scattered and continual pilots to equalise every carrier, reads the TPS carriers to confirm
+      the mode, and strips the pilots out. Outputs 6048 equalised data cells.
+    type: complex
+    transmission_mode: T8k
+    constellation: 16qam
+    hierarchy: nh
+    code_rate_hp: C2_3
+    code_rate_lp: C2_3
+    guard_interval: GI_1_32
+    include_cell_id: call_id_yes
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 510
+    - 460
+    rotation: 0
+    state: enabled
+- name: demap
+  id: dtv_dvbt_demap
+  parameters:
+    gain: '1'
+    comment: Constellation points back to bits.
+    transmission_mode: T8k
+    constellation: 16qam
+    hierarchy: nh
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 760
+    - 460
+    rotation: 0
+    state: enabled
+- name: symdeint
+  id: dtv_dvbt_symbol_inner_interleaver
+  parameters:
+    comment: 'Symbol DE-interleaver (direction = Deinterleave). Leaving this block out is the classic DVB-T receiver
+      bug: the transport stream still gets a 0x47 on every packet, because the energy descrambler writes it unconditionally,
+      while every payload byte is noise.'
+    transmission_mode: T8k
+    direction: Deinterleave
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 10
+    - 610
+    rotation: 0
+    state: enabled
+- name: bitdeint
+  id: dtv_dvbt_bit_inner_deinterleaver
+  parameters:
+    comment: Undoes the per-bit-position interleaving inside each QAM symbol.
+    transmission_mode: T8k
+    constellation: 16qam
+    hierarchy: nh
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 260
+    - 610
+    rotation: 0
+    state: enabled
+- name: v2s
+  id: blocks_vector_to_stream
+  parameters:
+    num_items: payload
+    vlen: '1'
+    comment: Vectors of 6048 soft bits become a byte stream for the Viterbi decoder.
+    type: byte
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 510
+    - 610
+    rotation: 0
+    state: enabled
+- name: viterbi
+  id: dtv_dvbt_viterbi_decoder
+  parameters:
+    comment: 'The inner convolutional decoder - the heaviest block in the chain. This is what sets the real-time
+      limit: measured at 16.4 MSPS against the 9.14 MSPS needed, so 1.8x margin.'
+    constellation: 16qam
+    hierarchy: nh
+    code_rate: C2_3
+    type: b
+    block_size: '768'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 760
+    - 610
+    rotation: 0
+    state: enabled
+- name: convdeint
+  id: dtv_dvbt_convolutional_deinterleaver
+  parameters:
+    blocks: '136'
+    I: '12'
+    M: '17'
+    comment: Spreads each burst error across 12 Reed-Solomon blocks, so a fade that would destroy one packet instead
+      puts a few correctable bytes into each of twelve.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 10
+    - 760
+    rotation: 0
+    state: enabled
+- name: rs
+  id: dtv_dvbt_reed_solomon_dec
+  parameters:
+    p: '2'
+    m: '8'
+    gfpoly: '0x11d'
+    n: '255'
+    k: '239'
+    t: '8'
+    s: '51'
+    blocks: '8'
+    comment: 'RS(204,188) over GF(2^8): corrects up to 8 wrong bytes per packet. If it gives up, the packet is lost
+      - which is what the continuity counter then reveals.'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 260
+    - 760
+    rotation: 0
+    state: enabled
+- name: descramble
+  id: dtv_dvbt_energy_descramble
+  parameters:
+    nsize: '8'
+    comment: Removes the PRBS that spread the spectrum, and restores the transport packet sync bytes.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 510
+    - 760
+    rotation: 0
+    state: enabled
+- name: tv_out
+  id: epy_block
+  parameters:
+    _source_code: "\"\"\"Transport-stream sink: statistics, an optional file, and live video.\n\nTwo things here\
+      \ are deliberate and worth copying.\n\n**It never blocks the radio.**  Pointing a File Sink at a FIFO is the\
+      \ obvious\nway to feed a player and it is a trap: if the player pauses or dies, the write\nblocks, the scheduler\
+      \ stops draining the USRP, and the receiver drowns in\noverflows.  A bounded queue absorbs jitter and *drops*\
+      \ when the player falls\nbehind.  Dropping television frames is the correct failure -- the radio keeps\nrunning\
+      \ and the picture recovers at the next keyframe.\n\n**It counts continuity errors, not sync bytes.**  Every\
+      \ packet leaving a DVB-T\nreceiver starts with 0x47 whether or not the decode worked, because the energy\n\
+      descrambler writes that byte unconditionally.  The honest measure of link\nhealth is the continuity counter:\
+      \ 4 bits per PID that increment on every\npacket, so a jump means Reed-Solomon gave up on a block.\n\"\"\"\
+      \nimport queue\nimport subprocess\nimport threading\n\nimport numpy as np\nfrom gnuradio import gr\n\nPLAYER\
+      \ = ['ffplay', '-hide_banner', '-loglevel', 'error', '-fflags', 'nobuffer',\n          '-flags', 'low_delay',\
+      \ '-framedrop', '-autoexit',\n          '-window_title', 'SDR LAB TV', '-i', 'pipe:0']\n\n\nclass blk(gr.sync_block):\n\
+      \    def __init__(self, play=True, ts_file='', report_every=20000):\n        gr.sync_block.__init__(self,\
+      \ name='TV Output + TS Stats',\n                               in_sig=[np.uint8], out_sig=None)\n        self.set_output_multiple(188)\n\
+      \        self.report_every = int(report_every)\n        self.packets = self.cc_errors = self.sync_errors =\
+      \ self.dropped = 0\n        self.pids = {}\n        self._cc = {}\n        self._buf = b''\n        self._since\
+      \ = 0\n        self._q = queue.Queue(maxsize=256)\n        self._fh = open(ts_file, 'wb') if ts_file else\
+      \ None\n        self._proc = None\n        if play:\n            try:\n                self._proc = subprocess.Popen(PLAYER,\
+      \ stdin=subprocess.PIPE,\n                                              stdout=subprocess.DEVNULL,\n     \
+      \                                         stderr=subprocess.DEVNULL)\n            except FileNotFoundError:\n\
+      \                print('[TV] ffplay not found -- install ffmpeg for live video '\n                      '(sudo\
+      \ apt install ffmpeg). Recording only.')\n        threading.Thread(target=self._drain, daemon=True).start()\n\
+      \n    def _drain(self):\n        while True:\n            chunk = self._q.get()\n            for sink in (self._proc.stdin\
+      \ if self._proc else None, self._fh):\n                if sink is None:\n                    continue\n  \
+      \              try:\n                    sink.write(chunk)\n                except (BrokenPipeError, ValueError,\
+      \ OSError):\n                    pass\n\n    def work(self, input_items, output_items):\n        data = input_items[0].tobytes()\n\
+      \        try:\n            self._q.put_nowait(data)\n        except queue.Full:\n            self.dropped\
+      \ += 1\n        buf = self._buf + data\n        n = len(buf) // 188\n        for k in range(n):\n        \
+      \    p = buf[k * 188:(k + 1) * 188]\n            self.packets += 1\n            self._since += 1\n       \
+      \     if p[0] != 0x47:\n                self.sync_errors += 1\n                continue\n            pid =\
+      \ ((p[1] & 0x1f) << 8) | p[2]\n            self.pids[pid] = self.pids.get(pid, 0) + 1\n            if pid\
+      \ != 0x1fff and (p[3] & 0x10):\n                cc = p[3] & 0x0f\n                prev = self._cc.get(pid)\n\
+      \                if prev is not None and cc != (prev + 1) % 16:\n                    self.cc_errors += 1\n\
+      \                self._cc[pid] = cc\n        self._buf = buf[n * 188:]\n        if self._since >= self.report_every:\n\
+      \            self._since = 0\n            self._report()\n        return len(input_items[0])\n\n    def _report(self):\n\
+      \        top = sorted(self.pids.items(), key=lambda kv: -kv[1])[:6]\n        rate = self.cc_errors / max(1,\
+      \ self.packets)\n        health = 'LOCKED  ' if rate < 1e-4 else ('marginal' if rate < 1e-2 else 'NO LOCK\
+      \ ')\n        print(f'[TV] {health} {self.packets:>9,} pkts  '\n              f'CC err {self.cc_errors:>7,}\
+      \ ({rate:.2e})  '\n              f'sync err {self.sync_errors:>6,}  dropped {self.dropped:>4}')\n        print('\
+      \     PIDs: ' + '  '.join(\n            f'{p}{\"(null)\" if p == 8191 else \"\"}:{c*100.0/max(1,self.packets):.1f}%'\n\
+      \            for p, c in top))\n"
+    comment: 'Statistics, recording and live video in one block. Read its source: it explains why a File Sink on
+      a FIFO would stall the radio, and why continuity errors - not sync bytes - are the measure of link health.'
+    play: play_video
+    ts_file: ts_file
+    report_every: '20000'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1030
+    - 760
+    rotation: 0
+    state: enabled
+- name: cells
+  id: blocks_vector_to_stream
+  parameters:
+    num_items: payload
+    vlen: '1'
+    comment: Tap the equalised data cells so they can be drawn and measured.
+    type: complex
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 560
+    - 300
+    rotation: 0
+    state: enabled
+- name: mer
+  id: epy_block
+  parameters:
+    _source_code: "\"\"\"Modulation Error Ratio, the number a television calls \"signal quality\".\n\n    MER =\
+      \ 10 log10( mean |ideal|^2 / mean |received - ideal|^2 )\n\n`ideal` is the nearest legal constellation point,\
+      \ so no knowledge of the\ntransmitted data is needed.  Measured against a calibrated AWGN channel this\ntracks\
+      \ true SNR to within about 0.9 dB.\n\nWatch this rather than the picture.  MER falls smoothly as the link\
+      \ degrades,\nwhile the picture stays flawless and then collapses: for 16QAM CR 2/3 this\nreceiver decodes\
+      \ perfectly at 13 dB and fails completely at 12 dB.  By the\ntime the picture breaks up you have already lost\
+      \ all your margin.\n\"\"\"\nimport numpy as np\nfrom gnuradio import gr\n\nLEVELS = {2: np.array([-1., 1.])\
+      \ / np.sqrt(2),\n          4: np.array([-3., -1., 1., 3.]) / np.sqrt(10),\n          6: np.array([-7., -5.,\
+      \ -3., -1., 1., 3., 5., 7.]) / np.sqrt(42)}\n\n\nclass blk(gr.decim_block):\n    def __init__(self, bits_per_symbol=4,\
+      \ decim=4096):\n        gr.decim_block.__init__(self, name='MER (dB)',\n                                in_sig=[np.complex64],\
+      \ out_sig=[np.float32],\n                                decim=int(decim))\n        self.levels = LEVELS[int(bits_per_symbol)]\n\
+      \        self.mer = 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n\
+      \        n = len(out)\n        x = input_items[0][:n * self.decimation()]\n        if len(x) > 8192:     \
+      \                 # a measurement, not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling\
+      \ costs nothing\n        if len(x):\n            lv = self.levels\n            i = lv[np.abs(x.real[:, None]\
+      \ - lv[None, :]).argmin(axis=1)]\n            q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n\
+      \            ideal = i + 1j * q\n            err = float(np.mean(np.abs(x - ideal) ** 2))\n            sig\
+      \ = float(np.mean(np.abs(ideal) ** 2))\n            if err > 0 and sig > 0:\n                m = 10 * np.log10(sig\
+      \ / err)\n                self.mer = m if self.mer == 0.0 else 0.9 * self.mer + 0.1 * m\n        out[:] =\
+      \ self.mer\n        return n\n"
+    comment: Modulation Error Ratio in dB - the honest version of a TV signal-quality bar.
+    bits_per_symbol: '4'
+    decim: '4096'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 810
+    - 300
+    rotation: 0
+    state: enabled
+- name: spectrum
+  id: qtgui_freq_sink_x
+  parameters:
+    type: complex
+    name: '"Channel spectrum"'
+    fftsize: '4096'
+    freqhalf: 'True'
+    wintype: window.WIN_BLACKMAN_hARRIS
+    norm_window: 'False'
+    fc: center_freq
+    bw: samp_rate
+    grid: 'False'
+    autoscale: 'False'
+    average: '0.2'
+    ymin: '-110'
+    ymax: '-20'
+    label: Relative Gain
+    units: dB
+    nconnections: '1'
+    update_time: '0.10'
+    showports: 'False'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_level: '0.0'
+    tr_chan: '0'
+    tr_tag: '""'
+    ctrlpanel: 'False'
+    legend: 'True'
+    axislabels: 'True'
+    width1: '1'
+    alpha1: '1.0'
+    label2: ''''''
+    width2: '1'
+    color2: '"red"'
+    alpha2: '1.0'
+    label3: ''''''
+    width3: '1'
+    color3: '"green"'
+    alpha3: '1.0'
+    label4: ''''''
+    width4: '1'
+    color4: '"black"'
+    alpha4: '1.0'
+    label5: ''''''
+    width5: '1'
+    color5: '"cyan"'
+    alpha5: '1.0'
+    label6: ''''''
+    width6: '1'
+    color6: '"magenta"'
+    alpha6: '1.0'
+    label7: ''''''
+    width7: '1'
+    color7: '"yellow"'
+    alpha7: '1.0'
+    label8: ''''''
+    width8: '1'
+    color8: '"dark red"'
+    alpha8: '1.0'
+    label9: ''''''
+    width9: '1'
+    color9: '"dark green"'
+    alpha9: '1.0'
+    label10: ''''''
+    width10: '1'
+    color10: '"dark blue"'
+    alpha10: '1.0'
+    comment: The channel as received. A healthy DVB-T signal is a flat 7.6 MHz slab with steep shoulders; if it
+      looks like a hill, you are looking at the noise floor.
+    gui_hint: 1,0,1,1
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1060
+    - 120
+    rotation: 0
+    state: enabled
+- name: waterfall
+  id: qtgui_waterfall_sink_x
+  parameters:
+    type: complex
+    name: '"Waterfall"'
+    fftsize: '2048'
+    freqhalf: 'True'
+    wintype: window.WIN_BLACKMAN_hARRIS
+    fc: center_freq
+    bw: samp_rate
+    int_min: '-110'
+    int_max: '-30'
+    grid: 'False'
+    nconnections: '1'
+    update_time: '0.10'
+    showports: 'False'
+    legend: 'True'
+    axislabels: 'True'
+    alpha1: '1.0'
+    comment: Time against frequency. Broadcast TV is a solid continuous band; bursts and gaps mean you have found
+      something else.
+    gui_hint: 1,1,1,1
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1060
+    - 260
+    rotation: 0
+    state: enabled
+- name: constellation
+  id: qtgui_const_sink_x
+  parameters:
+    type: complex
+    name: '"Constellation"'
+    size: '2048'
+    grid: 'False'
+    autoscale: 'False'
+    ymin: '-2'
+    ymax: '2'
+    xmin: '-2'
+    xmax: '2'
+    nconnections: '1'
+    update_time: '0.10'
+    tr_mode: qtgui.TRIG_MODE_FREE
+    tr_slope: qtgui.TRIG_MODE_POS
+    tr_level: '0.0'
+    tr_chan: '0'
+    tr_tag: '""'
+    legend: 'True'
+    axislabels: 'True'
+    width1: '1'
+    alpha1: '1.0'
+    color2: '"red"'
+    color3: '"green"'
+    color4: '"black"'
+    color5: '"cyan"'
+    color6: '"magenta"'
+    color7: '"yellow"'
+    color8: '"dark red"'
+    color9: '"dark green"'
+    color10: '"dark blue"'
+    comment: '16QAM: sixteen tight dots when the link is healthy. Fuzzy blobs = low MER. A rotating pattern = frequency
+      error. A warped grid = the equaliser is struggling with a reflection.'
+    gui_hint: 2,0,1,1
+    marker1: '0'
+    style1: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1060
+    - 400
+    rotation: 0
+    state: enabled
+- name: mer_display
+  id: qtgui_number_sink
+  parameters:
+    name: '"Signal quality"'
+    autoscale: 'False'
+    avg: '0'
+    nconnections: '1'
+    min: '0'
+    max: '40'
+    update_time: '0.10'
+    factor1: '1'
+    comment: MER in dB. For 16QAM CR 2/3 this receiver is perfect at 13 dB and dead at 12 dB. Anything above 20
+      dB is comfortable; below 15 dB you are one rain shower from losing it.
+    type: float
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    label1: '"MER"'
+    unit1: '"dB"'
+    gui_hint: 2,1,1,1
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1060
+    - 540
+    rotation: 0
+    state: enabled
+- name: pwr
+  id: blocks_complex_to_mag_squared
+  parameters:
+    vlen: '1'
+    comment: Instantaneous power.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 560
+    - 380
+    rotation: 0
+    state: enabled
+- name: pwr_dec
+  id: blocks_keep_one_in_n
+  parameters:
+    n: '4096'
+    vlen: '1'
+    comment: One sample in 4096 is plenty for a level meter.
+    type: float
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 700
+    - 380
+    rotation: 0
+    state: enabled
+- name: pwr_avg
+  id: single_pole_iir_filter_xx
+  parameters:
+    comment: Smooth it, or the number is unreadable.
+    type: float
+    alpha: '0.02'
+    vlen: '1'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 840
+    - 380
+    rotation: 0
+    state: enabled
+- name: pwr_db
+  id: blocks_nlog10_ff
+  parameters:
+    n: '10'
+    k: '0'
+    vlen: '1'
+    comment: Into dBFS.
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 980
+    - 380
+    rotation: 0
+    state: enabled
+- name: level_display
+  id: qtgui_number_sink
+  parameters:
+    name: '"Level"'
+    autoscale: 'False'
+    avg: '0'
+    nconnections: '1'
+    min: '-100'
+    max: '0'
+    update_time: '0.10'
+    factor1: '1'
+    comment: 'Received level in dBFS. Use it to set gain: raise gain until this reads about -30 dBFS, and watch
+      that MER improves as you do. If level rises but MER does not, you are amplifying noise.'
+    type: float
+    graph_type: qtgui.NUM_GRAPH_HORIZ
+    label1: '"Level"'
+    unit1: '"dBFS"'
+    gui_hint: 3,0,1,2
+    affinity: ''
+    alias: ''
+  states:
+    coordinate:
+    - 1060
+    - 660
+    rotation: 0
+    state: enabled
+connections:
+- - usrp
+  - '0'
+  - acq
+  - '0'
+- - acq
+  - '0'
+  - ofdm_fft
+  - '0'
+- - ofdm_fft
+  - '0'
+  - pilots
+  - '0'
+- - pilots
+  - '0'
+  - demap
+  - '0'
+- - demap
+  - '0'
+  - symdeint
+  - '0'
+- - symdeint
+  - '0'
+  - bitdeint
+  - '0'
+- - bitdeint
+  - '0'
+  - v2s
+  - '0'
+- - v2s
+  - '0'
+  - viterbi
+  - '0'
+- - viterbi
+  - '0'
+  - convdeint
+  - '0'
+- - convdeint
+  - '0'
+  - rs
+  - '0'
+- - rs
+  - '0'
+  - descramble
+  - '0'
+- - descramble
+  - '0'
+  - tv_out
+  - '0'
+- - pilots
+  - '0'
+  - cells
+  - '0'
+- - cells
+  - '0'
+  - mer
+  - '0'
+- - usrp
+  - '0'
+  - spectrum
+  - '0'
+- - usrp
+  - '0'
+  - waterfall
+  - '0'
+- - cells
+  - '0'
+  - constellation
+  - '0'
+- - mer
+  - '0'
+  - mer_display
+  - '0'
+- - usrp
+  - '0'
+  - pwr
+  - '0'
+- - pwr
+  - '0'
+  - pwr_dec
+  - '0'
+- - pwr_dec
+  - '0'
+  - pwr_avg
+  - '0'
+- - pwr_avg
+  - '0'
+  - pwr_db
+  - '0'
+- - pwr_db
+  - '0'
+  - level_display
+  - '0'
+metadata:
+  file_format: 1
+  grc_version: 3.10.9.2

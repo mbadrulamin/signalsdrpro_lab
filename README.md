@@ -94,6 +94,7 @@ each lab's header tells you which.
 | 09 | [Synchronization](./01_fundamentals/09_synchronization.md) | PLLs, Costas loops, timing recovery, loop bandwidth | Labs 07, 08 |
 | 10 | [Error Detection & Framing](./01_fundamentals/10_error_detection_and_framing.md) | GF(2) arithmetic, CRC, self-synchronising codes, FEC | Labs 08, 09 |
 | 11 | [OFDM & Modern Broadcast Systems](./01_fundamentals/11_ofdm_and_broadcast_systems.md) | Orthogonality, the cyclic prefix, pilots, PAPR, LDPC+BCH | Lab 10 |
+| 12 | [Video Over The Air](./01_fundamentals/12_video_over_the_air.md) | MPEG-2 transport streams, PCR clock recovery, I/P/B frames, why acquisition is the expensive part, the one-decibel cliff | Labs 11, 12 |
 
 ### Part 2 — Hands-On Flowgraphs (Progressive Labs)
 Each lab builds on the previous one. **Do not skip.**
@@ -110,6 +111,8 @@ Each lab builds on the previous one. **Do not skip.**
 | 08 | [RDS Decoder](./02_flowgraphs/lab08_rds_decoder/README.md) | Station name & RadioText off the 57 kHz subcarrier. | 34 | optional |
 | 09 | [ADS-B Aircraft Receiver](./02_flowgraphs/lab09_adsb_receiver/README.md) | 1090 MHz Mode S: identity, altitude, position. | 14 | optional |
 | 10 | [**DVB-T2 Television Transmitter**](./02_flowgraphs/lab10_dvbt2_tx_rx/README.md) | Build a TV transmitter. OFDM, LDPC+BCH, received by a real TV. | 31 | 🚨 **transmits** |
+| 11 | [**Television Receiver: Scan, Tune, Watch**](./02_flowgraphs/lab11_tv_receiver/README.md) | The receive chain. Band scanner, channel list, MER, live picture. | 38 | yes |
+| 12 | [**Full-Duplex Video Link**](./02_flowgraphs/lab12_fullduplex_tv/README.md) | Transmit a video file and receive it back on the same radio, at once. | 49 | 🚨 **transmits** |
 
 **Labs 07, 08b and 09b run with no radio attached.** Labs 08 and 09 each ship a second
 flowgraph that reads a recorded or synthetic IQ file, so you can build and debug the whole
@@ -137,11 +140,20 @@ decoder before you ever fight an antenna.
                     │
                     ▼
                    10         stop receiving and TRANSMIT: OFDM, LDPC, a real TV
+                    │
+                    ▼
+                   11         build the other half: demodulate TV, scan a band,
+                    │         put a moving picture on the screen
+                    ▼
+                   12         both at once on one radio: your own video,
+                              transmitted and received simultaneously
 ```
 
-> 🚨 **Lab 10 transmits.** It is the only lab that radiates, it uses licensed broadcast
-> spectrum, and it must be done in a Faraday cage or over a cable into a dummy load. Its
-> defaults are inert — amplitude and gain both start at zero — but the responsibility is yours.
+> 🚨 **Labs 10 and 12 transmit.** They are the only labs that radiate, they use licensed
+> broadcast spectrum, and they must be done in a Faraday cage or over a cable into a dummy
+> load. Their defaults are inert — amplitude and gain both start at zero — but the
+> responsibility is yours. Lab 12's own measurements show why a cable is not merely the safe
+> option but the *better-performing* one.
 
 ### Part 4 — The Applications Catalogue
 What else is out there. **589 signals and projects** across 16 domains, each with frequency,
@@ -192,7 +204,11 @@ Lookup material, not meant to be read front to back.
 | [simulate_bpsk_ber.py](./03_scripts/simulate_bpsk_ber.py) | Run Lab 07's link at a sweep of Eb/N0 and compare the measured BER against closed-form theory. |
 | [simulate_rds_decode.py](./03_scripts/simulate_rds_decode.py) | Generate a synthetic FM+RDS signal with known contents for Lab 08, and self-test the RDS codec. |
 | [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Generate a synthetic 1090 MHz capture for Lab 09, and self-test the Mode S decoder against published reference frames. |
-| [make_test_ts.py](./03_scripts/make_test_ts.py) | Generate a standards-valid MPEG-2 transport stream (PAT/PMT/SDT/NIT) for Lab 10. No ffmpeg required. |
+| [make_test_ts.py](./03_scripts/make_test_ts.py) | Generate a standards-valid MPEG-2 transport stream (PAT/PMT/SDT/NIT) for Labs 10–12. No ffmpeg required. |
+| [make_video_ts.py](./03_scripts/make_video_ts.py) | Turn a video file into a CBR transport stream sized exactly for a DVB-T mode. `--list-modes` prints the derived bit-rate table; `--verify` recovers the true rate from the PCR. |
+| [dvbt_chain.py](./03_scripts/dvbt_chain.py) | The DVB-T modulator and demodulator as reusable blocks, plus MER and transport-stream probes. Run it directly for a loopback self-test and an SNR sweep. |
+| [scan_tv_band.py](./03_scripts/scan_tv_band.py) | Scan the television band and classify each channel — DVB-T2 (P1), DVB-T (cyclic prefix), bursty carrier, or empty. `--selftest` reproduces the false positive that motivated its veto tests. |
+| [verify_tv_link.py](./03_scripts/verify_tv_link.py) | Transmit a known transport stream, receive it on the same radio, and compare byte for byte. 🚨 transmits. |
 | [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Verify a DVB-T2 waveform: bandwidth, cyclic prefix, symbol period, P1 preamble, frame period, PAPR. |
 | [make_diagrams.py](./03_scripts/make_diagrams.py) | Regenerate the introduction's four SVG figures. Self-checks that nothing overflows its viewBox. |
 | [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Mathematical verification of Lab 04's stereo matrix. |
@@ -250,7 +266,8 @@ signalsdrpro_lab/
 │   ├── 08_digital_modulation.md        │
 │   ├── 09_synchronization.md           │
 │   ├── 10_error_detection_and_framing.md │
-│   └── 11_ofdm_and_broadcast_systems.md  ┘
+│   ├── 11_ofdm_and_broadcast_systems.md   │
+│   └── 12_video_over_the_air.md           ┘
 ├── 02_flowgraphs/                  ← Hands-on labs
 │   ├── lab01_simple_wbfm/
 │   ├── lab02_enhanced_wbfm/
@@ -261,13 +278,19 @@ signalsdrpro_lab/
 │   ├── lab07_bpsk_link_sim/            ← no hardware needed
 │   ├── lab08_rds_decoder/              ← live + from-file flowgraphs
 │   ├── lab09_adsb_receiver/            ← live + from-file flowgraphs
-│   └── lab10_dvbt2_tx_rx/              ← 🚨 TRANSMITS: generate / tx / analyse
+│   ├── lab10_dvbt2_tx_rx/              ← 🚨 TRANSMITS: generate / tx / analyse
+│   ├── lab11_tv_receiver/              ← flowgraph + full receiver station GUI
+│   └── lab12_fullduplex_tv/            ← 🚨 TRANSMITS: TX and RX at the same time
 ├── 03_scripts/
 │   ├── validate_flowgraph.py           ← deep .grc validation
 │   ├── simulate_bpsk_ber.py            ← BER vs theory
 │   ├── simulate_rds_decode.py          ← RDS signal generator + self-test
 │   ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
 │   ├── make_test_ts.py                 ← MPEG-2 transport stream generator
+│   ├── make_video_ts.py                ← video → CBR transport stream (needs ffmpeg)
+│   ├── dvbt_chain.py                   ← DVB-T modem library + loopback self-test
+│   ├── scan_tv_band.py                 ← television band scanner + classifier
+│   ├── verify_tv_link.py               ← 🚨 over-the-air link proof, byte for byte
 │   ├── make_diagrams.py                ← regenerates the introduction's figures
 │   ├── analyze_dvbt2.py                ← DVB-T2 waveform verification
 │   ├── simulate_stereo_decode.py
@@ -341,6 +364,13 @@ mean of the demodulated output.
 | 08 | RDS groups decoded in 30 s | **287** = 9.6/s vs 11.4/s theoretical max (**84 %**) |
 | 08 | RDS control run on an empty channel | **0 groups from 11,766 alignment attempts** |
 | 09 | ADS-B frames at 1090 MHz | **0** — see below |
+| 11 | DVB-T loopback, transport stream in vs out | **0 mismatches in 4,201,236 bytes** |
+| 11 | Lock threshold, 16QAM CR 2/3 (standard says 13.5 dB) | **perfect at 13 dB, broken at 12 dB** |
+| 11 | Receiver throughput, locked / unlocked (needs 9.14) | **16.4 / 1.55 MSPS** |
+| 11 | UHF band scan, channels 21–48, FM whip | **no television found**; one bursty carrier on ch22 |
+| 12 | Full duplex 25 s: packets decoded vs expected | **267,104 / 267,380 = 99.9 % of real time** |
+| 12 | Full duplex: MER, sync errors, byte accuracy | **17.7 dB, 0 sync errors, 99.9566 % exact** |
+| 12 | Service name recovered from the SDT, over the air | **`SELFTEST`** |
 
 ### What the hardware taught us that simulation could not
 
@@ -396,6 +426,32 @@ more gain cannot help. The antenna is an FM-band whip, roughly ten wavelengths l
 1090 MHz. **This is the first item in Lab 09's troubleshooting list, confirmed.** Build the
 69 mm quarter-wave.
 
+**5. Two correlation detectors agreed, and both were wrong.**
+Scanning the UHF band, channel 22 scored **P1 13.9×** and **cyclic prefix 31.4×** — both far
+over threshold, both saying "digital television". It is a *bursty* carrier: 4 ms pulses, 7.6 %
+duty cycle, energy off-centre. A correlator asked "does this repeat at lag *L*?" sees a burst
+overlap itself at **whatever** lag you test, so it fires at every lag. Correlation detectors are
+blind to burstiness by construction.
+
+Two cheap non-correlation tests veto it: real DVB-T scored **31 dB** of spectral shoulder
+against channel 22's **1.2 dB**, and broadcasting has a 0 % burst fraction against its 7.6 %.
+`scan_tv_band.py --selftest` now reproduces the false positive synthetically and asserts that
+the classifier refuses it. Pairs with lesson 3: there, an FFT said "nothing" and the CRC was
+right; here two correlators said "television" and the spectrum was right. **Ask which way a
+given detector can be fooled, and pair it with one that fails the other way.**
+
+**6. A tone is not a signal: 42 dB of tone was −1.4 dB of television.**
+Lab 12's first over-the-air attempt decoded nothing, yet a CW tone at identical settings rose
+**42 dB** out of the noise. Both facts were true. A tone concentrates its power in one 2.2 kHz
+FFT bin; DVB-T spreads the same power over 7.6 MHz — about 3,400 bins, or **35 dB** of
+dilution. Subtract that and the 8.4 dB the tone had in hand, and 42 dB becomes −1.4 dB. The
+measured in-band rise was **+0.92 dB**, against the 13 dB the demodulator needs.
+
+More receive gain cannot fix this — it lifts signal and noise together. Nineteen more decibels
+of *transmit* gain could, and did: in-band rise **16.5 dB**, shoulder **21.3 dB**, instant
+lock. The lesson generalises well beyond television: **when you test a wideband link with a
+narrowband probe, subtract the processing gain before believing the result.**
+
 ### Known issue
 
 `set_mode()` on Lab 06 raises `IndexError: input_index must be < ninputs` if called **before**
@@ -405,6 +461,17 @@ you drive the flowgraph programmatically. Start the flowgraph first, then set th
 
 ### Still not verified
 
+- **The video path in Labs 11–12 has never shown a picture**, because ffmpeg is not installed
+  here and installing it needs root. What was proved instead is stronger than a screenshot: the
+  transport stream arrives **byte-identical** over the air, and the receiver read the service
+  name out of its SDT. A stream that survives intact carries its video intact. Run
+  `sudo apt install ffmpeg` and it should simply appear.
+- **No real broadcast television has been decoded here.** The band is empty at this location
+  with this antenna, so every decode in Labs 11–12 came from our own transmitter.
+  DVB-T2 reception is not merely untested — no open-source real-time DVB-T2 receiver exists.
+- **Lab 12 never introduced a frequency offset.** Transmitting and receiving on one radio means
+  both ends share a reference oscillator, so the synchroniser is handed a problem no real
+  receiver ever gets.
 - **Lab 07** is pure simulation by design, so "over the air" does not apply. Its BER was checked
   against theory by execution.
 - **Lab 09** has never decoded a real aircraft here — only synthetic frames. The decoder is
