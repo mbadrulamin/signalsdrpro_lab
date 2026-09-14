@@ -95,7 +95,7 @@ Then point `ts_in` at `/tmp/bintang.ts` and run the flowgraph.
 `ts_in` pointing at a finished `.ts` with `repeat = True` is right for the byte-exact
 verification below — you need something to compare against. It is **wrong for watching**. At
 every lap the transport stream's PCR jumps backwards by the file's whole length (measured
-−208.86 s in [Lab 10](../lab10_dvbt2_tx_rx/#-step-0--make-a-transport-stream-with-your-own-video-in-it)),
+−208.86 s in [Lab 10](../lab10_dvbt2_tx_rx/README.md#step-0--make-a-transport-stream-with-your-own-video-in-it)),
 and a receiver's clock recovery never settles again. The picture stays perfect and goes
 sluggish.
 

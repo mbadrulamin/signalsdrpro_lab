@@ -529,6 +529,46 @@ yours and copy the values across.
 
 ## 🐛 Troubleshooting
 
+### "Nothing happens — the flowgraph starts and no window ever appears"
+
+**Playout is not running.** `ts_file` points at a FIFO, and opening a FIFO for reading *blocks
+until a writer exists*. GNU Radio opens the File Source while constructing the flowgraph, which
+is before Qt creates any window — so the process sits there, alive, silent, with no GUI and no
+error.
+
+Start `tv_playout.py` first, or let it start the flowgraph for you:
+
+```bash
+cd 03_scripts
+./tv_playout.py ~/Downloads/Bintang.mp4 --standard dvbt2 --t2-fft 32k \
+    --t2-guard 1/128 --t2-rate 2/3 --t2-fecblocks 202 --t2-datasyms 59 \
+    --video-bitrate 12000000 --fifo /tmp/tv.fifo \
+    --launch "python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
+```
+
+Playout holds the FIFO open at both ends, so once it is running the flowgraph opens instantly
+and can be stopped and restarted freely without restarting playout.
+
+To go back to a plain file, set `ts_file` to a `.ts` path and `ts_source`'s `repeat` to `True` —
+but read [the PCR warning](#step-0--make-a-transport-stream-with-your-own-video-in-it) first.
+
+### "`AttributeError: module 'posixpath' has no attribute 'isfifo'`"
+
+Fixed. `os.path` has no `isfifo()`; the test is `stat.S_ISFIFO(os.stat(path).st_mode)`. It only
+ever fired when the FIFO **already existed**, which is why it survived testing — every test run
+deleted the FIFO first and took the other branch.
+
+### "`RuntimeError: LookupError: KeyError: No devices found`"
+
+Another process still owns the radio. Find it by PID and kill that:
+
+```bash
+ps -eo pid,cmd | grep [l]ab10
+```
+
+Avoid `pkill -f` here — the pattern matches `pkill`'s own command line and it kills the shell
+that launched it.
+
 ### "The TV finds nothing"
 In order of likelihood:
 1. **The configuration is inconsistent.** Run `analyze_dvbt2.py` first — if the five checks pass,

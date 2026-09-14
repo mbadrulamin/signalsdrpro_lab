@@ -47,6 +47,7 @@ reservoir that stall reaches the DAC.  This keeps about ten seconds.
 import argparse
 import os
 import queue
+import stat
 import shutil
 import subprocess
 import sys
@@ -86,10 +87,20 @@ class Playout:
                     self.stalls += 1          # encoder ahead: normal, healthy
 
     def _write(self):
-        """Hand the stream to the flowgraph. Blocks until it opens the FIFO."""
-        fd = os.open(self.fifo, os.O_WRONLY)   # waits for a reader
+        """Hand the stream to the flowgraph.
+
+        Opened O_RDWR, not O_WRONLY, and that matters. Opening a FIFO for
+        writing alone *blocks until a reader appears*, so playout would sit
+        invisible until the flowgraph started -- and, worse, the flowgraph
+        opening the read end blocks until a writer exists, so if playout is
+        not running the flowgraph hangs inside its constructor and no GUI
+        window ever appears. Holding both ends means a writer is present the
+        instant playout starts, the flowgraph opens immediately, and it can be
+        stopped and restarted without restarting playout.
+        """
+        fd = os.open(self.fifo, os.O_RDWR)     # never blocks
         with os.fdopen(fd, 'wb', buffering=0) as fh:
-            print(f"[playout] flowgraph attached to {self.fifo}")
+            print(f"[playout] {self.fifo} is open and ready - start the flowgraph")
             while not self.stop.is_set():
                 try:
                     data = self.q.get(timeout=1.0)
@@ -97,10 +108,10 @@ class Playout:
                     self.underruns += 1
                     continue
                 try:
-                    fh.write(data)
+                    fh.write(data)             # blocks when the pipe is full
                     self.written += len(data)
-                except (BrokenPipeError, OSError):
-                    print("[playout] flowgraph closed the pipe")
+                except (BrokenPipeError, OSError) as e:
+                    print(f"[playout] pipe write failed: {e}")
                     self.stop.set()
                     return
 
@@ -163,6 +174,10 @@ def main():
     ap.add_argument('--net-id', type=int, default=1)
     ap.add_argument('--service-id', type=int, default=1)
     ap.add_argument('--duration', type=float, default=None)
+    ap.add_argument('--launch', metavar='CMD',
+                    help='start this command once the FIFO is ready, e.g. '
+                         '"python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py". '
+                         'Guarantees the ordering the FIFO requires.')
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args()
     a.loop = True                      # the entire point of this script
@@ -180,9 +195,13 @@ def main():
         print(f"mode leaves only {video:,} bit/s for video", file=sys.stderr)
         return 2
 
-    if os.path.exists(a.fifo) and not os.path.isfifo(a.fifo):
-        os.remove(a.fifo)
-    if not os.path.exists(a.fifo):
+    # os.path has no isfifo(); the test is on the mode bits.
+    if os.path.exists(a.fifo):
+        if not stat.S_ISFIFO(os.stat(a.fifo).st_mode):
+            print(f"{a.fifo} exists and is not a FIFO - removing it")
+            os.remove(a.fifo)
+            os.mkfifo(a.fifo)
+    else:
         os.mkfifo(a.fifo)
 
     depth = max(4, int(a.buffer_seconds * mux_i / 8 / CHUNK))
@@ -197,10 +216,24 @@ def main():
     print(f"  buffer {depth} x {CHUNK/1000:.0f} kB = "
           f"{depth*CHUNK*8/mux_i:.1f} s at this rate")
     print(f"  FIFO {a.fifo}\n")
-    print("Waiting for the flowgraph to open the FIFO. Point ts_file at it and start it.\n")
 
     cmd = ffmpeg_command(a, ffmpeg, mux_i, video, audio, 'pipe:1')
-    Playout(cmd, a.fifo, depth).run(report=not a.quiet)
+    pl = Playout(cmd, a.fifo, depth)
+
+    launched = None
+    if a.launch:
+        import shlex
+        import threading as _th
+
+        def _go():
+            time.sleep(2.0)                    # let the buffer prime first
+            print(f"[playout] launching: {a.launch}")
+            pl.child = subprocess.Popen(shlex.split(a.launch))
+        _th.Thread(target=_go, daemon=True).start()
+
+    pl.run(report=not a.quiet)
+    if getattr(pl, 'child', None) and pl.child.poll() is None:
+        pl.child.terminate()
     return 0
 
 
