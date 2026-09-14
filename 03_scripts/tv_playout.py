@@ -37,18 +37,43 @@ Then point the flowgraph's `ts_file` at /tmp/tv.fifo and start it.  Opening a
 FIFO for writing blocks until a reader appears, so starting this first is
 correct: it fills its buffer while it waits.
 
-Why the buffer
---------------
+Why the buffer, and what "underruns" means
+------------------------------------------
 A pipe holds 64 kB by default, which at 40 Mbit/s is 13 ms.  The encoder is
 fast on average -- measured 2.6x real time at 1080p -- but not uniformly: a
 scene change or a lookahead flush can stall it for a moment.  Without a
 reservoir that stall reaches the DAC.  This keeps about ten seconds.
+
+**An underrun is that reservoir running dry**: the buffer was empty for a
+whole second and there was nothing to hand the modulator.  The flowgraph then
+blocks on its read, the transmit chain stops, and the radio puts a *gap* on
+the air.  A television rides out the gap by draining its own buffers -- but
+its audio and video buffers drain and recover by different amounts, so what
+you see afterwards is **lip sync that has slipped and stays slipped**.
+
+Underruns and desynchronised audio are the same fault, not two.
+
+The cure is to stop encoding in real time.  `--copy` loops an already-encoded
+file and only re-multiplexes it, which costs almost nothing:
+
+    # once
+    ./make_video_ts.py video.mp4 /tmp/show.ts --standard dvbt2 ... --loop-safe
+    # then, forever
+    ./tv_playout.py /tmp/show.ts --copy --standard dvbt2 ... --fifo /tmp/tv.fifo
+
+`--loop-safe` matters for the first step.  A stream that will be looped must
+end on a boundary the video and audio codecs share, or every lap leaves a
+sliver of one of them unmatched.  Bintang.mp4 is 209.066 s with video running
+208.960 s and audio 209.066 s -- 106 ms apart -- and at 25 fps with MP2 audio
+the nearest clean cut is a multiple of 120 ms.
 """
 import argparse
 import os
 import queue
 import stat
+import ctypes
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -70,6 +95,7 @@ class Playout:
         self.written = 0
         self.stalls = 0
         self.underruns = 0
+        self._warned = 0
         self.stop = threading.Event()
         self.proc = None
 
@@ -130,6 +156,12 @@ class Playout:
                     break
                 if report:
                     fill = self.q.qsize()
+                    if self.underruns > self._warned:
+                        self._warned = self.underruns
+                        print("  *** UNDERRUN: buffer empty, the transmitter is "
+                              "putting a gap on the air.")
+                        print("      Pre-encode once and re-run with --copy; "
+                              "live encoding cannot share the CPU with the modulator.")
                     print(f"  buffer {fill:>4}/{self.depth} "
                           f"({100.0*fill/self.depth:5.1f} %)  "
                           f"delivered {self.written/1e6:9.1f} MB  "
@@ -174,6 +206,9 @@ def main():
     ap.add_argument('--net-id', type=int, default=1)
     ap.add_argument('--service-id', type=int, default=1)
     ap.add_argument('--duration', type=float, default=None)
+    ap.add_argument('--copy', action='store_true',
+                    help='input is already encoded: remux it instead of '
+                         're-encoding. Use this for anything long-running.')
     ap.add_argument('--launch', metavar='CMD',
                     help='start this command once the FIFO is ready, e.g. '
                          '"python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py". '
@@ -181,6 +216,8 @@ def main():
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args()
     a.loop = True                      # the entire point of this script
+    a.loop_safe = False
+    a.shortest = False
 
     ffmpeg = shutil.which('ffmpeg')
     if not ffmpeg:
@@ -217,7 +254,30 @@ def main():
           f"{depth*CHUNK*8/mux_i:.1f} s at this rate")
     print(f"  FIFO {a.fifo}\n")
 
-    cmd = ffmpeg_command(a, ffmpeg, mux_i, video, audio, 'pipe:1')
+    if a.copy:
+        # Remux only. This is the important mode: re-encoding 1080p in real
+        # time while the modulator is also running means ffmpeg and GNU Radio
+        # fight over the same cores, and when the encoder loses, playout's
+        # buffer empties, the flowgraph starves, and the transmitter puts a
+        # gap on the air. Encode once, then loop the finished file for free.
+        cmd = [ffmpeg, '-y', '-stream_loop', '-1', '-i', a.input, '-c', 'copy',
+               '-metadata', f'service_name={a.service_name}',
+               '-metadata', f'service_provider={a.provider}',
+               '-f', 'mpegts',
+               '-muxrate', str(mux_i),
+               '-pcr_period', '20',
+               '-mpegts_flags', '+resend_headers',
+               '-mpegts_service_type', 'digital_tv',
+               '-sdt_period', '0.5', '-pat_period', '0.1', '-nit_period', '0.5',
+               '-mpegts_original_network_id', str(a.net_id),
+               '-mpegts_transport_stream_id', str(a.ts_id),
+               '-mpegts_service_id', str(a.service_id),
+               'pipe:1']
+        print("  mode: REMUX ONLY (-c copy) - no encoding, negligible CPU\n")
+    else:
+        cmd = ffmpeg_command(a, ffmpeg, mux_i, video, audio, 'pipe:1')
+        print("  mode: LIVE ENCODE - competes with the modulator for CPU.\n"
+              "        If you see underruns, pre-encode once and use --copy.\n")
     pl = Playout(cmd, a.fifo, depth)
 
     launched = None
@@ -225,15 +285,52 @@ def main():
         import shlex
         import threading as _th
 
+        def _die_with_parent():
+            """Ask the kernel to SIGTERM this child when playout dies.
+
+            Without it, killing playout leaves the flowgraph running -- and
+            the flowgraph is a TRANSMITTER. A `finally:` block is not enough,
+            because SIGTERM kills Python without unwinding. PR_SET_PDEATHSIG
+            is handled by the kernel and survives any way the parent exits.
+            """
+            PR_SET_PDEATHSIG = 1
+            try:
+                ctypes.CDLL("libc.so.6").prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+            except Exception:
+                pass
+            os.setpgrp()                       # also kill as a group
+
         def _go():
             time.sleep(2.0)                    # let the buffer prime first
             print(f"[playout] launching: {a.launch}")
-            pl.child = subprocess.Popen(shlex.split(a.launch))
+            pl.child = subprocess.Popen(shlex.split(a.launch),
+                                        preexec_fn=_die_with_parent)
+            # Stay alive for as long as the child does. PR_SET_PDEATHSIG
+            # watches the parent THREAD, not the parent process, so if this
+            # thread returned here the kernel would kill the flowgraph the
+            # instant it started -- which is exactly what happened the first
+            # time this was written.
+            pl.child.wait()
         _th.Thread(target=_go, daemon=True).start()
 
-    pl.run(report=not a.quiet)
-    if getattr(pl, 'child', None) and pl.child.poll() is None:
-        pl.child.terminate()
+    def _cleanup(signum=None, frame=None):
+        child = getattr(pl, 'child', None)
+        if child and child.poll() is None:
+            print("\n[playout] stopping the flowgraph it launched")
+            try:
+                os.killpg(os.getpgid(child.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                child.terminate()
+        pl.stop.set()
+        if signum is not None:
+            sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _cleanup)
+    signal.signal(signal.SIGINT, _cleanup)
+    try:
+        pl.run(report=not a.quiet)
+    finally:
+        _cleanup()
     return 0
 
 

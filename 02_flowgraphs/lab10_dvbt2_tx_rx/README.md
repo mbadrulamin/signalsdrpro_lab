@@ -31,6 +31,23 @@ regulators treat it harshly.
 | ❌ | "I picked an empty channel" | Empty where you are is not empty at the top of the hill |
 | ❌ | Antenna connected "just to test" | This is how people transmit by accident |
 
+### Check nothing is still transmitting
+
+A flowgraph killed from a terminal does not always die. While building this lab a transmit
+flowgraph was found **still running 16 minutes after the command that started it had been
+killed**, holding the radio and streaming to the DAC. It had been started by
+`tv_playout.py --launch`, and killing playout left it orphaned.
+
+That is fixed — playout now asks the kernel to kill the flowgraph if playout dies by any means,
+tested against both SIGTERM and SIGKILL. Check anyway, because this is a transmitter:
+
+```bash
+ps -eo pid,args | grep [l]ab10_dvbt2_tx
+```
+
+Kill what you find **by PID**. Do not use `pkill -f` for this: the pattern matches `pkill`'s own
+command line and it kills the shell that launched it.
+
 ### The defaults are deliberately inert
 
 `lab10_dvbt2_tx.grc` ships with **`tx_amplitude = 0.0` and `tx_gain = 0 dB`**. Running it
@@ -193,24 +210,63 @@ configuration swallows exactly:
 $$\frac{202 \text{ FEC blocks} \times (43040 - 80)\ \text{bits}}{1{,}983{,}488 / 9{,}142{,}857\ \text{s}}
 = \mathbf{40{,}000{,}738\ \text{bit/s}}$$
 
+**Encode once, then play it out.** Two steps, and the split matters — see
+[below](#dont-encode-in-real-time).
+
 ```bash
 cd 03_scripts
-./tv_playout.py ~/Downloads/Bintang.mp4 \
-    --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
-    --t2-fecblocks 202 --t2-datasyms 59 \
-    --video-bitrate 12000000 --fifo /tmp/tv.fifo
-```
 
-Leave that running and start the transmit flowgraph; `ts_file` already points at the FIFO.
-Playout fills its buffer while it waits for a reader, so starting it first is correct.
-
-To write a **file** instead — for offline analysis, or to inspect the multiplex:
-
-```bash
+# 1. Encode once. --loop-safe trims to a clean loop point.
 ./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts \
     --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
-    --t2-fecblocks 202 --t2-datasyms 59 --video-bitrate 12000000
+    --t2-fecblocks 202 --t2-datasyms 59 --video-bitrate 12000000 --loop-safe
+
+# 2. Play it out forever. --copy means remux only: almost no CPU.
+./tv_playout.py /tmp/bintang_dvbt2.ts --copy \
+    --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
+    --t2-fecblocks 202 --t2-datasyms 59 --fifo /tmp/tv.fifo \
+    --launch "python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
 ```
+
+`--launch` starts the flowgraph once the FIFO is ready. Without it, start playout first and the
+flowgraph second — `ts_file` already points at `/tmp/tv.fifo`.
+
+#### Don't encode in real time
+
+`tv_playout.py` will happily encode live, and it is the wrong thing to do while the modulator is
+running. A 32K DVB-T2 chain uses several cores; so does x264 at 1080p. When the encoder loses
+that race, playout's buffer empties, the flowgraph blocks on its read, and the transmitter puts
+a **gap on the air**.
+
+That gap is not a cosmetic problem. A television rides it out by draining its own buffers — but
+its audio and video buffers drain and recover by *different* amounts, so what you see afterwards
+is lip sync that has slipped and stays slipped. **Underruns and desynchronised audio are the
+same fault, not two.** Playout now says so when it happens:
+
+```
+  *** UNDERRUN: buffer empty, the transmitter is putting a gap on the air.
+      Pre-encode once and re-run with --copy; live encoding cannot share the
+      CPU with the modulator.
+```
+
+Remuxing costs essentially nothing — measured, `--copy` produced 786 MB of multiplex in 0.94 s,
+against the encoder's 2.6× real time.
+
+#### What `--loop-safe` is for
+
+A stream that will be looped forever has to end on a boundary that the video and audio codecs
+share, or every lap leaves a sliver of one of them unmatched. `Bintang.mp4` is 209.066 s with
+**video running 208.960 s and audio 209.066 s — 106 ms apart**, and its video starts 40 ms after
+its audio. At 25 fps a video frame is 40 ms and an MP2 frame at 48 kHz is 24 ms, so the nearest
+clean cut is a multiple of **120 ms**: 209.04 s, exactly 5,226 video frames and 8,710 audio
+frames.
+
+> An earlier attempt used ffmpeg's `-shortest` here, which sounds right and is not: it stops at
+> whichever codec finishes first and leaves the two one audio frame apart. Measured across 7.85
+> laps that was **24 ms of slip per lap**; an exact `-t` on a shared boundary brought it to 8 ms,
+> and the remaining difference is a silent gap rather than drift — checked by comparing audio and
+> video timestamps at matched byte positions through the stream, where the offset scatters
+> without trend rather than accumulating.
 
 `--video-bitrate` matters at 40 Mbit/s: a broadcaster fills that with six or seven programmes,
 and you have one. Capping the video at 12 Mbit/s gives excellent 1080p and lets the muxer stuff
@@ -528,6 +584,27 @@ yours and copy the values across.
 ---
 
 ## 🐛 Troubleshooting
+
+### "The terminal says `underruns`, and the audio has drifted out of sync"
+
+These are the same fault. An underrun means playout's buffer was empty for a whole second, so
+the flowgraph had nothing to read, the transmit chain stopped, and the radio put a **gap** on
+the air. The television rides the gap out by draining its own buffers — but its audio and video
+buffers drain and recover by different amounts, so the lip sync slips and stays slipped.
+
+The cause is encoding in real time while the modulator is running: x264 at 1080p and a 32K
+DVB-T2 chain both want several cores, and the encoder loses.
+
+**Fix:** encode once, then remux. See
+[Don't encode in real time](#dont-encode-in-real-time).
+
+```bash
+./tv_playout.py /tmp/bintang_dvbt2.ts --copy --standard dvbt2 --t2-fft 32k \
+    --t2-guard 1/128 --t2-rate 2/3 --t2-fecblocks 202 --t2-datasyms 59 --fifo /tmp/tv.fifo
+```
+
+If underruns persist even with `--copy`, the disk is the bottleneck, not the CPU: raise
+`--buffer-seconds`.
 
 ### "Nothing happens — the flowgraph starts and no window ever appears"
 

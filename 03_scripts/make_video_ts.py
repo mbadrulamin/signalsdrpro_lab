@@ -239,6 +239,40 @@ def pcr_rate(pk):
     return (i1 - i0) * 188 * 8 / dt
 
 
+
+def audio_frame_seconds(acodec, rate=48000):
+    """Duration of one compressed audio frame."""
+    return {'mp2': 1152.0 / rate, 'mp3': 1152.0 / rate,
+            'aac': 1024.0 / rate}.get(acodec, 1152.0 / rate)
+
+
+def loop_safe_duration(src_seconds, fps, acodec):
+    """Longest duration that is a whole number of video AND audio frames.
+
+    A stream meant to be looped forever must end on a boundary both codecs
+    share, or every lap leaves a sliver of one stream unmatched and the lip
+    sync walks away a little more each time.  Bintang.mp4 is 209.066 s with
+    video running 208.960 s and audio 209.066 s -- 106 ms apart -- which is
+    exactly the kind of gap that accumulates.
+
+    At 25 fps a video frame is 40 ms; an MP2 frame at 48 kHz is 1152/48000 =
+    24 ms.  The smallest interval containing a whole number of each is 120 ms,
+    so the stream is trimmed down to a multiple of that.
+    """
+    from fractions import Fraction
+    vf = Fraction(1, 1) / Fraction(str(fps))
+    af = Fraction(audio_frame_seconds(acodec)).limit_denominator(10 ** 6)
+    lcm = vf * af / Fraction(__import__('math').gcd(
+        vf.numerator * af.denominator, af.numerator * vf.denominator)
+    ) * Fraction(vf.denominator * af.denominator)
+    # simpler and safe: step by the product, then reduce by trial
+    step = vf
+    while (step / af).denominator != 1:
+        step += vf
+    n = int(Fraction(str(src_seconds)) / step)
+    return float(step * n), float(step)
+
+
 # ---------------------------------------------------------------------------
 def ffmpeg_command(args, ffmpeg, mux_i, video, audio, output):
     """Build the encoder command line.
@@ -271,7 +305,14 @@ def ffmpeg_command(args, ffmpeg, mux_i, video, audio, output):
             '-g', str(args.gop), '-keyint_min', str(args.gop),
             '-sc_threshold', '0',
             '-x264opts', f'open-gop=0:min-keyint={args.gop}:keyint={args.gop}',
-            '-c:a', args.acodec, '-b:a', str(audio), '-ar', '48000', '-ac', '2',
+            '-c:a', args.acodec, '-b:a', str(audio), '-ar', '48000', '-ac', '2']
+    if getattr(args, 'loop_safe', False):
+        # Pad the audio with silence so it reaches exactly the same instant the
+        # video does. Resampling 44.1 kHz source to 48 kHz MP2 otherwise lands
+        # a couple of frames short, and a stream that loops forever cannot
+        # afford a ragged edge.
+        cmd += ['-af', 'apad']
+    cmd += [
             # The SDT service name and provider are METADATA, not muxer
             # options: ffmpeg has no -mpegts_service_name. This is what a
             # television shows in its channel list.
@@ -290,6 +331,8 @@ def ffmpeg_command(args, ffmpeg, mux_i, video, audio, output):
             '-mpegts_service_id', str(args.service_id)]
     if args.duration:
         cmd += ['-t', str(args.duration)]
+    if getattr(args, 'shortest', False):
+        cmd += ['-shortest']
     cmd += [output]
     return cmd
 
@@ -374,6 +417,29 @@ def build(args):
     print(f"  transport rate {mux_i:,} bit/s  = video {video:,} + audio {audio:,} "
           f"+ overhead {overhead:,}" + (f" + null stuffing {stuffing:,}" if stuffing > 0 else ""))
 
+    if args.loop_safe:
+        import subprocess as _sp
+        probe = _sp.run([shutil.which('ffprobe') or 'ffprobe', '-v', 'error',
+                         '-show_entries', 'format=duration', '-of', 'csv=p=0',
+                         args.input], capture_output=True, text=True)
+        try:
+            src = float(probe.stdout.strip())
+        except ValueError:
+            src = None
+        if src:
+            d, step = loop_safe_duration(src, args.fps, args.acodec)
+            args.duration = min(args.duration, d) if args.duration else d
+            # NOT -shortest. An exact -t on a duration that divides both frame
+            # periods gives both streams the same length; -shortest instead
+            # stops at whichever codec happens to finish first and leaves them
+            # one audio frame apart -- 24 ms of lip-sync slip per lap, which is
+            # invisible on the first pass and obvious after ten.
+            args.shortest = False
+            print(f"  loop-safe: {src:.3f} s source -> {args.duration:.3f} s "
+                  f"({args.duration*args.fps:.0f} video frames, "
+                  f"{args.duration/audio_frame_seconds(args.acodec):.0f} audio frames, "
+                  f"step {step*1000:.0f} ms)")
+
     cmd = ffmpeg_command(args, ffmpeg, mux_i, video, audio, args.output)
     print("\n" + " ".join(cmd) + "\n")
     r = subprocess.run(cmd)
@@ -421,6 +487,9 @@ def main():
     ap.add_argument('--service-id', type=int, default=1)
     ap.add_argument('--net-id', type=int, default=1)
     ap.add_argument('--duration', type=float, help='seconds to encode')
+    ap.add_argument('--loop-safe', action='store_true',
+                    help='trim to a whole number of both video and audio frames '
+                         'so the stream can be looped without the lip sync walking')
     ap.add_argument('--loop', action='store_true',
                     help='repeat the input forever (use with --duration)')
     ap.add_argument('--list-modes', action='store_true')
