@@ -90,6 +90,23 @@ sudo apt install ffmpeg          # the only external dependency in this reposito
 
 Then point `ts_in` at `/tmp/bintang.ts` and run the flowgraph.
 
+### For more than one pass of the file, use playout
+
+`ts_in` pointing at a finished `.ts` with `repeat = True` is right for the byte-exact
+verification below — you need something to compare against. It is **wrong for watching**. At
+every lap the transport stream's PCR jumps backwards by the file's whole length (measured
+−208.86 s in [Lab 10](../lab10_dvbt2_tx_rx/#-step-0--make-a-transport-stream-with-your-own-video-in-it)),
+and a receiver's clock recovery never settles again. The picture stays perfect and goes
+sluggish.
+
+```bash
+../../03_scripts/tv_playout.py ~/Downloads/Bintang.mp4 \
+    --standard dvbt --mode 16qam-2/3-1/32 --fifo /tmp/tv.fifo
+```
+
+Then set `ts_in` to `/tmp/tv.fifo`. Playout loops the *video* inside ffmpeg, so the stream clock
+counts upwards forever.
+
 Without ffmpeg you can still exercise every part of the radio:
 
 ```bash

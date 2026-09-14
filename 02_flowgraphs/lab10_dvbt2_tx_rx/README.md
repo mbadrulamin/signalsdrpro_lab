@@ -195,6 +195,18 @@ $$\frac{202 \text{ FEC blocks} \times (43040 - 80)\ \text{bits}}{1{,}983{,}488 /
 
 ```bash
 cd 03_scripts
+./tv_playout.py ~/Downloads/Bintang.mp4 \
+    --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
+    --t2-fecblocks 202 --t2-datasyms 59 \
+    --video-bitrate 12000000 --fifo /tmp/tv.fifo
+```
+
+Leave that running and start the transmit flowgraph; `ts_file` already points at the FIFO.
+Playout fills its buffer while it waits for a reader, so starting it first is correct.
+
+To write a **file** instead — for offline analysis, or to inspect the multiplex:
+
+```bash
 ./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts \
     --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
     --t2-fecblocks 202 --t2-datasyms 59 --video-bitrate 12000000
@@ -228,6 +240,35 @@ No ffmpeg? This still works, it just has no picture:
 > television's clock recovery fights the PCR for a few seconds and then gives up.
 >
 > The rate is arithmetic. Compute it, stuff to it, and verify it from the PCR.
+
+> #### ⚠️ And a second one, found by putting it on a real television
+>
+> The first long transmission of this lab looked *high quality but sluggish* on a TV — not
+> broken up, not pixelated, just never quite smooth. Every byte was arriving perfectly.
+>
+> The cause was looping the finished `.ts` with `repeat = True`. **A transport stream carries
+> its own clock.** Every 20 ms the muxer writes a Programme Clock Reference and the television
+> slaves a 27 MHz oscillator to it. When the file wraps, the PCR jumps *backwards* by the whole
+> length of the file, with no discontinuity flag to warn anyone. Measured on this lab's own
+> stream:
+>
+> ```
+> first PCR   0.700 s
+> last  PCR 209.560 s     -> every lap the clock jumps back 208.86 s
+> ```
+>
+> The presentation timestamps go back at the same instant, so the decoder is handed frames it
+> believes are three minutes stale. It does not fail; it limps. After 26 minutes the transmitter
+> had done this **7.5 times**.
+>
+> The fix is not to loop the output. It is to loop the **input** and let the muxer keep counting
+> upwards forever, which is what a real playout chain does — `tv_playout.py`. Verified across
+> 4.2 laps of a short clip: **0 backward PCR jumps** in 83.9 seconds, clock rising monotonically
+> from 0.700 s to 84.580 s, PCR interval 20.00 ms throughout.
+>
+> **A perfect bit pipe is not the same as a working television service.** Lab 12 proves this
+> chain delivers bytes with zero errors; that was necessary and not sufficient.
+
 
 #### Settings that matter to a real television
 
@@ -388,6 +429,13 @@ That stream was modulated and analysed, and passes all five checks — occupied 
 33,024**, P1 at **23.9×**, T2 frame **1,983,028 against 1,983,488**. **The waveform now carries
 a real picture, in the mode a television expects to find.**
 
+**Continuous playout was verified end to end.** `tv_playout.py` loops the *video*, so the
+transport clock rises without limit: across 83.9 s of output spanning **4.2 laps** of a short
+clip there were **0 backward PCR jumps**, the clock rose monotonically from 0.700 s to
+84.580 s, and the PCR interval held at 20.00 ms. Driving the transmitter from that FIFO for
+80 s — again spanning four wraps — produced **4 underflows, all within the first 1.6 s**, and
+none afterwards.
+
 **Real-time transmission was checked on the radio** with `tx_amplitude = 0`, so nothing
 radiated. Six underflows occurred, all of them in the **first 1.6 seconds** while the buffers
 prime; across the following 70 seconds there were **none**. The chain runs at 7.8× real time on
@@ -416,8 +464,12 @@ were streamed): it delivers the DVB-T2 elementary rate to **0.019 ppm** and supp
 - **The video path was verified by decoding the transport stream, not by watching a television.**
   `ffprobe` reports H.264 High@4.0 1920×1080 yuv420p plus MP2 48 kHz stereo, and still frames
   decode correctly out of the finished multiplex.
-- **Nothing was transmitted at non-zero amplitude in this configuration.** The real-time check
-  ran with `tx_amplitude = 0`.
+- **Nothing was transmitted at non-zero amplitude by this session.** The real-time checks here
+  ran with `tx_amplitude = 0`; the on-air test above was run by the lab's owner.
+- **The smooth-playback fix has not been watched on a television.** Continuous playout is
+  verified by measurement — 0 backward PCR jumps across 4.2 laps, and the transmitter running
+  80 s from the FIFO with no underflows after start-up — but nobody has yet sat through a
+  wrap-point on a real set to confirm the judder is gone.
 - **The 12 stages are not individually verified.** The LDPC and BCH encoders are exercised, but
   proving they are *correct* would need a receiver.
 

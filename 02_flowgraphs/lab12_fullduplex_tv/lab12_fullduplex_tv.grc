@@ -34,8 +34,8 @@ blocks:
 - name: note_legal
   id: note
   parameters:
-    note: 'THIS TRANSMITS. DVB-T occupies 8 MHz of licensed broadcast spectrum. Faraday cage, or cable plus 40-60
-      dB attenuator. Never into an antenna on an active TV channel. Scan first: 03_scripts/scan_tv_band.py'
+    note: 'THIS TRANSMITS. DVB-T occupies 8 MHz of licensed broadcast spectrum. Faraday cage, or cable plus 40-60 dB
+      attenuator. Never into an antenna on an active TV channel. Scan first: 03_scripts/scan_tv_band.py'
     comment: Read the README safety section before raising either transmit slider.
     alias: ''
     affinity: ''
@@ -48,8 +48,8 @@ blocks:
 - name: note_interlock
   id: note
   parameters:
-    note: 'SAFETY INTERLOCK: tx_amplitude and tx_gain both start at 0. The flowgraph radiates nothing until you
-      deliberately raise them. Check what is on the TX/RX port first.'
+    note: 'SAFETY INTERLOCK: tx_amplitude and tx_gain both start at 0. The flowgraph radiates nothing until you deliberately
+      raise them. Check what is on the TX/RX port first.'
     comment: The inert defaults are the interlock, not an inconvenience.
     alias: ''
     affinity: ''
@@ -77,8 +77,10 @@ blocks:
 - name: note_ts
   id: note
   parameters:
-    note: 'Feed it video:  03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang.ts --mode 16qam-2/3-1/32
-      --loop --duration 300     (needs ffmpeg)'
+    note: "Feed it video:  03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang.ts --mode 16qam-2/3-1/32\n\
+      For anything longer than one pass of the file, use continuous playout instead:\n  03_scripts/tv_playout.py ~/Downloads/Bintang.mp4\
+      \ --standard dvbt --mode 16qam-2/3-1/32 --fifo /tmp/tv.fifo\nA looping .ts sends the PCR BACKWARD by the file's\
+      \ length at every lap (measured -208.86 s)."
     comment: Without ffmpeg use 03_scripts/make_test_ts.py for a valid but pictureless stream.
     alias: ''
     affinity: ''
@@ -92,8 +94,8 @@ blocks:
   id: variable
   parameters:
     value: 64e6 / 7
-    comment: 'DVB-T elementary rate for an 8 MHz channel: 9.142857 MSPS. Both directions run at this rate, so the
-      USB link carries 2 x 9.14 MSPS x 8 bytes = 146 MB/s. USB 3.0 only.'
+    comment: 'DVB-T elementary rate for an 8 MHz channel: 9.142857 MSPS. Both directions run at this rate, so the USB
+      link carries 2 x 9.14 MSPS x 8 bytes = 146 MB/s. USB 3.0 only.'
     affinity: ''
     alias: ''
   states:
@@ -158,8 +160,9 @@ blocks:
   id: variable
   parameters:
     value: '''/tmp/bintang.ts'''
-    comment: Transport stream to transmit. MUST be muxed at exactly 16.086 Mbit/s for this mode - make_video_ts.py
-      computes that for you. A rate mismatch makes the picture drift.
+    comment: Transport stream to transmit. MUST be muxed at exactly 16.086 Mbit/s for this mode. A file is right for
+      the byte-exact verification in the README, because you need something to compare against; for sustained viewing
+      use tv_playout.py and point this at its FIFO, or the clock restarts every lap.
     affinity: ''
     alias: ''
   states:
@@ -266,8 +269,8 @@ blocks:
     stop: '89'
     value: '0'
     widget: counter_slider
-    comment: Analog transmit gain in dB. Starts at 0. Raise this LAST, and only as far as the receiver needs. Over
-      a short cable, 0 dB is usually already too much.
+    comment: Analog transmit gain in dB. Starts at 0. Raise this LAST, and only as far as the receiver needs. Over a
+      short cable, 0 dB is usually already too much.
     affinity: ''
     alias: ''
   states:
@@ -289,8 +292,8 @@ blocks:
     stop: '76'
     value: '20'
     widget: counter_slider
-    comment: Receive gain in dB. With the transmitter a few metres away this wants to be LOW - the usual failure
-      here is overload, not weak signal.
+    comment: Receive gain in dB. With the transmitter a few metres away this wants to be LOW - the usual failure here
+      is overload, not weak signal.
     affinity: ''
     alias: ''
   states:
@@ -307,8 +310,8 @@ blocks:
     begin_tag: pmt.PMT_NIL
     offset: '0'
     length: '0'
-    comment: The transport stream, looping forever. The modulator pulls bytes at exactly the rate the mode defines,
-      so this file is a queue the hardware drains - not a clock.
+    comment: The transport stream, looping forever. The modulator pulls bytes at exactly the rate the mode defines, so
+      this file is a queue the hardware drains - not a clock.
     file: ts_in
     type: byte
     maxoutbuf: '0'
@@ -364,8 +367,7 @@ blocks:
     blocks: '136'
     I: '12'
     M: '17'
-    comment: Spreads each packet over 12 branches so an impulse hits many RS blocks slightly instead of one block
-      fatally.
+    comment: Spreads each packet over 12 branches so an impulse hits many RS blocks slightly instead of one block fatally.
     maxoutbuf: '0'
     minoutbuf: '0'
     affinity: ''
@@ -416,8 +418,8 @@ blocks:
 - name: tx_si
   id: dtv_dvbt_symbol_inner_interleaver
   parameters:
-    comment: Scatters adjacent bits across all 6048 carriers, so a notch from a reflection removes isolated bits
-      the Viterbi decoder can repair rather than a contiguous run it cannot.
+    comment: Scatters adjacent bits across all 6048 carriers, so a notch from a reflection removes isolated bits the
+      Viterbi decoder can repair rather than a contiguous run it cannot.
     transmission_mode: T8k
     direction: Interleave
     maxoutbuf: '0'
@@ -452,10 +454,10 @@ blocks:
   id: dtv_dvbt_reference_signals
   parameters:
     cell_id: '0'
-    comment: 'Inserts scattered pilots, continual pilots and the TPS carriers - AND performs the IFFT. Its output
-      is TIME domain. Adding an FFT block after it looks symmetrical with the receiver and silently destroys the
-      signal: the OFDM timing still looks right to a cyclic-prefix detector, so the only symptom is that the frame
-      synchroniser never locks.'
+    comment: 'Inserts scattered pilots, continual pilots and the TPS carriers - AND performs the IFFT. Its output is
+      TIME domain. Adding an FFT block after it looks symmetrical with the receiver and silently destroys the signal:
+      the OFDM timing still looks right to a cyclic-prefix detector, so the only symptom is that the frame synchroniser
+      never locks.'
     type: complex
     transmission_mode: T8k
     constellation: 16qam
@@ -481,8 +483,8 @@ blocks:
     cp_len: cp_len
     rolloff: '0'
     tagname: ''
-    comment: Copies the last 256 samples to the front of each symbol. This is what turns a multipath channel into
-      a simple per-carrier multiply at the receiver.
+    comment: Copies the last 256 samples to the front of each symbol. This is what turns a multipath channel into a simple
+      per-carrier multiply at the receiver.
     maxoutbuf: '0'
     minoutbuf: '0'
     affinity: ''
@@ -498,9 +500,8 @@ blocks:
   parameters:
     num_items: fft_len + cp_len
     vlen: '1'
-    comment: Drop the first OFDM symbol. Measured, it carries a start-up transient with a peak of 8.1 against a
-      steady-state RMS of 0.21 - a 31 dB spike where OFDM normally runs 11 dB. Sending it clips the DAC on the very
-      first sample.
+    comment: Drop the first OFDM symbol. Measured, it carries a start-up transient with a peak of 8.1 against a steady-state
+      RMS of 0.21 - a 31 dB spike where OFDM normally runs 11 dB. Sending it clips the DAC on the very first sample.
     type: complex
     maxoutbuf: '0'
     minoutbuf: '0'
@@ -701,8 +702,8 @@ blocks:
     lo_export31: 'False'
     show_lo_controls: 'False'
     len_tag_name: '""'
-    comment: Transmit on the TX/RX port. bw0 = samp_rate keeps the analog reconstruction filter tight; without it
-      the AD9361 leaves 56 MHz open and images land on other TV channels.
+    comment: Transmit on the TX/RX port. bw0 = samp_rate keeps the analog reconstruction filter tight; without it the
+      AD9361 leaves 56 MHz open and images land on other TV channels.
     type: fc32
     ant0: TX/RX
     affinity: ''
@@ -1012,8 +1013,8 @@ blocks:
     dc_offs31: 0+0j
     iq_imbal31: 0+0j
     show_lo_controls: 'False'
-    comment: 'Receive on RX2 while TX/RX transmits - that is the full-duplex part. Measured sustained: 9.14 MSPS
-      in each direction simultaneously over USB 3.0.'
+    comment: 'Receive on RX2 while TX/RX transmits - that is the full-duplex part. Measured sustained: 9.14 MSPS in each
+      direction simultaneously over USB 3.0.'
     type: fc32
     maxoutbuf: '0'
     minoutbuf: '0'
@@ -1106,8 +1107,8 @@ blocks:
 - name: rx_si
   id: dtv_dvbt_symbol_inner_interleaver
   parameters:
-    comment: Symbol DE-interleaver. Omitting it yields a transport stream with perfect sync bytes and pure noise
-      for payload.
+    comment: Symbol DE-interleaver. Omitting it yields a transport stream with perfect sync bytes and pure noise for
+      payload.
     transmission_mode: T8k
     direction: Deinterleave
     maxoutbuf: '0'
@@ -1157,8 +1158,8 @@ blocks:
 - name: rx_viterbi
   id: dtv_dvbt_viterbi_decoder
   parameters:
-    comment: 'The heaviest block in the flowgraph, and what sets the real-time limit: 16.4 MSPS measured against
-      9.14 needed.'
+    comment: 'The heaviest block in the flowgraph, and what sets the real-time limit: 16.4 MSPS measured against 9.14
+      needed.'
     constellation: 16qam
     hierarchy: nh
     code_rate: C2_3
@@ -1231,47 +1232,46 @@ blocks:
 - name: tv_out
   id: epy_block
   parameters:
-    _source_code: "\"\"\"Transport-stream sink: statistics, an optional file, and live video.\n\nTwo things here\
-      \ are deliberate and worth copying.\n\n**It never blocks the radio.**  Pointing a File Sink at a FIFO is the\
-      \ obvious\nway to feed a player and it is a trap: if the player pauses or dies, the write\nblocks, the scheduler\
-      \ stops draining the USRP, and the receiver drowns in\noverflows.  A bounded queue absorbs jitter and *drops*\
-      \ when the player falls\nbehind.  Dropping television frames is the correct failure -- the radio keeps\nrunning\
-      \ and the picture recovers at the next keyframe.\n\n**It counts continuity errors, not sync bytes.**  Every\
-      \ packet leaving a DVB-T\nreceiver starts with 0x47 whether or not the decode worked, because the energy\n\
-      descrambler writes that byte unconditionally.  The honest measure of link\nhealth is the continuity counter:\
-      \ 4 bits per PID that increment on every\npacket, so a jump means Reed-Solomon gave up on a block.\n\"\"\"\
-      \nimport queue\nimport subprocess\nimport threading\n\nimport numpy as np\nfrom gnuradio import gr\n\nPLAYER\
-      \ = ['ffplay', '-hide_banner', '-loglevel', 'error', '-fflags', 'nobuffer',\n          '-flags', 'low_delay',\
-      \ '-framedrop', '-autoexit',\n          '-window_title', 'SDR LAB TV', '-i', 'pipe:0']\n\n\nclass blk(gr.sync_block):\n\
-      \    def __init__(self, play=True, ts_file='', report_every=20000):\n        gr.sync_block.__init__(self,\
-      \ name='TV Output + TS Stats',\n                               in_sig=[np.uint8], out_sig=None)\n        self.set_output_multiple(188)\n\
-      \        self.report_every = int(report_every)\n        self.packets = self.cc_errors = self.sync_errors =\
-      \ self.dropped = 0\n        self.pids = {}\n        self._cc = {}\n        self._buf = b''\n        self._since\
-      \ = 0\n        self._q = queue.Queue(maxsize=256)\n        self._fh = open(ts_file, 'wb') if ts_file else\
-      \ None\n        self._proc = None\n        if play:\n            try:\n                self._proc = subprocess.Popen(PLAYER,\
-      \ stdin=subprocess.PIPE,\n                                              stdout=subprocess.DEVNULL,\n     \
-      \                                         stderr=subprocess.DEVNULL)\n            except FileNotFoundError:\n\
-      \                print('[TV] ffplay not found -- install ffmpeg for live video '\n                      '(sudo\
-      \ apt install ffmpeg). Recording only.')\n        threading.Thread(target=self._drain, daemon=True).start()\n\
-      \n    def _drain(self):\n        while True:\n            chunk = self._q.get()\n            for sink in (self._proc.stdin\
-      \ if self._proc else None, self._fh):\n                if sink is None:\n                    continue\n  \
-      \              try:\n                    sink.write(chunk)\n                except (BrokenPipeError, ValueError,\
-      \ OSError):\n                    pass\n\n    def work(self, input_items, output_items):\n        data = input_items[0].tobytes()\n\
-      \        try:\n            self._q.put_nowait(data)\n        except queue.Full:\n            self.dropped\
-      \ += 1\n        buf = self._buf + data\n        n = len(buf) // 188\n        for k in range(n):\n        \
-      \    p = buf[k * 188:(k + 1) * 188]\n            self.packets += 1\n            self._since += 1\n       \
-      \     if p[0] != 0x47:\n                self.sync_errors += 1\n                continue\n            pid =\
-      \ ((p[1] & 0x1f) << 8) | p[2]\n            self.pids[pid] = self.pids.get(pid, 0) + 1\n            if pid\
-      \ != 0x1fff and (p[3] & 0x10):\n                cc = p[3] & 0x0f\n                prev = self._cc.get(pid)\n\
-      \                if prev is not None and cc != (prev + 1) % 16:\n                    self.cc_errors += 1\n\
-      \                self._cc[pid] = cc\n        self._buf = buf[n * 188:]\n        if self._since >= self.report_every:\n\
-      \            self._since = 0\n            self._report()\n        return len(input_items[0])\n\n    def _report(self):\n\
-      \        top = sorted(self.pids.items(), key=lambda kv: -kv[1])[:6]\n        rate = self.cc_errors / max(1,\
-      \ self.packets)\n        health = 'LOCKED  ' if rate < 1e-4 else ('marginal' if rate < 1e-2 else 'NO LOCK\
-      \ ')\n        print(f'[TV] {health} {self.packets:>9,} pkts  '\n              f'CC err {self.cc_errors:>7,}\
-      \ ({rate:.2e})  '\n              f'sync err {self.sync_errors:>6,}  dropped {self.dropped:>4}')\n        print('\
-      \     PIDs: ' + '  '.join(\n            f'{p}{\"(null)\" if p == 8191 else \"\"}:{c*100.0/max(1,self.packets):.1f}%'\n\
-      \            for p, c in top))\n"
+    _source_code: "\"\"\"Transport-stream sink: statistics, an optional file, and live video.\n\nTwo things here are\
+      \ deliberate and worth copying.\n\n**It never blocks the radio.**  Pointing a File Sink at a FIFO is the obvious\n\
+      way to feed a player and it is a trap: if the player pauses or dies, the write\nblocks, the scheduler stops draining\
+      \ the USRP, and the receiver drowns in\noverflows.  A bounded queue absorbs jitter and *drops* when the player\
+      \ falls\nbehind.  Dropping television frames is the correct failure -- the radio keeps\nrunning and the picture\
+      \ recovers at the next keyframe.\n\n**It counts continuity errors, not sync bytes.**  Every packet leaving a DVB-T\n\
+      receiver starts with 0x47 whether or not the decode worked, because the energy\ndescrambler writes that byte unconditionally.\
+      \  The honest measure of link\nhealth is the continuity counter: 4 bits per PID that increment on every\npacket,\
+      \ so a jump means Reed-Solomon gave up on a block.\n\"\"\"\nimport queue\nimport subprocess\nimport threading\n\
+      \nimport numpy as np\nfrom gnuradio import gr\n\nPLAYER = ['ffplay', '-hide_banner', '-loglevel', 'error', '-fflags',\
+      \ 'nobuffer',\n          '-flags', 'low_delay', '-framedrop', '-autoexit',\n          '-window_title', 'SDR LAB\
+      \ TV', '-i', 'pipe:0']\n\n\nclass blk(gr.sync_block):\n    def __init__(self, play=True, ts_file='', report_every=20000):\n\
+      \        gr.sync_block.__init__(self, name='TV Output + TS Stats',\n                               in_sig=[np.uint8],\
+      \ out_sig=None)\n        self.set_output_multiple(188)\n        self.report_every = int(report_every)\n       \
+      \ self.packets = self.cc_errors = self.sync_errors = self.dropped = 0\n        self.pids = {}\n        self._cc\
+      \ = {}\n        self._buf = b''\n        self._since = 0\n        self._q = queue.Queue(maxsize=256)\n        self._fh\
+      \ = open(ts_file, 'wb') if ts_file else None\n        self._proc = None\n        if play:\n            try:\n \
+      \               self._proc = subprocess.Popen(PLAYER, stdin=subprocess.PIPE,\n                                \
+      \              stdout=subprocess.DEVNULL,\n                                              stderr=subprocess.DEVNULL)\n\
+      \            except FileNotFoundError:\n                print('[TV] ffplay not found -- install ffmpeg for live\
+      \ video '\n                      '(sudo apt install ffmpeg). Recording only.')\n        threading.Thread(target=self._drain,\
+      \ daemon=True).start()\n\n    def _drain(self):\n        while True:\n            chunk = self._q.get()\n     \
+      \       for sink in (self._proc.stdin if self._proc else None, self._fh):\n                if sink is None:\n \
+      \                   continue\n                try:\n                    sink.write(chunk)\n                except\
+      \ (BrokenPipeError, ValueError, OSError):\n                    pass\n\n    def work(self, input_items, output_items):\n\
+      \        data = input_items[0].tobytes()\n        try:\n            self._q.put_nowait(data)\n        except queue.Full:\n\
+      \            self.dropped += 1\n        buf = self._buf + data\n        n = len(buf) // 188\n        for k in range(n):\n\
+      \            p = buf[k * 188:(k + 1) * 188]\n            self.packets += 1\n            self._since += 1\n    \
+      \        if p[0] != 0x47:\n                self.sync_errors += 1\n                continue\n            pid = ((p[1]\
+      \ & 0x1f) << 8) | p[2]\n            self.pids[pid] = self.pids.get(pid, 0) + 1\n            if pid != 0x1fff and\
+      \ (p[3] & 0x10):\n                cc = p[3] & 0x0f\n                prev = self._cc.get(pid)\n                if\
+      \ prev is not None and cc != (prev + 1) % 16:\n                    self.cc_errors += 1\n                self._cc[pid]\
+      \ = cc\n        self._buf = buf[n * 188:]\n        if self._since >= self.report_every:\n            self._since\
+      \ = 0\n            self._report()\n        return len(input_items[0])\n\n    def _report(self):\n        top =\
+      \ sorted(self.pids.items(), key=lambda kv: -kv[1])[:6]\n        rate = self.cc_errors / max(1, self.packets)\n\
+      \        health = 'LOCKED  ' if rate < 1e-4 else ('marginal' if rate < 1e-2 else 'NO LOCK ')\n        print(f'[TV]\
+      \ {health} {self.packets:>9,} pkts  '\n              f'CC err {self.cc_errors:>7,} ({rate:.2e})  '\n          \
+      \    f'sync err {self.sync_errors:>6,}  dropped {self.dropped:>4}')\n        print('     PIDs: ' + '  '.join(\n\
+      \            f'{p}{\"(null)\" if p == 8191 else \"\"}:{c*100.0/max(1,self.packets):.1f}%'\n            for p, c\
+      \ in top))\n"
     comment: 'The whole point: the transport stream that went into the transmitter, recovered from the air and handed
       to a player. If the picture is identical to the source file, every stage of both chains is correct.'
     play: play_video
@@ -1305,26 +1305,25 @@ blocks:
 - name: rx_mer
   id: epy_block
   parameters:
-    _source_code: "\"\"\"Modulation Error Ratio, the number a television calls \"signal quality\".\n\n    MER =\
-      \ 10 log10( mean |ideal|^2 / mean |received - ideal|^2 )\n\n`ideal` is the nearest legal constellation point,\
-      \ so no knowledge of the\ntransmitted data is needed.  Measured against a calibrated AWGN channel this\ntracks\
-      \ true SNR to within about 0.9 dB.\n\nWatch this rather than the picture.  MER falls smoothly as the link\
-      \ degrades,\nwhile the picture stays flawless and then collapses: for 16QAM CR 2/3 this\nreceiver decodes\
-      \ perfectly at 13 dB and fails completely at 12 dB.  By the\ntime the picture breaks up you have already lost\
-      \ all your margin.\n\"\"\"\nimport numpy as np\nfrom gnuradio import gr\n\nLEVELS = {2: np.array([-1., 1.])\
-      \ / np.sqrt(2),\n          4: np.array([-3., -1., 1., 3.]) / np.sqrt(10),\n          6: np.array([-7., -5.,\
-      \ -3., -1., 1., 3., 5., 7.]) / np.sqrt(42)}\n\n\nclass blk(gr.decim_block):\n    def __init__(self, bits_per_symbol=4,\
-      \ decim=4096):\n        gr.decim_block.__init__(self, name='MER (dB)',\n                                in_sig=[np.complex64],\
-      \ out_sig=[np.float32],\n                                decim=int(decim))\n        self.levels = LEVELS[int(bits_per_symbol)]\n\
-      \        self.mer = 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n\
-      \        n = len(out)\n        x = input_items[0][:n * self.decimation()]\n        if len(x) > 8192:     \
-      \                 # a measurement, not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling\
-      \ costs nothing\n        if len(x):\n            lv = self.levels\n            i = lv[np.abs(x.real[:, None]\
-      \ - lv[None, :]).argmin(axis=1)]\n            q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n\
-      \            ideal = i + 1j * q\n            err = float(np.mean(np.abs(x - ideal) ** 2))\n            sig\
-      \ = float(np.mean(np.abs(ideal) ** 2))\n            if err > 0 and sig > 0:\n                m = 10 * np.log10(sig\
-      \ / err)\n                self.mer = m if self.mer == 0.0 else 0.9 * self.mer + 0.1 * m\n        out[:] =\
-      \ self.mer\n        return n\n"
+    _source_code: "\"\"\"Modulation Error Ratio, the number a television calls \"signal quality\".\n\n    MER = 10 log10(\
+      \ mean |ideal|^2 / mean |received - ideal|^2 )\n\n`ideal` is the nearest legal constellation point, so no knowledge\
+      \ of the\ntransmitted data is needed.  Measured against a calibrated AWGN channel this\ntracks true SNR to within\
+      \ about 0.9 dB.\n\nWatch this rather than the picture.  MER falls smoothly as the link degrades,\nwhile the picture\
+      \ stays flawless and then collapses: for 16QAM CR 2/3 this\nreceiver decodes perfectly at 13 dB and fails completely\
+      \ at 12 dB.  By the\ntime the picture breaks up you have already lost all your margin.\n\"\"\"\nimport numpy as\
+      \ np\nfrom gnuradio import gr\n\nLEVELS = {2: np.array([-1., 1.]) / np.sqrt(2),\n          4: np.array([-3., -1.,\
+      \ 1., 3.]) / np.sqrt(10),\n          6: np.array([-7., -5., -3., -1., 1., 3., 5., 7.]) / np.sqrt(42)}\n\n\nclass\
+      \ blk(gr.decim_block):\n    def __init__(self, bits_per_symbol=4, decim=4096):\n        gr.decim_block.__init__(self,\
+      \ name='MER (dB)',\n                                in_sig=[np.complex64], out_sig=[np.float32],\n            \
+      \                    decim=int(decim))\n        self.levels = LEVELS[int(bits_per_symbol)]\n        self.mer =\
+      \ 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n        n = len(out)\n\
+      \        x = input_items[0][:n * self.decimation()]\n        if len(x) > 8192:                      # a measurement,\
+      \ not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling costs nothing\n        if len(x):\n\
+      \            lv = self.levels\n            i = lv[np.abs(x.real[:, None] - lv[None, :]).argmin(axis=1)]\n     \
+      \       q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n            ideal = i + 1j * q\n        \
+      \    err = float(np.mean(np.abs(x - ideal) ** 2))\n            sig = float(np.mean(np.abs(ideal) ** 2))\n     \
+      \       if err > 0 and sig > 0:\n                m = 10 * np.log10(sig / err)\n                self.mer = m if\
+      \ self.mer == 0.0 else 0.9 * self.mer + 0.1 * m\n        out[:] = self.mer\n        return n\n"
     comment: Signal quality in dB.
     bits_per_symbol: '4'
     decim: '4096'
@@ -1402,8 +1401,8 @@ blocks:
     width10: '1'
     color10: '"dark blue"'
     alpha10: '1.0'
-    comment: 'What comes back. Compare it with the transmit spectrum below: same shape, lower level, plus whatever
-      the room added.'
+    comment: 'What comes back. Compare it with the transmit spectrum below: same shape, lower level, plus whatever the
+      room added.'
     gui_hint: 1,0,1,2
     affinity: ''
     alias: ''
@@ -1479,8 +1478,8 @@ blocks:
     width10: '1'
     color10: '"dark blue"'
     alpha10: '1.0'
-    comment: 'What goes out: a flat 7.6 MHz slab with steep shoulders. If the shoulders are not steep, tx_amplitude
-      is clipping and you are interfering with the neighbours.'
+    comment: 'What goes out: a flat 7.6 MHz slab with steep shoulders. If the shoulders are not steep, tx_amplitude is
+      clipping and you are interfering with the neighbours.'
     gui_hint: 2,0,1,2
     affinity: ''
     alias: ''
@@ -1522,8 +1521,8 @@ blocks:
     color8: '"dark red"'
     color9: '"dark green"'
     color10: '"dark blue"'
-    comment: Sixteen dots when the loop is healthy. Smeared = too much gain somewhere; this link usually fails by
-      overload, not weakness.
+    comment: Sixteen dots when the loop is healthy. Smeared = too much gain somewhere; this link usually fails by overload,
+      not weakness.
     gui_hint: 3,0,1,1
     marker1: '0'
     style1: '0'

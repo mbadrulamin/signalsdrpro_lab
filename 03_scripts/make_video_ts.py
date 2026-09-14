@@ -240,6 +240,80 @@ def pcr_rate(pk):
 
 
 # ---------------------------------------------------------------------------
+def ffmpeg_command(args, ffmpeg, mux_i, video, audio, output):
+    """Build the encoder command line.
+
+    Shared with tv_playout.py so that a file written for a mode and a live
+    playout of the same mode are byte-for-byte the same encode -- the only
+    difference being that playout loops the *input* so its clock never
+    restarts.
+    """
+    vf = f"scale={args.width}:-2" if args.width else "null"
+    cmd = [ffmpeg, '-y']
+    if args.loop:
+        # -stream_loop repeats the INPUT, so the muxer keeps counting upwards.
+        # Looping the finished .ts instead sends the PCR backwards at every lap.
+        cmd += ['-stream_loop', '-1']
+    cmd += ['-i', args.input,
+            '-vf', vf,
+            '-r', str(args.fps),
+            '-c:v', args.vcodec,
+            # Constant bit rate, not merely an average: a broadcast multiplex
+            # has no room to borrow from later.
+            '-b:v', str(video), '-minrate', str(video), '-maxrate', str(video),
+            '-bufsize', str(video // 2),
+            # Baseline decodability for consumer tuners: 4:2:0 8-bit, High
+            # profile level 4.0, closed GOP with a real IDR every GOP so a
+            # television can start decoding at any keyframe rather than
+            # waiting for an open-GOP recovery point.
+            '-pix_fmt', 'yuv420p',
+            '-profile:v', args.profile, '-level', args.level,
+            '-g', str(args.gop), '-keyint_min', str(args.gop),
+            '-sc_threshold', '0',
+            '-x264opts', f'open-gop=0:min-keyint={args.gop}:keyint={args.gop}',
+            '-c:a', args.acodec, '-b:a', str(audio), '-ar', '48000', '-ac', '2',
+            # The SDT service name and provider are METADATA, not muxer
+            # options: ffmpeg has no -mpegts_service_name. This is what a
+            # television shows in its channel list.
+            '-metadata', f'service_name={args.service_name}',
+            '-metadata', f'service_provider={args.provider}',
+            # -f mpegts must precede the muxer's private options, or ffmpeg
+            # has no muxer to resolve them against.
+            '-f', 'mpegts',
+            '-muxrate', str(mux_i),
+            '-pcr_period', '20',
+            '-mpegts_flags', '+resend_headers',
+            '-mpegts_service_type', 'digital_tv',
+            '-sdt_period', '0.5', '-pat_period', '0.1', '-nit_period', '0.5',
+            '-mpegts_original_network_id', str(args.net_id),
+            '-mpegts_transport_stream_id', str(args.ts_id),
+            '-mpegts_service_id', str(args.service_id)]
+    if args.duration:
+        cmd += ['-t', str(args.duration)]
+    cmd += [output]
+    return cmd
+
+
+def plan_rates(args):
+    """Return (mux_i, video, audio, overhead) for the requested mode."""
+    if args.standard == 'dvbt2':
+        mux, frame_samples, frame_bytes = dvbt2_bitrate(
+            args.t2_fft, args.t2_guard, args.t2_rate, args.t2_fecblocks,
+            args.t2_datasyms, args.t2_framesize, args.bandwidth)
+    else:
+        const, cr, gi = parse_mode(args.mode_str)
+        nfft = 8192 if args.fft == '8k' else 2048
+        mux, _, _ = dvbt_bitrate(nfft, const, cr, gi, args.bandwidth)
+        frame_samples = frame_bytes = 0
+    mux_i = int(mux)
+    audio = args.audio_bitrate
+    overhead = int(mux_i * 0.04) + 100_000
+    video = mux_i - audio - overhead
+    if getattr(args, 'video_bitrate', 0):
+        video = min(video, args.video_bitrate)
+    return mux_i, video, audio, overhead, frame_samples, frame_bytes
+
+
 def build(args):
     ffmpeg = shutil.which('ffmpeg')
     if not ffmpeg:
@@ -300,48 +374,7 @@ def build(args):
     print(f"  transport rate {mux_i:,} bit/s  = video {video:,} + audio {audio:,} "
           f"+ overhead {overhead:,}" + (f" + null stuffing {stuffing:,}" if stuffing > 0 else ""))
 
-    vf = f"scale={args.width}:-2" if args.width else "null"
-    cmd = [ffmpeg, '-y']
-    if args.loop:
-        cmd += ['-stream_loop', '-1']
-    cmd += ['-i', args.input,
-            '-vf', vf,
-            '-r', str(args.fps),
-            '-c:v', args.vcodec,
-            # Constant bit rate, not merely an average: a broadcast multiplex
-            # has no room to borrow from later.
-            '-b:v', str(video), '-minrate', str(video), '-maxrate', str(video),
-            '-bufsize', str(video // 2),
-            # Baseline decodability for consumer tuners: 4:2:0 8-bit, High
-            # profile level 4.0, closed GOP with a real IDR every GOP so a
-            # television can start decoding at any keyframe rather than
-            # waiting for an open-GOP recovery point.
-            '-pix_fmt', 'yuv420p',
-            '-profile:v', args.profile, '-level', args.level,
-            '-g', str(args.gop), '-keyint_min', str(args.gop),
-            '-sc_threshold', '0',
-            '-x264opts', f'open-gop=0:min-keyint={args.gop}:keyint={args.gop}',
-            '-c:a', args.acodec, '-b:a', str(audio), '-ar', '48000', '-ac', '2',
-            # The SDT service name and provider are METADATA, not muxer
-            # options: ffmpeg has no -mpegts_service_name. This is what a
-            # television shows in its channel list.
-            '-metadata', f'service_name={args.service_name}',
-            '-metadata', f'service_provider={args.provider}',
-            # -f mpegts must precede the muxer's private options, or ffmpeg
-            # has no muxer to resolve them against.
-            '-f', 'mpegts',
-            '-muxrate', str(mux_i),
-            '-pcr_period', '20',
-            '-mpegts_flags', '+resend_headers',
-            '-mpegts_service_type', 'digital_tv',
-            '-sdt_period', '0.5', '-pat_period', '0.1', '-nit_period', '0.5',
-            '-mpegts_original_network_id', str(args.net_id),
-            '-mpegts_transport_stream_id', str(args.ts_id),
-            '-mpegts_service_id', str(args.service_id)]
-    if args.duration:
-        cmd += ['-t', str(args.duration)]
-    cmd += [args.output]
-
+    cmd = ffmpeg_command(args, ffmpeg, mux_i, video, audio, args.output)
     print("\n" + " ".join(cmd) + "\n")
     r = subprocess.run(cmd)
     if r.returncode != 0:

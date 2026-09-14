@@ -70,7 +70,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         self.fft_len = fft_len = 32768
         self.tx_gain = tx_gain = 0
         self.tx_amplitude = tx_amplitude = 0.0
-        self.ts_file = ts_file = '/tmp/bintang_dvbt2.ts'
+        self.ts_file = ts_file = '/tmp/tv.fifo'
         self.ti_blocks = ti_blocks = 3
         self.samp_rate = samp_rate = (8000000.0 * 8) / 7
         self.num_data_syms = num_data_syms = 59
@@ -106,7 +106,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
         self.usrp_sink.set_gain(tx_gain, 0)
         self.tx_scale = blocks.multiply_const_cc(tx_amplitude)
         self.tx_scale.set_min_output_buffer(4194304)
-        self.ts_source = blocks.file_source(gr.sizeof_char*1, ts_file, True, 0, 0)
+        self.ts_source = blocks.file_source(gr.sizeof_char*1, ts_file, False, 0, 0)
         self.ts_source.set_begin_tag(pmt.PMT_NIL)
         self.timeplot = qtgui.time_sink_c(
             2048, #size
@@ -352,7 +352,7 @@ class lab10_dvbt2_tx(gr.top_block, Qt.QWidget):
 
     def set_ts_file(self, ts_file):
         self.ts_file = ts_file
-        self.ts_source.open(self.ts_file, True)
+        self.ts_source.open(self.ts_file, False)
 
     def get_ti_blocks(self):
         return self.ti_blocks

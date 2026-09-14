@@ -141,6 +141,35 @@ Presentation timing rides on top: each **PES** packet carries a **PTS** (when to
 for out-of-order frames, a **DTS** (when to decode it), both in 90 kHz units derived from the
 same clock.
 
+### What happens when the clock goes backwards
+
+This is worth dwelling on, because it produces a failure that looks like nothing else and was
+found the hard way in [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/).
+
+The obvious way to transmit a video continuously is to encode it once and replay the file on a
+loop. Every byte is then perfect. But at the wrap the PCR jumps *backwards* by the whole length
+of the file — measured on Lab 10's own 209-second stream, **−208.86 s** — and the PTS values go
+with it.
+
+The receiver is not told this is intentional. There is a `discontinuity_indicator` bit in the
+adaptation field for exactly this purpose, and a file source replaying a file does not set it.
+So the television's PLL, which has spent three minutes carefully locking to a 27 MHz reference,
+is handed a reference that has moved three minutes into the past, and the decoder is handed
+frames stamped for a time long gone.
+
+What you see is not breakup. The forward error correction is still working perfectly and every
+packet arrives intact. What you see is a picture that is **sluggish** — slightly wrong cadence,
+never settling — and stays that way, because the clock recovery never gets a stable reference
+again. After 26 minutes of a 209-second loop it had happened 7.5 times.
+
+The fix is structural, not a parameter: **loop the input, not the output.** Let the muxer keep
+counting upwards forever and the problem cannot arise. That is what real playout does, and what
+`03_scripts/tv_playout.py` exists to do.
+
+> **The general lesson.** A perfect bit pipe is not the same as a working television service.
+> Lab 12 proves its link delivers 79 MB byte-identical with zero errors; that is necessary and
+> nowhere near sufficient. Broadcasting is a *timing* system that happens to carry bits.
+
 ---
 
 ## 5. What is inside: why frames are not independent
@@ -277,7 +306,9 @@ why Lab 11's scanner can find and measure DVB-T2 broadcasts it has no hope of de
    counters do not.
 2. **The bit rate is arithmetic, not a preference.** Derive it, stuff nulls up to it, verify it
    from the PCR.
-3. **Timing travels in the stream.** PCR rebuilds the clock; PTS/DTS place the pictures.
+3. **Timing travels in the stream.** PCR rebuilds the clock; PTS/DTS place the pictures. Send
+   that clock backwards — by looping a finished file — and the picture goes sluggish while every
+   byte stays perfect.
 4. **Frames depend on each other**, so channel change is slow and errors smear.
 5. **Acquisition is the expensive part of a receiver**, and its cost scales with the guard
    interval — sometimes in the opposite direction to robustness.

@@ -46,10 +46,10 @@ blocks:
 - name: note_video
   id: note
   parameters:
-    note: "VIDEO: make the stream first, at EXACTLY this mode's rate --\n  03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4\
-      \ /tmp/bintang_dvbt2.ts \\\n      --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \\\n      --t2-fecblocks\
-      \ 202 --t2-datasyms 59 --video-bitrate 12000000\nNo ffmpeg? 03_scripts/make_test_ts.py --rate 40000738 gives a\
-      \ valid, pictureless mux."
+    note: "PLAYOUT FIRST, then start this flowgraph:\n  03_scripts/tv_playout.py ~/Downloads/Bintang.mp4 --standard dvbt2\
+      \ --t2-fft 32k \\\n      --t2-guard 1/128 --t2-rate 2/3 --t2-fecblocks 202 --t2-datasyms 59 \\\n      --video-bitrate\
+      \ 12000000 --fifo /tmp/tv.fifo\nDo NOT point ts_file at a finished .ts with repeat=True: at every lap the PCR jumps\n\
+      BACKWARD by the file's whole length and the picture goes sluggish. Measured: -208.86 s."
     comment: A real television will list the service by the name in the SDT.
     alias: ''
     affinity: ''
@@ -133,9 +133,10 @@ blocks:
 - name: ts_file
   id: variable
   parameters:
-    value: '''/tmp/bintang_dvbt2.ts'''
-    comment: Transport stream, which MUST be muxed at exactly 40,000,738 bit/s. make_video_ts.py computes that from the
-      modulation and --verify checks it against the PCR.
+    value: '''/tmp/tv.fifo'''
+    comment: A named pipe fed by 03_scripts/tv_playout.py, not a file. Playout loops the VIDEO inside ffmpeg so the transport
+      stream clock counts upwards forever. Looping a finished .ts instead sends the PCR backwards every lap, which a
+      television shows as permanently sluggish playback.
   states:
     coordinate:
     - 330
@@ -147,12 +148,13 @@ blocks:
   parameters:
     file: ts_file
     type: byte
-    repeat: 'True'
+    repeat: 'False'
     vlen: '1'
     begin_tag: pmt.PMT_NIL
     offset: '0'
     length: '0'
-    comment: repeat=True means the PHYSICAL layer never runs dry - only the TS content loops.
+    comment: 'Reads the playout FIFO. repeat=False on purpose: a FIFO never reaches EOF while the writer lives, and if
+      playout dies you want this to stop rather than spin on a rewind that cannot happen.'
   states:
     coordinate:
     - 60

@@ -208,6 +208,7 @@ Lookup material, not meant to be read front to back.
 | [make_video_ts.py](./03_scripts/make_video_ts.py) | Turn a video file into a CBR transport stream sized exactly for a **DVB-T or DVB-T2** mode, with encoder settings a consumer television will accept. `--list-modes` prints the derived bit-rate table; `--verify` recovers the true rate from the PCR. |
 | [dvbt_chain.py](./03_scripts/dvbt_chain.py) | The DVB-T modulator and demodulator as reusable blocks, plus MER and transport-stream probes. Run it directly for a loopback self-test and an SNR sweep. |
 | [scan_tv_band.py](./03_scripts/scan_tv_band.py) | Scan the television band and classify each channel — DVB-T2 (P1), DVB-T (cyclic prefix), bursty carrier, or empty. `--selftest` reproduces the false positive that motivated its veto tests. |
+| [tv_playout.py](./03_scripts/tv_playout.py) | Continuous television playout: loops the **video** inside ffmpeg and feeds a modulator through a FIFO, so the transport-stream clock never restarts. Use this instead of looping a finished `.ts`. |
 | [verify_tv_link.py](./03_scripts/verify_tv_link.py) | Transmit a known transport stream, receive it on the same radio, and compare byte for byte. 🚨 transmits. |
 | [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Verify a DVB-T2 waveform: bandwidth, cyclic prefix, symbol period, P1 preamble, frame period, PAPR. |
 | [make_diagrams.py](./03_scripts/make_diagrams.py) | Regenerate the introduction's four SVG figures. Self-checks that nothing overflows its viewBox. |
@@ -371,6 +372,8 @@ mean of the demodulated output.
 | 10 | DVB-T2 in the broadcast mode (32K/256QAM/CR2⁄3/GI1⁄128/PP7) | **5/5 structural checks pass** |
 | 10 | Video multiplex rate vs the modulator's own rate | **40.000737 vs 40.000738 Mbit/s (0.0000 %)** |
 | 10 | 32K chain throughput / underflows after start-up | **7.8× real time**, 0 in 70 s |
+| 10 | **A real television locked to it and played the video** | reported by the lab's owner |
+| 10 | Continuous playout across 4.2 video laps | **0 backward PCR jumps** in 83.9 s |
 | 12 | Full duplex 40 s of 1080p video: packets decoded | **422,304**, 0 sync errors, **0 continuity errors** |
 | 12 | Video recovered over the air, byte for byte | **79,357,996 bytes, 0 mismatches — 100.000000 %** |
 | 12 | Frames decoded out of the received stream | **975 video frames + 39.45 s of audio** |
@@ -456,6 +459,21 @@ of *transmit* gain could, and did: in-band rise **16.5 dB**, shoulder **21.3 dB*
 lock. The lesson generalises well beyond television: **when you test a wideband link with a
 narrowband probe, subtract the processing gain before believing the result.**
 
+**7. A perfect bit pipe is not a working television service.**
+The first long DVB-T2 transmission looked *high quality but sluggish* on a real set — not broken
+up, not pixelated, just never quite smooth, with every byte arriving intact. The cause was
+looping the finished `.ts` file. A transport stream carries its own clock, and at each wrap the
+PCR jumped **backwards by 208.86 seconds** with no discontinuity flag; the television's clock
+recovery never got a stable reference again. Over 26 minutes it happened 7.5 times.
+
+The fix is structural: loop the *input* and let the muxer keep counting upwards, which is what
+real playout does. Verified across 4.2 laps — **0 backward PCR jumps** in 83.9 s.
+
+Labs 11 and 12 had already proved this chain delivers 79 MB byte-identical with zero errors.
+That was necessary and nowhere near sufficient: **broadcasting is a timing system that happens
+to carry bits**, and no amount of byte-level verification would ever have caught this. It took
+pointing it at a television.
+
 ### Known issue
 
 `set_mode()` on Lab 06 raises `IndexError: input_index must be < ninputs` if called **before**
@@ -465,10 +483,10 @@ you drive the flowgraph programmatically. Start the flowgraph first, then set th
 
 ### Still not verified
 
-- **No television has locked to the DVB-T2 transmitter.** The waveform passes all five
-  structural checks and carries a decodable H.264 + MP2 service in **the mode Freeview HD and
-  MYTV actually broadcast**, but a consumer set finding it in a channel scan is the one
-  measurement that cannot be made from this side of the glass.
+- **The television result is a user report, not an instrument reading.** A consumer set did find
+  the service and play the video at high quality — but nothing here recorded it, and "smooth" or
+  "sluggish" is a judgement no script made. The fix for the judder is verified by measurement;
+  it has not been watched.
 - **Nobody has watched the picture live.** Labs 11–12 were verified by decoding frames and audio
   out of the received stream and by `cmp` against the source, not by a person watching `ffplay`.
 - **No real broadcast television has been decoded here.** The band is empty at this location
