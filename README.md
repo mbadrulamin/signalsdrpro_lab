@@ -185,6 +185,20 @@ modulation, difficulty, the hardware it needs, and which labs prepare you for it
 
 ---
 
+### Part 6 — Teaching It
+Delivering this material to a room rather than reading it alone.
+
+| File | Use it when… |
+|---|---|
+| [4-hour session plan](./06_training/SESSION_PLAN.md) | You are teaching this. Design rationale, per-slide speaker notes, demo risk plan, cut order. |
+| [Introduction to SDR — slide deck](./06_training/intro_to_sdr.html) | 63 slides, speaker notes and pacing timer built in. One self-contained file; no internet needed. |
+
+Aimed at a **beginner-to-intermediate** audience — people who have used radio as operators but
+have never seen an SDR. Four hours: the two ideas that must land, a radio brought up from cold,
+one flowgraph built live, eight labs demonstrated, and a television station.
+
+---
+
 ### Part 5 — Reference
 Lookup material, not meant to be read front to back.
 
