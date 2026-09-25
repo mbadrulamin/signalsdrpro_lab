@@ -465,6 +465,8 @@ blocks:
                           self.acq = self.acq[self.N:]      # slide on, try again
                       else:
                           self.locked, self.invert, self.phase = True, inv, s
+                          print(f"[BER Monitor] locked to the pattern at shift {s}; "
+                                f"stream inverted: {'YES (180-degree ambiguity)' if inv else 'no'}", flush=True)
                           self._count(self.acq)
                           self.acq = self.acq[:0]
 

@@ -1,163 +1,177 @@
-# 💠 Lab 07 — BPSK Link Simulation with Live BER Measurement
+# 💠 Lab 07 — A Digital Link, Simulated (BPSK)
 
-> **Time:** 2 hours
-> **Difficulty:** Advanced
-> **Hardware:** **None.** This lab runs on any machine.
-> **Theory needed:** [Fund. 08 Digital Modulation](../../01_fundamentals/08_digital_modulation.md) · [Fund. 09 Synchronization](../../01_fundamentals/09_synchronization.md)
-> **New blocks:** Vector Source, Differential Encoder/Decoder, Chunks to Symbols, Interpolating FIR, Channel Model, Symbol Sync, Costas Loop, Binary Slicer, Embedded Python Block, Constellation Sink, Eye Sink
-> **Blocks in flowgraph:** 34
+> **What you will build:** a complete digital radio link — transmitter, channel and receiver —
+> entirely in software, plus a meter that counts the **bit errors**.
+> **What you will learn:** how bits become a radio signal and back again, the three things a
+> digital receiver must work out, what **loop bandwidth** does, and how to compare a measured
+> **bit error rate (BER)** with theory.
+> **Before this:** [Fundamentals 08 — Digital Modulation](../../01_fundamentals/08_digital_modulation.md)
+> and [09 — Synchronisation](../../01_fundamentals/09_synchronization.md).
+> **Time:** about 2 hours. **Difficulty:** advanced. **Needs the radio:** **no** — this lab runs
+> on any computer.
 
 ---
 
 ## 🎯 Goal
 
-Build a **complete digital communication link** — transmitter, channel, receiver — and then
-**measure** its bit error rate and compare that measurement against the closed-form theory
-from Fundamentals 08.
+Build a digital link, measure how many bits it gets wrong, and check that number against the
+theory from Fundamentals 08.
 
-This is the first lab with no radio in it, and that is the point. When you can control the
-noise, the frequency offset and the clock error *exactly*, you can verify that your receiver
-is not merely working but working **optimally**. Once you have seen the measured curve land on
-the theoretical one, you have a reference: any real-world receiver that falls short of it has
-a bug you can go and find.
+Why simulate? Because here **you** control the noise, the frequency error and the clock error
+exactly. If your measured error rate matches the theory, your receiver is not just "working" —
+it is working **as well as possible**. That gives you a reference for every real receiver later.
 
-> **This lab has been run and verified.** At Eb/N0 = 8 dB the flowgraph converges to a measured
-> BER of **3.9 × 10⁻⁴**; differentially-encoded BPSK theory predicts **3.82 × 10⁻⁴**. See
-> [Verification](#-verification) below for the full table.
+> ✅ **Tested:** at the default setting (Eb/N0 = 8 dB), this flowgraph measured a BER of
+> **3.89 × 10⁻⁴**. Theory says **3.82 × 10⁻⁴**. See [Verification](#-verification).
 
 ---
 
-## 📖 Background: What a Digital Link Actually Is
+## 1. Background: what a digital link does
 
 ```
-    bits          symbols        waveform         waveform        symbols        bits
-  ────────▶  map  ────────▶ shape ────────▶ CHANNEL ────────▶ sync ────────▶ slice ────────▶
-             ▲                                                  ▲
-        constellation                                    the hard part
+  bits ──▶ map to ──▶ shape the ──▶ CHANNEL ──▶ find timing ──▶ decide ──▶ bits
+           symbols    pulses        (noise,     and carrier     0 or 1
+                                     errors)    ▲
+                                                the hard part
 ```
 
-Everything interesting happens in the "sync" box. The transmitter is a lookup table and a
-filter. The channel is addition. **The receiver has to undo three unknowns simultaneously:**
+Some words first:
 
-| Unknown | Caused by | Undone by |
+- **Bit** — a 0 or a 1.
+- **Symbol** — one "mark" the transmitter sends. In **BPSK** (binary phase-shift keying) there
+  are two symbols: **+1** for a 1 and **−1** for a 0. Each symbol carries one bit.
+- **Pulse shaping** — smoothing each symbol so the signal uses less bandwidth.
+- **BER** (bit error rate) — the fraction of bits received wrongly. BER = 10⁻³ means 1 wrong
+  bit in every 1000.
+- **Eb/N0** — the energy per bit compared with the noise level, in dB. It is the fair way to
+  say "how strong is the signal" for digital links. Higher Eb/N0 → fewer errors.
+
+The transmitter is easy: a lookup table and a filter. The channel just adds problems. **The
+receiver must work out three unknown things at the same time:**
+
+| Unknown | Why it happens | Which block solves it |
 |---|---|---|
-| Where does each symbol start? | Independent TX and RX clocks | Symbol Sync (Gardner TED) |
-| What is the carrier frequency error? | LO mismatch, Doppler | Costas Loop |
-| What is the carrier phase? | Propagation delay | Costas Loop |
+| **When** does each symbol start? | The transmitter's and receiver's clocks run at slightly different speeds | **Symbol Sync** |
+| **What frequency error** is there? | The two radios' tuning is never exactly equal | **Costas Loop** |
+| **What phase** is the signal at? | The signal's travel time | **Costas Loop** |
 
-And it must do this **while the noise is trying to make every measurement wrong**. That is why
-loop bandwidth is the central design parameter, and why this lab puts it on a slider.
+And it must do this while noise tries to spoil every measurement. That is why **loop
+bandwidth** — how quickly these blocks react — is the key setting, and why it is on a slider.
 
 ---
 
-## 📐 Architecture
+## 2. Run it first
+
+```bash
+cd "02_flowgraphs/lab07_bpsk_link_sim"
+gnuradio-companion lab07_bpsk_link_sim.grc      # with the displays
+# or, without GRC:
+python3 -u lab07_bpsk_link_sim.py
+```
+
+Watch the **terminal**. After a few seconds you should see:
+
+```
+[BER Monitor] locked to the pattern at shift 770; stream inverted: no
+[BER Monitor] bits=   200,011  errors=      76  BER=3.800e-04
+[BER Monitor] bits=   400,712  errors=     152  BER=3.793e-04
+...
+[BER Monitor] bits= 3,815,700  errors=   1,486  BER=3.894e-04
+```
+
+**The printed BER is the real result.** The shift number will be different each run.
+
+---
+
+## 3. The flowgraph
 
 ```
  TRANSMITTER
- ┌───────────────┐  bits   ┌──────────┐  ┌──────────────┐  ┌────────────────┐  ┌───────────┐
- │ Vector Source │────────▶│ Throttle │─▶│ Differential │─▶│ Chunks to      │─▶│ Interp    │
- │ 1023-bit PN   │ 100 kb/s│ sym_rate │  │ Encoder      │  │ Symbols        │  │ FIR (RRC) │
- └───────────────┘         └──────────┘  └──────────────┘  │ 0→−1  1→+1     │  │ interp=4  │
-                                                            └────────────────┘  └─────┬─────┘
-                                                                                      │ 400 kSPS
- CHANNEL                                                                              ▼
- ┌────────────────────────────────────────────────────────────────────────────────────────┐
- │ Channel Model:  AWGN (noise_volt)  +  freq offset  +  clock ratio epsilon               │
- └───────────────────────────────┬────────────────────────────────────────────────────────┘
-                                 │
-              ┌──────────────────┼──────────────────┐
-              ▼                  ▼                  ▼
-      Freq Sink            Eye Sink        ┌──────────────────┐
-      (spectrum)           (timing)        │ Symbol Sync      │ Gardner TED
-                                           │ + PFB matched    │ sps 4 → 1
-                                           │   filter         │
-                                           └────────┬─────────┘
- RECEIVER                                           │ 100 kSPS, 1 sample/symbol
-                                           ┌────────▼─────────┐
-                                           │ Costas Loop      │──── freq ──▶ Time Sink
-                                           │ order 2          │
-                                           └────────┬─────────┘
-                                    ┌───────────────┼───────────────┐
-                                    ▼               ▼               │
-                            Constellation    ┌─────────────┐        │
-                                Sink         │ Complex→Real│◀───────┘
-                                             └──────┬──────┘
-                                             ┌──────▼──────┐  ┌──────────────┐
-                                             │ Binary      │─▶│ Differential │
-                                             │ Slicer      │  │ Decoder      │
-                                             └─────────────┘  └──────┬───────┘
- MEASUREMENT                                                          │ bits
-                                           ┌──────────────────────────▼─────────────────┐
-                                           │ BER Monitor (Embedded Python Block)        │
-                                           │  locks to the known pattern, counts errors │
-                                           └──────────┬─────────────────┬───────────────┘
-                                                      ▼                 ▼
-                                                Number Sink        Time Sink
+ Vector Source ─▶ Throttle ─▶ Differential ─▶ Chunks to ─▶ Interpolating FIR
+ 1023 known bits  100 kbit/s   Encoder         Symbols      (RRC pulse shape, ×4)
+                                               0→−1, 1→+1          │ 400 kSPS
+ CHANNEL                                                           ▼
+ Channel Model: add noise + a frequency error + a clock-speed error
+                                                                   │
+                  ┌────────────────────┬───────────────────────────┤
+                  ▼                    ▼                           ▼
+             Spectrum             Eye diagram                 Symbol Sync
+                                                         (finds symbol timing,
+ RECEIVER                                                  4 samples → 1)
+                                                                   │ 100 kSPS
+                                                              Costas Loop ──▶ frequency plot
+                                                        (removes frequency and phase error)
+                                                         ┌─────────┴─────────┐
+                                                         ▼                   ▼
+                                                   Constellation      Complex to Real
+                                                                             │
+                                                                      Binary Slicer (0 or 1)
+                                                                             │
+                                                                   Differential Decoder
+ MEASUREMENT                                                                 │ bits
+                                                     BER Monitor (Embedded Python Block)
+                                                     compares with the known bits, counts errors
+                                                             │                  │
+                                                        Number display     BER over time
 ```
 
-### Rate table
+### Rates
 
-| Wire | Rate | Type | Note |
+| Between | Rate | Type | Note |
 |---|---|---|---|
 | Vector Source → Throttle | 100 kbit/s | byte | one bit per byte |
-| Chunks to Symbols → RRC | 100 kbaud | complex | unit-energy BPSK symbols |
-| RRC → Channel | 400 kSPS | complex | `sps = 4` |
-| Symbol Sync → Costas | 100 kSPS | complex | `osps = 1`, one sample per symbol |
-| Diff Decoder → BER | 100 kbit/s | byte | decoded bits |
+| Chunks to Symbols → pulse filter | 100 k symbols/s | complex | ±1 |
+| pulse filter → Channel | 400 kSPS | complex | 4 samples per symbol (`sps = 4`) |
+| Symbol Sync → Costas | 100 kSPS | complex | 1 sample per symbol |
+| Differential Decoder → BER Monitor | 100 kbit/s | byte | the received bits |
 
-Occupied bandwidth: $R_s(1+\alpha) = 100\text{k} \times 1.35 = 135$ kHz. You can read that
-straight off the Frequency Sink.
+The signal is **135 kHz** wide: symbol rate × (1 + roll-off) = 100 k × 1.35. You can check
+this on the spectrum display.
 
 ---
 
-## 📋 Block-by-Block
+## 4. The blocks
 
 ### Transmitter
 
-#### `pattern` — the reference bit sequence
+**Vector Source — the known bits.** 1023 random-looking bits, the same every time:
 
 ```python
 pattern = [int(b) for b in np.random.RandomState(1).randint(0, 2, 1023)]
 ```
 
-A **fixed, reproducible** 1023-bit pseudo-random sequence. It must be known to the receiver's
-BER monitor (that is how errors get counted) and it must be pseudo-random (a repeating `0101`
-would let the timing loop lock to the wrong phase, and would not exercise the differential
-encoder). `RandomState(1)` guarantees you and everyone else get the same sequence.
+The BER Monitor has the same list, so it can compare. The bits must look random: a simple
+repeating 0101 pattern would let the timing loop lock in the wrong place and would not test the
+receiver properly.
 
-#### `throttle` — Throttle
-No hardware, so something must set the pace. See Lab 05: **exactly one rate limiter per
-flowgraph.**
+**Throttle.** No hardware, so something must set the speed (see Lab 05).
 
-#### `diff_enc` — Differential Encoder
+**Differential Encoder.** Instead of sending each bit directly, it sends "did the bit change?":
 
 $$
-d[n] = d[n-1] \oplus b[n]
+d[n] = d[n-1] \oplus b[n] \qquad (\oplus = \text{XOR})
 $$
 
-This exists solely to survive the Costas loop's 180° phase ambiguity (Fundamentals 09). It
-costs about 3 dB — errors come in pairs, so the BER becomes $2p(1-p)$ instead of $p$.
+**Why?** The Costas loop in the receiver cannot tell +1 from −1 on its own. Half the time it
+locks "upside down" (180° wrong), and every bit comes out inverted. With differential encoding,
+only *changes* matter, and an upside-down signal has the same changes. The cost: one wrong
+symbol spoils two bits, so the BER roughly **doubles** (exactly $2p(1-p)$ instead of $p$).
 
-> 🧪 **Try it:** right-click `diff_enc` and `diff_dec` → **Bypass** (both, together). Run.
-> Roughly half the time the BER monitor will read ~0.5 because the Costas loop locked 180° out
-> and every bit is inverted; the other half it reads the *lower*, non-differential BER. Restart
-> a few times and watch it flip. That is the ambiguity, live.
+**Chunks to Symbols.** Turns each bit into a symbol: 0 → −1, 1 → +1.
 
-#### `chunks_to_syms` — Chunks to Symbols
-`symbol_table = [-1+0j, 1+0j]`. The simplest constellation there is: two points, maximally
-separated, unit energy.
-
-#### `rrc_tx` — Interpolating FIR Filter (`ccf`)
+**Interpolating FIR Filter — pulse shaping.** Makes 4 samples per symbol, and shapes each pulse
+with a **root-raised-cosine (RRC)** filter so the signal stays inside 135 kHz:
 
 ```python
 rrc_tx_taps = firdes.root_raised_cosine(sps, sps, 1.0, excess_bw, 11*sps)
-#                                        │    │    │      │          │
-#                                      gain  fs  sym_rate roll-off  ntaps
+#                                        gain  rate  sym_rate  roll-off  taps
 ```
 
-`gain = sps` and `samp_rate = sps, sym_rate = 1.0` is the normalisation that makes the
-transmitted signal have **unit average power**, which is what the Eb/N0 formula assumes. Check
-it:
+The gain of `sps` makes the transmitted signal have an **average power of exactly 1**, which the
+Eb/N0 formula below assumes.
+
+<details>
+<summary><b>Check it:</b> measure the transmitted power</summary>
 
 ```bash
 python3 -c "
@@ -175,153 +189,117 @@ tb.connect(vs, c2s, rf, vk); tb.run()
 y = np.array(vk.data())[200:-200]
 print('TX mean power = %.4f  (want 1.0)' % np.mean(np.abs(y)**2))"
 ```
-
-Doing interpolation **inside** the filter is not a convenience — it is the whole point. A
-polyphase interpolating FIR never multiplies the inserted zeros, so shaping by RRC and
-upsampling by 4 together cost the same as one filter.
+</details>
 
 ### Channel
 
-#### `channel` — Channel Model
+**Channel Model** adds the real-world problems:
 
-| Parameter | Value | Simulates |
+| Setting | Value | Imitates |
 |---|---|---|
-| `noise_voltage` | `noise_volt` | AWGN |
-| `freq_offset` | slider, cycles/sample | LO error, Doppler |
-| `epsilon` | slider, ~1.00005 | TX/RX sample-clock ratio (50 ppm) |
-| `taps` | `[1.0+0j]` | flat channel (no multipath) |
+| `noise_voltage` | `noise_volt` (from Eb/N0) | Background noise |
+| `freq_offset` | slider, default 0.0005 cycles/sample | The two radios tuned slightly differently |
+| `epsilon` | slider, default 1.00005 | The two clocks differ by 50 parts per million |
+| `taps` | `[1.0+0j]` | A clean path, no echoes |
 
-**The Eb/N0 calibration.** `noise_volt` is derived, not typed:
+**Setting the noise from Eb/N0.** The flowgraph calculates the noise level from the Eb/N0
+slider:
 
 $$
-A = \sqrt{\frac{\text{sps}}{k \cdot 10^{(E_b/N_0)/10}}}
+\text{noise\_volt} = \sqrt{\frac{\text{sps}}{k \cdot 10^{(E_b/N_0)/10}}}, \qquad k = 1 \text{ bit per symbol}
 $$
 
-GNU Radio's `noise_voltage` is the **total** complex standard deviation ($A^2/2$ per component,
-verified empirically in [Fundamentals 08](../../01_fundamentals/08_digital_modulation.md)).
-There is no extra factor of two. Get this wrong and your whole curve shifts 3 dB — which looks
-exactly like a broken receiver, and sends people hunting for bugs that are not there.
+> ⚠️ Get this formula wrong by a factor of 2, and the whole BER curve moves by 3 dB. That looks
+> exactly like a broken receiver, and you will waste hours looking for a bug that is not there.
+> [Fundamentals 08](../../01_fundamentals/08_digital_modulation.md) checks the formula.
 
-> ⚠️ **The Channel Model's `epsilon` resampler adds a small fractional delay of its own.** This
-> is realistic (so does a real channel), and Symbol Sync absorbs it. But it means you cannot
-> use the Channel Model for a *perfect* open-loop calibration — for that, use a Noise Source
-> plus an Add block, as the calibration script in `03_scripts/` does.
+> 💡 The Channel Model's clock-error feature adds a tiny delay of its own. Symbol Sync handles
+> it, just as it would in real life. For a *perfect* test with no sync at all, the script
+> `03_scripts/simulate_bpsk_ber.py` uses a plain Noise Source and Add block instead.
 
 ### Receiver
 
-#### `sym_sync` — Symbol Sync (`cc`)
+**Symbol Sync — finding the timing.**
 
-```
-ted_type    = digital.TED_GARDNER
-sps         = 4
-loop_bw     = loop_bw          ← the slider
-damping     = 1.0
-max_dev     = 1.5
-osps        = 1
-resamp_type = digital.IR_PFB_MF
-nfilters    = 32
-pfb_mf_taps = pfb_mf_taps
-```
+| Setting | Value | Meaning |
+|---|---|---|
+| TED type | Gardner | The method used to measure timing error |
+| Samples per symbol | 4 in, 1 out | Picks the best sample from each symbol |
+| Loop bandwidth | `loop_bw` slider (0.010) | How quickly it reacts |
+| Resampler | polyphase matched filter, 32 arms | Also does the receiver's matching RRC filter |
 
-Two things happen here, and both matter:
+Why **Gardner**? It can find the timing **before** the frequency and phase are fixed. So timing
+is solved first, then carrier. That order is much easier to debug.
 
-1. **Timing recovery** with the Gardner TED — chosen because it works **before** carrier lock
-   (Fundamentals 09). That lets us recover timing first, then carrier, which is by far the
-   easier order to debug.
-2. **Matched filtering**, folded into the polyphase interpolator. `pfb_mf_taps` must be built
-   at `nfilters × sps` resolution:
+The matched filter's taps must be made **32 times finer** than normal, because they are split
+into 32 "arms" (one for each fine timing step):
 
 ```python
 pfb_mf_taps = firdes.root_raised_cosine(nfilts, nfilts*sps, 1.0, excess_bw, 11*sps*nfilts)
 ```
 
-> 🐛 **The error everyone hits first:** passing ordinary `11*sps`-length RRC taps here produces
-> `length of the prototype filter taps must be greater than or equal to the number of
-> polyphase filter arms`. The taps are a *prototype* that gets sliced into `nfilters` arms, so
-> it must be `nfilters` times longer than a normal matched filter.
+> 🐛 **The first error almost everyone hits:** using normal RRC taps here gives
+> `length of the prototype filter taps must be greater than or equal to the number of polyphase
+> filter arms`. Use the line above.
 
-#### `costas` — Costas Loop
-`order = 2` for BPSK. Its error detector is $e = \Re\{y\}\Im\{y\}$, which cancels the data and
-leaves the phase error — see Fundamentals 09 for the derivation.
+**Costas Loop — fixing frequency and phase.** `order = 2` for BPSK. It spins the constellation
+until the two points sit on the horizontal axis at ±1.
 
-The optional **`frequency` output (port 1)** is wired to a Time Sink. This is the single best
-debugging tool in the whole flowgraph: you can literally watch the loop acquire. It should
-settle at
+Its second output is the **frequency it has measured**. It is connected to a plot — the best
+debugging tool in this flowgraph, because you can **watch it lock**. It should settle at:
 
 $$
-\omega_{\text{settled}} = 2\pi \cdot f_{\text{offset}} \cdot \text{sps}
+2\pi \times \text{freq\_offset} \times \text{sps} = 2\pi \times 0.0005 \times 4 = 0.0126 \text{ rad/sample}
 $$
 
-because the loop runs at the symbol rate, after decimation by `sps`. With `freq_offset = 0.0005`
-that is $2\pi \times 0.0005 \times 4 = 0.0126$ rad/sample.
+(×4 because the loop runs at the symbol rate, after the 4× reduction.)
 
-### Measurement — the Embedded Python Block
+**Complex to Real → Binary Slicer → Differential Decoder.** Take the real part, decide 0 or 1
+(below or above zero), and undo the differential encoding.
 
-`ber_monitor` is a `gr.sync_block` written directly inside the `.grc`. Open it in GRC
-(right-click → Properties) to read the source. Its job:
+### Measurement — the BER Monitor
 
-1. **Settle** — ignore the first 100,000 bits while the loops acquire.
-2. **Acquire** — buffer two full pattern periods, then cross-correlate one period against
-   **every cyclic shift** of the reference, using one `np.correlate` against a doubly-tiled
-   copy. The largest |correlation| gives the alignment; a *negative* peak means the stream is
-   inverted, which is exactly the residual 180° ambiguity.
-3. **Track** — XOR against the rolled reference, accumulate errors, emit the running BER as a
-   float (one per input bit) so it can drive a Number Sink.
+An **Embedded Python Block**: Python code stored inside the `.grc` file. In GRC, open it with
+right-click → Properties to read the code. It does three things:
 
-It also prints a line to the terminal every 200,000 bits:
-
-```
-[BER Monitor] bits=  1,606,453  errors=     570  BER=3.548e-04
-```
-
-**Watch the terminal, not just the GUI.** The printed numbers are the real result.
+1. **Waits** for 100,000 bits while the loops lock.
+2. **Lines up** the received bits with the known 1023-bit pattern. It tries every possible
+   starting point and picks the best match. If the best match is *negative*, the stream is
+   upside down (the 180° problem), and it notes that. It prints one line when it locks.
+3. **Counts** wrong bits from then on, and prints the running BER every 200,000 bits.
 
 ---
 
-## 🧪 Running the Lab
+## 5. Exercises
 
-```bash
-cd 02_flowgraphs/lab07_bpsk_link_sim
-gnuradio-companion lab07_bpsk_link_sim.grc
-```
+### Exercise 1 — A healthy link
 
-Or headless, which is often more convenient:
+Defaults: Eb/N0 = 8 dB, loop bandwidth 0.010, frequency offset 0.0005, clock ratio 1.00005.
 
-```bash
-python3 lab07_bpsk_link_sim.py
-```
-
-### Exercise 1 — See a healthy link
-
-Defaults: Eb/N0 = 8 dB, `loop_bw` = 0.010, freq offset 0.0005, clock ratio 1.00005.
-
-Look at each display in turn:
-
-| Display | Healthy | Meaning |
+| Display | What healthy looks like | What it tells you |
 |---|---|---|
-| Channel Spectrum | 135 kHz raised-cosine hump | $R_s(1+\alpha)$ |
-| Eye Diagram | wide open eye | Timing is recoverable |
-| Constellation | two tight dots at ±1 | Both loops locked |
-| Costas frequency | flat line at ~0.0126 | Loop has acquired |
-| Measured BER | converging toward 4×10⁻⁴ | ✅ |
+| Channel Spectrum | a smooth hump 135 kHz wide | the pulse shaping works |
+| Eye Diagram | a wide-open "eye" | the timing can be found |
+| Constellation | two tight dots at −1 and +1 | both loops are locked |
+| Costas frequency | a flat line at about 0.0126 | the frequency error is found |
+| BER | settling near 4 × 10⁻⁴ | ✅ |
 
-Give the BER at least 30 seconds. At 100 kbit/s, measuring a BER of $10^{-5}$ to 10 %
-accuracy needs about $10^7$ bits ≈ 100 seconds — you cannot measure a rare event quickly.
+Give it **at least 30 seconds**. Rare events take time to count. To measure a BER of 10⁻⁵ to
+±10 %, you need about 10 million bits: 100 seconds at 100 kbit/s.
 
-### Exercise 2 — Sweep Eb/N0 and build the waterfall curve
+### Exercise 2 — Build the BER curve
 
-Set `loop_bw` = 0.010. For each Eb/N0, restart the flowgraph, wait 60 s, and record the printed
-BER:
+Keep loop bandwidth at 0.010. For each Eb/N0, restart, wait 60 s, and write down the BER:
 
-| Eb/N0 (dB) | Theory (DBPSK) | Your measurement |
+| Eb/N0 | Theory (differential BPSK) | Your result |
 |---|---|---|
-| 2 | 7.22 × 10⁻² | |
-| 4 | 2.47 × 10⁻² | |
-| 6 | 4.77 × 10⁻³ | |
-| 8 | 3.82 × 10⁻⁴ | |
-| 10 | 7.74 × 10⁻⁶ | |
+| 2 dB | 7.22 × 10⁻² | |
+| 4 dB | 2.47 × 10⁻² | |
+| 6 dB | 4.77 × 10⁻³ | |
+| 8 dB | 3.82 × 10⁻⁴ | |
+| 10 dB | 7.74 × 10⁻⁶ | |
 
-The theoretical column comes from $P_b = 2p(1-p)$ where $p = Q(\sqrt{2E_b/N_0})$:
+The theory numbers come from $P_b = 2p(1-p)$ with $p = Q(\sqrt{2E_b/N_0})$:
 
 ```bash
 python3 -c "
@@ -331,160 +309,171 @@ for e in (2,4,6,8,10):
     print(f'{e:>3} dB   BPSK {p:.3e}   DBPSK {2*p*(1-p):.3e}')"
 ```
 
-Notice the **cliff**: 8 dB of extra signal buys four orders of magnitude. Digital links do not
-degrade gracefully — they work, and then they stop.
+Notice the **cliff**: going from 2 dB to 10 dB (8 dB more signal) cuts the errors by about
+**10,000 times**. Digital links do not fade gently. They work, and then suddenly they don't.
 
-### Exercise 3 — The loop bandwidth experiment (the important one)
+### Exercise 3 — Loop bandwidth (the most important one)
 
-Set Eb/N0 to **2 dB** and try three loop bandwidths. These are measured results, reproducible
-on your machine:
+Set Eb/N0 to **2 dB** (very noisy) and try three loop bandwidths. Measured results:
 
-| `loop_bw` | Measured BER | Theory | Verdict |
+| Loop bandwidth | Measured BER | Theory | Result |
 |---|---|---|---|
-| 0.045 | 4.8 × 10⁻¹ | 7.2 × 10⁻² | ❌ loops lost lock — output is noise |
-| 0.010 | 7.5 × 10⁻² | 7.2 × 10⁻² | ✅ essentially optimal |
-| 0.005 | 7.4 × 10⁻² | 7.2 × 10⁻² | ✅ optimal, but slower to acquire |
+| 0.045 | 4.8 × 10⁻¹ | 7.2 × 10⁻² | ❌ the loops lost lock; the output is random |
+| 0.010 | 7.5 × 10⁻² | 7.2 × 10⁻² | ✅ as good as possible |
+| 0.005 | 7.4 × 10⁻² | 7.2 × 10⁻² | ✅ as good as possible, but slower to lock |
 
-**A loop bandwidth that is perfectly fine at 8 dB completely destroys the link at 2 dB.** The
-loop is being driven by its own noise. This is the Fundamentals 09 trade-off, measured:
+**A setting that is fine at 8 dB destroys the link at 2 dB.** A fast (wide) loop reacts to the
+noise itself, and wanders off.
 
-$$
-\text{jitter} \propto \frac{B_n}{\text{SNR}}
-$$
+Now the opposite: Eb/N0 **12 dB**, loop bandwidth **0.001**. Watch the Costas frequency plot:
+it takes **seconds** to crawl to the right value. Narrow loops ignore noise well, but lock
+slowly.
 
-Now do the opposite: set Eb/N0 to 12 dB and `loop_bw` to 0.001. Watch the Costas frequency
-display — the loop takes visibly *seconds* to crawl to the right frequency. Narrow loops track
-beautifully and acquire terribly.
+> **Rule:** there is no single best loop bandwidth. Wide = locks fast, but noisy. Narrow =
+> smooth, but locks slowly. Choose for the SNR you expect.
 
-### Exercise 4 — Break each thing on purpose
+### Exercise 4 — See the 180° problem
 
-| Change | What you should see | Why |
+The Costas loop cannot tell +1 from −1 by itself. If the signal arrives with an extra half-turn
+of phase (as a different path length can cause), it locks "upside down". Let's cause that on
+purpose.
+
+**Step 1.** First, **bypass** both `diff_enc` and `diff_dec` (right-click → Bypass, both
+together). Run it. The BER **halves** — about 1.8 × 10⁻⁴ at 8 dB, which is plain BPSK. That is
+the price differential encoding normally costs.
+
+**Step 2.** Keep them bypassed. Open the **Channel Model** and set **Taps** to `[-1.0+0j]`.
+Multiplying by −1 is a 180° phase shift. Run it. The first terminal line now says:
+
+```
+[BER Monitor] locked to the pattern at shift 770; stream inverted: YES (180-degree ambiguity)
+```
+
+Every bit is coming out inverted. The monitor can correct this only because it knows the
+pattern. **A real receiver does not know the data**, so it would give you every bit wrong.
+
+**Step 3.** Now **un-bypass** the two differential blocks (keep the taps at −1). Run again:
+
+```
+[BER Monitor] locked to the pattern at shift 770; stream inverted: no
+```
+
+With differential encoding, only the *changes* between bits carry information — and an
+upside-down signal has exactly the same changes. The problem disappears. The cost is the
+doubled BER from Step 1 (measured 4.1 × 10⁻⁴ here).
+
+Measured results, 8 dB:
+
+| Differential blocks | Channel taps | Monitor says | BER |
+|---|---|---|---|
+| on | `[1.0]` | inverted: no | 3.9 × 10⁻⁴ |
+| bypassed | `[1.0]` | inverted: no | 1.8 × 10⁻⁴ |
+| bypassed | `[-1.0]` | **inverted: YES** | 1.9 × 10⁻⁴ (only because the monitor fixes it) |
+| on | `[-1.0]` | inverted: no | 4.1 × 10⁻⁴ |
+
+> 💡 The simulation is repeatable: the same settings give the same result every run. That is
+> why you have to *cause* the 180° problem with the taps; on a real radio, the phase is random
+> and it happens by itself.
+
+### Exercise 5 — Break it on purpose
+
+| Change | What you see | Why |
 |---|---|---|
-| `freq_offset` → 0.008 | Constellation becomes a **ring** | Offset exceeds the loop's pull-in range |
-| `timing_offset` → 1.0005 (500 ppm) | Constellation smears **radially** | Timing loop cannot track the drift |
-| Costas `order` → 4 | BER ≈ 0.5 | Wrong error detector for BPSK |
-| Bypass both differential blocks | BER flips between good and 0.5 on restart | 180° ambiguity |
-| Eb/N0 → 0 dB | Eye closes, constellation is a blob | Noise dominates |
+| `freq_offset` → 0.008 | The constellation becomes a **ring** | The frequency error is too big for the Costas loop to catch |
+| `timing_offset` → 1.0005 (500 ppm) | The dots smear **along the line** | The timing loop cannot keep up with the clock drift |
+| Costas `order` → 4 | BER ≈ 0.5 | That order is for QPSK, not BPSK |
+| Eb/N0 → 0 dB | The eye closes; the constellation is a cloud | Noise wins |
 
-Each one of these is a bug you will meet in a real receiver. Meeting them here, where you know
-the answer, is much cheaper.
+You will meet every one of these in real receivers. It is much cheaper to meet them here, where
+you know the right answer.
 
 ---
 
 ## 🔬 Verification
 
-This flowgraph was executed headlessly and its output compared against theory:
+The flowgraph was run without a screen, and its BER compared with theory:
 
 ```
-$ QT_QPA_PLATFORM=offscreen python3 lab07_bpsk_link_sim.py     # Eb/N0 = 8 dB
-[BER Monitor] bits=  2,610,918  errors=   1,044  BER=3.999e-04
-[BER Monitor] bits=  3,212,573  errors=   1,264  BER=3.935e-04
-[BER Monitor] bits=  3,813,652  errors=   1,486  BER=3.897e-04
+$ python3 -u lab07_bpsk_link_sim.py          # Eb/N0 = 8 dB
+[BER Monitor] locked to the pattern at shift 770; stream inverted: no
+...
+[BER Monitor] bits= 3,815,700  errors=   1,486  BER=3.894e-04
 ```
 
-Differential BPSK theory at 8 dB: $2p(1-p)$ with $p = 1.909\times10^{-4}$ gives
-$\mathbf{3.817\times10^{-4}}$. Measured **3.90 × 10⁻⁴** — agreement to within 2 %, which is
-inside the statistical uncertainty of ~1500 error events.
+Theory for differential BPSK at 8 dB: $p = 1.909 \times 10^{-4}$, so
+$2p(1-p) = \mathbf{3.82 \times 10^{-4}}$. Measured **3.89 × 10⁻⁴**: within 2 %, which is inside
+the counting uncertainty for about 1500 errors.
 
-The standalone script `03_scripts/simulate_bpsk_ber.py` runs the whole sweep automatically and
-prints the comparison table.
+The script `03_scripts/simulate_bpsk_ber.py` runs a sweep automatically:
 
----
-
-## 🐛 Troubleshooting
-
-### "`length of the prototype filter taps must be >= number of polyphase filter arms`"
-`pfb_mf_taps` was built at the wrong resolution. It must use `nfilts` gain, `nfilts*sps` rate
-and `11*sps*nfilts` taps — see the block-by-block section above.
-
-### "BER sits at exactly 0.5 and never moves"
-The BER monitor never locked. Causes, in order of likelihood: the loops are not locked (look at
-the constellation first — fix that, not the monitor); `settle` is longer than your run;
-`pattern` in the monitor does not match the `pattern` in the Vector Source.
-
-### "BER is around 0.5 but the constellation looks perfect"
-Classic 180° inversion with the differential blocks bypassed. The monitor's correlation should
-catch this — if you also removed the polarity search, it will not.
-
-### "The constellation is a ring"
-No carrier lock. Either `freq_offset` is beyond the pull-in range, or `loop_bw` is too narrow
-to acquire it, or the Costas `order` is wrong.
-
-### "The constellation dots are smeared along the radius"
-Timing, not carrier. Check `sps` matches between the modulator and Symbol Sync, and widen
-Symbol Sync's `loop_bw`.
-
-### "It runs far slower than real time / one core is at 100 %"
-The polyphase matched filter with 32 arms at 400 kSPS is the expensive part. Reduce `nfilts` to
-16, or lower `samp_rate` to 200000 (halving your bit rate, so BER measurements take twice as
-long).
-
-### "The BER is consistently ~2× the BPSK theory"
-That is correct, and it is not a bug — you have differential encoding on. DBPSK BER is
-$2p(1-p) \approx 2p$. Bypass the differential pair to see the raw BPSK curve.
+```
+  Eb/N0   noise_v     measured    BPSK theory    ratio
+    2.0    1.5887    3.790e-02      3.751e-02     1.01
+    4.0    1.2619    1.276e-02      1.250e-02     1.02
+    6.0    1.0024    2.513e-03      2.388e-03     1.05
+RESULT: measurement tracks theory.
+```
 
 ---
 
-## ❓ Questions to Ponder
+## 🔧 Troubleshooting
 
-1. **Why measure Eb/N0 rather than SNR?**
-   SNR depends on the measurement bandwidth, so a wasteful modulation can flatter itself by
-   quoting SNR in a narrow band. Eb/N0 normalises out both bandwidth and bit rate, which is the
-   only way to compare a BPSK link with a 64QAM one honestly.
-
-2. **The link is BPSK. Convert it to QPSK — what changes?**
-   `symbol_table` becomes the four Gray-coded QPSK points; Costas `order` becomes 4; the slicer
-   is replaced by a Constellation Decoder; `k` becomes 2 in the noise formula; the differential
-   decoder's `modulus` becomes 4. The BER-vs-Eb/N0 curve should be **unchanged** — you get twice
-   the bit rate for free, in the same bandwidth.
-
-3. **Why does Gardner's TED not need carrier lock, when Mueller & Müller does?**
-   M&M is decision-directed: it needs to know which symbol was sent, which needs a locked
-   constellation. Gardner compares energy at the midpoint against the transition, which is a
-   magnitude relationship and so is blind to absolute phase.
-
-4. **You measured BER = 0 over 4 million bits at 12 dB. What can you claim?**
-   Only that BER < ~1/4,000,000 ≈ 2.5 × 10⁻⁷ with modest confidence. **You cannot measure a
-   BER you have not observed errors at.** A rule of thumb: you need ~100 error events for a
-   ±10 % estimate, so measuring 10⁻⁹ needs 10¹¹ bits — 11 days at 100 kbit/s. This is why
-   real BER testing uses hardware and why FEC performance is usually simulated, not measured.
-
-5. **The Channel Model has a `taps` parameter set to `[1.0+0j]`. What if you set it to
-   `[1.0, 0.0, 0.3]`?**
-   You have added multipath: a delayed echo at 30 % amplitude. The constellation will smear and
-   the BER will floor out no matter how much power you add — noise is no longer the limit, ISI
-   is. Fixing that needs an equaliser, which is the natural next topic.
+| Problem | Cause and fix |
+|---|---|
+| `length of the prototype filter taps must be >= number of polyphase filter arms` | `pfb_mf_taps` made at the wrong resolution. Use the formula in Section 4 |
+| BER stays at exactly 0.5 | The monitor never locked. First check the constellation: are the loops locked? Also check the monitor's `pattern` matches the Vector Source's |
+| The constellation is a ring | No carrier lock: frequency offset too big, loop too narrow, or wrong Costas order |
+| The dots are smeared along the line | A timing problem, not a carrier problem. Check `sps` is 4 in both places; widen Symbol Sync's loop |
+| Runs slower than real time, one CPU at 100 % | The 32-arm matched filter is the expensive part. Try `nfilts = 16` |
+| BER is always about 2× the BPSK theory | Correct! Differential encoding doubles it. Compare with the DBPSK column |
 
 ---
 
-## 📚 Key Takeaways
+## ✅ Summary
 
-- **A digital receiver is three feedback loops and a lookup table.** The loops are the hard part.
-- **Loop bandwidth is the single most important receiver parameter**, and the right value
-  depends on the SNR you are operating at. There is no universally good setting.
-- **Recover timing before carrier** using a phase-blind TED like Gardner. It is far easier to
-  debug.
-- **Differential encoding costs ~3 dB and buys immunity to phase ambiguity.** Usually worth it.
-- **Calibrate your noise before you trust your BER.** A factor of two in `noise_voltage` is a
-  3 dB error that looks exactly like a broken receiver.
-- **You cannot measure a BER faster than errors occur.** Budget the bits.
+- A digital receiver must find **timing**, **frequency** and **phase**. Symbol Sync and the
+  Costas loop do this with feedback loops.
+- **Loop bandwidth** is the most important receiver setting, and the right value depends on
+  the noise level.
+- Find **timing first** (Gardner does not need the carrier), then the carrier.
+- **Differential encoding** doubles the BER but removes the 180° problem.
+- **Check your noise formula** before trusting a BER. A factor of 2 is a 3 dB error.
+- You cannot measure a BER faster than errors happen. Plan how many bits you need.
 
----
+## 🧠 Check yourself
 
-## 🚀 What's Next?
+1. Why do we use Eb/N0 instead of SNR?
+   <details><summary>Answer</summary>SNR depends on the bandwidth you measure it in. Eb/N0
+   measures energy per bit, so it compares different modulations and bit rates fairly.</details>
+2. The Costas loop locks 180° wrong. What happens without differential encoding? And with it?
+   <details><summary>Answer</summary>Without it, every bit comes out inverted, and a real
+   receiver cannot notice. With it, nothing goes wrong, because only the changes between bits
+   matter.</details>
+3. At 2 dB, why does a loop bandwidth of 0.045 fail?
+   <details><summary>Answer</summary>A wide loop reacts quickly — including to noise. At
+   2 dB the noise pushes it around so much that it loses lock.</details>
+4. You measured 0 errors in 4 million bits. What is the BER?
+   <details><summary>Answer</summary>You can only say it is probably below about
+   1 in 4 million (2.5 × 10⁻⁷). You need about 100 errors for a ±10 % measurement.</details>
+5. You change the constellation to QPSK (4 points, 2 bits per symbol). What happens to the
+   BER-vs-Eb/N0 curve?
+   <details><summary>Answer</summary>It stays the same — but you send twice as many bits in
+   the same bandwidth. (You would need Costas order 4, a Constellation Decoder, k = 2 and a
+   modulus-4 differential decoder.)</details>
 
-You now know how a digital receiver works in the clean room. Lab 08 applies it to a **real
-signal off the air**: the RDS data subcarrier hidden at 57 kHz inside every FM broadcast you
-have been listening to since Lab 01 — differentially encoded BPSK at 1187.5 bit/s, with the
-self-synchronising CRC from Fundamentals 10.
-
-**Next:** [Lab 08 — RDS Decoder →](../lab08_rds_decoder/README.md)
+**Next:** [Lab 08 — Read a Station's Name (RDS) →](../lab08_rds_decoder/README.md). Lab 08 uses
+what you learned here on a **real** signal: the RDS data hidden at 57 kHz inside FM broadcasts —
+differential BPSK at 1187.5 bits per second.
 
 ---
 
 ## 📖 References
 
-1. GNU Radio Wiki: [Symbol Sync](https://wiki.gnuradio.org/index.php/Symbol_Sync) · [Costas Loop](https://wiki.gnuradio.org/index.php/Costas_Loop) · [Channel Model](https://wiki.gnuradio.org/index.php/Channel_Model)
-2. GNU Radio Wiki: [Embedded Python Block](https://wiki.gnuradio.org/index.php/Embedded_Python_Block)
-3. Rice, *Digital Communications: A Discrete-Time Approach* — the standard reference for Symbol Sync's TED algorithms
-4. Gardner, F. M., "A BPSK/QPSK Timing-Error Detector for Sampled Receivers", IEEE Trans. Comm., 1986
+1. GNU Radio Wiki: [Symbol Sync](https://wiki.gnuradio.org/index.php/Symbol_Sync) ·
+   [Costas Loop](https://wiki.gnuradio.org/index.php/Costas_Loop) ·
+   [Channel Model](https://wiki.gnuradio.org/index.php/Channel_Model) ·
+   [Embedded Python Block](https://wiki.gnuradio.org/index.php/Embedded_Python_Block)
+2. M. Rice, *Digital Communications: A Discrete-Time Approach* — the standard book on timing
+   recovery
+3. F. M. Gardner, "A BPSK/QPSK Timing-Error Detector for Sampled Receivers", IEEE Trans.
+   Communications, 1986
