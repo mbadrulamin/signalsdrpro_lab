@@ -97,6 +97,8 @@ def count_audio_ports(src):
 
 
 def load(lab_py):
+    # embedded Python blocks live next to the lab's .py, so its folder must be importable
+    sys.path.insert(0, os.path.dirname(os.path.abspath(lab_py)))
     spec = importlib.util.spec_from_file_location('lab_under_test', lab_py)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

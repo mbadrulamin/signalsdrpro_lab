@@ -30,10 +30,18 @@ sys.path.insert(0, HERE)
 from make_test_iq import make  # noqa: E402
 
 
+LAST_OUTPUT = ''      # what the last lab printed (the RDS and ADS-B decoders print results)
+
+
 def run_lab(lab_py, iq, workdir, sets=(), seconds=None, after=()):
-    """Run a lab on IQ samples; return {channel: audio array} and the audio rate."""
-    cfile = os.path.join(workdir, 'in.cfile')
-    iq.astype(np.complex64).tofile(cfile)
+    """Run a lab on IQ samples (an array, or the path of a .cfile).
+    Returns {channel: audio array} and the audio rate."""
+    global LAST_OUTPUT
+    if isinstance(iq, str):
+        cfile = iq
+    else:
+        cfile = os.path.join(workdir, 'in.cfile')
+        iq.astype(np.complex64).tofile(cfile)
     out = os.path.join(workdir, 'out')
     cmd = [sys.executable, os.path.join(HERE, 'run_offline.py'), os.path.join(LABS, lab_py), cfile, '--out', out]
     for s in sets:
@@ -45,6 +53,7 @@ def run_lab(lab_py, iq, workdir, sets=(), seconds=None, after=()):
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if res.returncode != 0:
         raise RuntimeError(res.stderr[-2000:])
+    LAST_OUTPUT = res.stdout
     rate = None
     for line in res.stdout.splitlines():
         if line.startswith('channel 0:'):
@@ -163,8 +172,32 @@ def lab06_squelch(tmp):
     return ok, f'NBFM on an empty channel: audio rms {np.std(a):.2e} (want silence)'
 
 
+def _script(name, *args):
+    subprocess.run([sys.executable, os.path.join(HERE, name), *args],
+                   check=True, capture_output=True, timeout=600)
+
+
+def lab08_rds(tmp):
+    iq = os.path.join(tmp, 'rds.iq')
+    _script('simulate_rds_decode.py', '--seconds', '8', '--snr', '30', '--ps', 'SDR LAB ',
+            '--rt', 'Hello from the SignalSDR Pro lab', '--out', iq, '--quiet')
+    run_lab('lab08_rds_decoder/lab08_rds_from_file.py', iq, tmp, seconds=12)
+    ps = "PS='SDR LAB '" in LAST_OUTPUT
+    rt = 'RadioText: Hello from the SignalSDR Pro lab' in LAST_OUTPUT
+    return ps and rt, f'station name decoded: {ps}; RadioText decoded: {rt}'
+
+
+def lab09_adsb(tmp):
+    iq = os.path.join(tmp, 'adsb.iq')
+    _script('simulate_adsb_decode.py', '--seconds', '2', '--snr', '20', '--out', iq)
+    run_lab('lab09_adsb_receiver/lab09_adsb_from_file.py', iq, tmp, seconds=6)
+    callsign = 'KLM1023' in LAST_OUTPUT
+    position = '38000 ft' in LAST_OUTPUT and '52.25' in LAST_OUTPUT
+    return callsign and position, f'callsign KLM1023 decoded: {callsign}; altitude and position decoded: {position}'
+
+
 TESTS = [lab01_tone, lab02_tone, lab03_squelch, lab04_separation, lab05_retune,
-         lab06_modes, lab06_squelch]
+         lab06_modes, lab06_squelch, lab08_rds, lab09_adsb]
 
 
 def main():
