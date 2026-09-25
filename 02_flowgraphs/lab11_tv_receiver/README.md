@@ -1,24 +1,36 @@
-# 📺 Lab 11 — Digital Television Receiver: Scan, Tune, Watch
+# 📺 Lab 11 — Build a TV Receiver: Scan, Tune, Watch
 
-> **Time:** 3 hours
-> **Difficulty:** Expert
-> **Theory needed:** **[Fund. 11 OFDM](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)** · **[Fund. 12 Video Over The Air](../../01_fundamentals/12_video_over_the_air.md)**
-> **New blocks:** the eleven-stage gr-dtv DVB-T *receive* chain, OFDM Symbol Acquisition, Viterbi Decoder, Reed-Solomon Decoder
-> **Files:** `lab11_tv_receiver.grc` (learn the chain) · `lab11_tv_station.py` (the full receiver)
-> **Hardware:** one SignalSDR Pro. A transmitter — [Lab 12](../lab12_fullduplex_tv/) — or a real broadcast to point it at.
+> **What you will build:** a digital TV **receiver** in software — it scans the band, makes a
+> channel list, tunes, shows signal quality, and puts the **picture on screen**.
+> **What you will learn:** the eleven stages of a DVB-T receiver; how pilots undo echoes; how a
+> band scanner decides "this is TV"; what **MER** is; and why digital TV fails over a one-decibel
+> cliff.
+> **Before this:** **[Fundamentals 11 — OFDM](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)**
+> and **[12 — Video Over the Air](../../01_fundamentals/12_video_over_the_air.md)**.
+> **Time:** about 3 hours. **Difficulty:** expert.
+> **Hardware:** one SignalSDR Pro, and something to receive: [Lab 12](../lab12_fullduplex_tv/README.md)'s
+> transmitter, or a real DVB-T broadcast.
 
-Lab 10 built a television **transmitter** and proved the waveform was correct by measuring it.
-It never showed a picture. This lab closes that loop: a receiver that demodulates an 8 MHz
-terrestrial channel all the way down to MPEG-2 transport stream and puts the video on screen.
+**Two ways to run it:**
+
+| File | Use it to |
+|---|---|
+| `lab11_tv_receiver.grc` | **learn** the receive chain, block by block |
+| `lab11_tv_station.py` | **use** the receiver: scan, channel list, quality meters, picture |
+
+Lab 10 built a TV **transmitter** and proved its signal was correct by measuring it. It never
+showed a picture itself. This lab closes the loop: it turns an 8 MHz TV channel back into the
+transport stream, and plays the video.
 
 ---
 
-## 🚦 Read this first: DVB-T, not DVB-T2
+## 🚦 First: this receives DVB-T, not DVB-T2
 
-Lab 10 transmits **DVB-T2**. This lab receives **DVB-T**. That is not an oversight, and it is
-worth understanding before you go looking for the block you think is missing.
+Lab 10 transmits **DVB-T2**. This lab receives **DVB-T** (the first generation). That is on
+purpose.
 
-`gr-dtv` ships a DVB-T2 *modulator* and no demodulator. Look at the block list:
+GNU Radio's `gr-dtv` has a DVB-T2 **transmitter** but **no DVB-T2 receiver** — every DVB-T2 block
+is transmit-side:
 
 ```
 dvbt2_cellinterleaver   dvbt2_framemapper    dvbt2_freqinterleaver
@@ -26,183 +38,183 @@ dvbt2_interleaver       dvbt2_miso           dvbt2_modulator
 dvbt2_p1insertion       dvbt2_paprtr         dvbt2_pilotgenerator
 ```
 
-Every one of them is transmit-side. There is no `dvbt2_demod`, no LDPC decoder, no P1
-detector. **No open-source real-time DVB-T2 receiver exists in GNU Radio.** For DVB-T it ships
-both directions, so DVB-T is what can actually produce a picture.
+For DVB-T, it has **both** directions. So DVB-T is the one that can give you a picture in
+software.
 
-| Standard | Transmit | Receive | Where it lives |
+| Standard | Transmit | Receive | Where |
 |---|---|---|---|
-| **DVB-T2** | ✅ `gr-dtv` | ❌ nothing | Lab 10 — decode it with a real TV or USB tuner |
-| **DVB-T** | ✅ `gr-dtv` | ✅ `gr-dtv` | **This lab** — decode it in software, picture on screen |
+| **DVB-T2** | ✅ `gr-dtv` | ❌ nothing | Lab 10 — receive it with a real TV or a USB tuner |
+| **DVB-T** | ✅ `gr-dtv` | ✅ `gr-dtv` | **this lab** — receive it in software, picture on screen |
 
-Nothing in the theory is lost. DVB-T2 is DVB-T plus LDPC instead of convolutional coding,
-rotated constellations, and the P1 preamble. Everything about OFDM, pilots, the cyclic prefix,
-interleaving and the transport stream is identical — and this lab's **scanner still detects and
-measures real DVB-T2 broadcasts**, it just cannot decode their video.
+You lose no theory. DVB-T2 is DVB-T with LDPC instead of convolutional coding, rotated
+constellations and the P1 preamble. OFDM, pilots, the cyclic prefix, interleaving and the transport
+stream all work the same way. And this lab's **scanner still finds and measures DVB-T2
+broadcasts** — it just cannot decode their video.
 
-> **Malaysia note.** MYTV broadcasts DVB-T2 on the UHF raster this lab scans. You can find,
-> measure and characterise those muxes with `scan_tv_band.py` and with this lab's channel
-> scanner. To *watch* them you need a TV or a USB DVB-T2 stick. See
-> [Part 5 — Malaysia](../../05_reference/04_malaysia.md).
+> 🇲🇾 **In Malaysia,** MYTV broadcasts DVB-T2 in the UHF band this lab scans. You can find and
+> measure those channels with the scanner and `scan_tv_band.py`. To **watch** them, use a TV or a
+> USB DVB-T2 stick. See the [Malaysia reference](../../05_reference/04_malaysia.md).
 
 ---
 
 ## 🎯 Goal
 
-Build a receiver that does what a television does:
+Build a receiver that does what a TV does:
 
-- **Scan** the band and produce a channel list
-- **Tune** directly to a channel or a frequency, with no scan needed
-- **Show signal quality** — level, MER, constellation, spectrum, lock state
-- **Show the picture**
+- **scan** the band and make a channel list,
+- **tune** straight to a channel or a frequency — no scan needed,
+- **show signal quality** — level, MER, constellation, spectrum, lock,
+- **show the picture**,
 
-And, unlike a television, explain every number it displays.
+and, unlike a TV, **explain every number** it shows.
 
-> **Verified on real hardware, with a picture.** Transport stream through the modulator and back
-> out of the demodulator: **0 mismatches in 4,201,236 bytes**. Over the air, full duplex, 40
-> seconds of a real 1080p video: **79,357,996 bytes recovered byte-identical — 0 mismatches, 0
-> continuity errors, 0 sync errors** — decoded to 975 video frames and 39.45 s of audio, with
-> the service name read out of the SDT. See [Verification](#-verification).
+> ✅ **Tested on real hardware, with a picture.** Through the transmitter and back through the
+> receiver: **0 wrong bytes in 4,201,236**. Over the air, full duplex, 40 seconds of real 1080p
+> video: **79,357,996 bytes received exactly — 0 wrong, 0 missing packets** — decoded into 975
+> video frames and 39.45 s of audio, with the channel name read from the signal. See
+> [Verification](#-verification).
 
 ---
 
-## 📖 The chain, stage by stage
+## 1. The receive chain, stage by stage
 
-The receiver is the transmitter reversed, plus two blocks at the front that have no transmit
-counterpart. Each stage undoes exactly one thing.
+The receiver is the transmitter **backwards**, plus two stages at the front that the transmitter
+does not need. Each stage undoes one thing:
 
 ```
-   RF  →  OFDM Symbol Acquisition   find the symbol boundary, correct frequency
-       →  FFT                       back to the frequency domain
-       →  Demod Reference Signals   equalise using pilots, read TPS, strip pilots
+   radio signal
+       →  OFDM Symbol Acquisition   find where each symbol starts; fix the frequency
+       →  FFT                       back to separate carriers
+       →  Demod Reference Signals   use the pilots to undo echoes; read the mode (TPS); remove pilots
        →  Demap                     constellation points → bits
-       →  Symbol Deinterleaver      undo the across-carriers scatter
-       →  Bit Deinterleaver         undo the within-symbol bit scatter
-       →  Viterbi Decoder           undo the convolutional code
+       →  Symbol Deinterleaver      undo the scatter across carriers
+       →  Bit Deinterleaver         undo the scatter within each symbol
+       →  Viterbi Decoder           undo the convolutional code (fix scattered bit errors)
        →  Convolutional Deinterl.   undo the burst-spreading
-       →  Reed-Solomon Decoder      correct up to 8 bad bytes per packet
-       →  Energy Descramble         undo the PRBS, restore sync bytes
+       →  Reed–Solomon Decoder      fix up to 8 bad bytes per packet
+       →  Energy Descramble         undo the scrambling; put the 0x47 sync bytes back
    →  MPEG-2 transport stream  →  ffplay  →  picture
 ```
 
-### The two blocks with no transmit twin
+### The two stages with no transmitter twin
 
-**OFDM Symbol Acquisition** finds where each symbol starts. It correlates the stream against
-itself delayed by the FFT length: because the cyclic prefix is a copy of the symbol's tail,
-that correlation peaks once per symbol. The phase of the peak also gives the fractional
-frequency offset, which it corrects.
+**OFDM Symbol Acquisition** finds where each symbol starts. It compares the signal with itself one
+FFT-length later. The cyclic prefix is a copy of the symbol's end, so the comparison peaks once
+per symbol (the method you built by hand in
+[Lab 10, Step 3](../lab10_dvbt2_tx_rx/README.md#step-3--watch-the-ofdm-structure-live)). The angle
+of that peak also gives the small frequency error, which it corrects.
 
-**The FFT** returns the signal to the frequency domain, where the pilots live. `shift=True`
-puts DC in the middle, which is what the pilot demodulator expects.
+**FFT** turns the signal back into separate carriers, where the pilots are. `shift=True` puts 0 Hz
+in the middle, which the next block expects.
 
 ### The stage that does the real work
 
-**Demod Reference Signals** is where a DVB-T receiver is won or lost. The transmitter salts
-known symbols across the channel — *scattered pilots* that move every symbol and *continual
-pilots* that do not — plus TPS carriers announcing the mode. The receiver measures what those
-known symbols came out as, and divides every data carrier by the local channel estimate.
+**Demod Reference Signals** is where a DVB-T receiver succeeds or fails. The transmitter scatters
+**known** values across the channel: **scattered pilots** that move every symbol, **continual
+pilots** that do not, and **TPS** carriers that announce the mode. The receiver measures what
+those known values arrived as, and divides every data carrier by its local channel estimate.
 
-This is the whole payoff of the cyclic prefix. Because the guard interval turns the channel's
-linear convolution into a *circular* one, multipath becomes a single complex multiply per
-carrier — so undoing it is a single complex divide per carrier. No adaptive equaliser, no
-training sequence, no convergence time. That is why OFDM won.
+This is the payoff of the cyclic prefix
+([Fundamentals 11 §3](../../01_fundamentals/11_ofdm_and_broadcast_systems.md#part-3--the-cyclic-prefix-the-key-trick)):
+echoes become one multiplication per carrier, so undoing them is **one division per carrier**. No
+adaptive equaliser, no training, no waiting to converge. That is why OFDM won.
 
 ---
 
-## 🖥️ Two ways to run it
+## 2. Two ways to run it
 
-### 1. `lab11_tv_receiver.grc` — see the chain
+### A. `lab11_tv_receiver.grc` — learn the chain
 
-Open it in GNU Radio Companion. Every block carries a `comment` explaining its job. Channel and
-gain are sliders; spectrum, waterfall, constellation, MER and level are on screen; the decoded
-stream is recorded and played.
+Open it in GNU Radio Companion. Every block has a `comment` explaining its job. Channel and gain are
+sliders. The spectrum, waterfall, constellation, MER and level are on screen, and the decoded stream
+is recorded and played.
 
-Use this one to **understand** the receiver.
-
-### 2. `lab11_tv_station.py` — use the receiver
+### B. `lab11_tv_station.py` — use the receiver
 
 ```bash
-./lab11_tv_station.py                 # tune ch 21, show quality and picture
-./lab11_tv_station.py --scan-on-start # scan the band first
-./lab11_tv_station.py --no-video      # measure only, no ffplay
+cd "02_flowgraphs/lab11_tv_receiver"
+./lab11_tv_station.py                  # tune channel 21, show quality and picture
+./lab11_tv_station.py --scan-on-start  # scan the band first
+./lab11_tv_station.py --no-video       # measure only, no picture window
 ./lab11_tv_station.py --channel 31 --gain 40
 ```
 
-| What you asked for | Where it is |
+Other options: `--first`/`--last` (scan range, default 21–48), `--mode` (default
+`16qam-2/3-1/32`), `--fft` (`2k` or `8k`), `--antenna` (default `RX2`), `--ts-file` (also record
+the stream).
+
+| You want to… | Do this |
 |---|---|
-| **Change channel** | UHF channel spin box, or double-click a row in the channel list |
-| **Seek directly, no scan** | Type a frequency in MHz and press Tune. A scan is a convenience, never a prerequisite |
-| **List of available channels** | The table — channel, MHz, level, shoulder, standard, detail |
-| **Scan available channels** | *Scan band*. About **39 s** for channels 21–48 |
-| **Signal quality** | Lock state, level in dBFS, MER in dB with a bar, continuity-error rate, live spectrum and constellation |
-| **Real-time TV programme** | ffplay window, fed straight from the decoded transport stream |
+| **Change channel** | use the UHF channel box, or double-click a row in the channel list |
+| **Tune straight to a frequency, no scan** | type the frequency in MHz and press **Tune**. A scan is only a convenience |
+| **See the channel list** | the table: channel, MHz, level, shoulder, standard, details |
+| **Scan the band** | press **Scan band** — about **39 s** for channels 21–48 |
+| **See signal quality** | lock state, level (dBFS), MER (dB) with a bar, continuity-error rate, live spectrum and constellation |
+| **Watch the programme** | the ffplay window, fed straight from the decoded stream |
 
 ---
 
-## 📡 What the scanner actually measures
+## 3. What the scanner measures
 
-Four independent measurements per channel, in the order they can veto each other.
+Four independent tests for each channel, in the order they can overrule each other:
 
-| Measurement | What it answers | Empty UHF channel | Real DVB-T |
+| Test | Question | Empty channel | Real DVB-T |
 |---|---|---|---|
-| **Spectral shoulder** | Is it band-limited at all? | 0–4 dB | **31 dB** |
-| **Burst fraction** | Is it continuous, like broadcasting? | 0 % | 0 % |
-| **P1 correlation** | Is it DVB-T2? | ~4× | — |
-| **CP correlation** | Is it DVB-T, and in which mode? | ~2–4× | **24×** |
+| **Spectral shoulder** | Is the signal cut off sharply at the channel edges? | 0–4 dB | **31 dB** |
+| **Burst fraction** | Is it on all the time, like broadcasting? | 0 % | 0 % |
+| **P1 correlation** | Is it DVB-T2? | about 4× | — |
+| **CP correlation** | Is it DVB-T, and in which mode? | about 2–4× | **24×** |
 
-### Why the order matters — a false positive worth studying
+### Why the order matters — a false alarm worth studying
 
-Scanning the UHF band here, channel 22 scored **P1 13.9×** and **cyclic prefix 31.4×**. Both
-are far over threshold. Both say "television". Both are wrong.
+Scanning the UHF band here, channel 22 scored **P1 13.9×** and **cyclic prefix 31.4×**. Both far
+above the threshold. Both say "TV". **Both wrong.**
 
-Channel 22 carries an **intermittent** signal: 4 ms bursts, 7.6 % duty cycle, energy sitting at
-+2 to +5 MHz rather than centred. It is not a television station.
+Channel 22 carries a signal that switches **on and off**: 4 ms bursts, on 7.6 % of the time, off
+to one side of the channel. It is not a TV station.
 
-The reason it fools both detectors is the same reason for both: a correlator asked "does this
-signal repeat at lag *L*?" sees the burst overlap itself at *whatever* lag you test, so it
-fires at every lag. Correlation detectors are blind to burstiness by construction.
+Why are both detectors fooled? Both ask: "does this signal repeat after a delay?" A short burst
+overlaps itself at **any** delay you test — so it "matches" every time. **Correlation detectors
+cannot see burstiness.**
 
-Two cheap tests fix it, and neither involves correlation:
+Two simple tests fix it, and neither uses correlation:
 
-- **Spectral shoulder** — an 8 MHz television signal sampled at 9.14 MHz leaves an empty skirt
-  at the edges of the window. Noise and wideband bursts fill the window evenly. Real DVB-T
-  measured 31 dB here; channel 22 measured **1.2 dB**.
-- **Burst fraction** — broadcasting is continuous. Channel 22 spends 7.6 % of its time 6 dB
-  above its own median.
+- **Spectral shoulder** — an 8 MHz TV signal, sampled at 9.14 MHz, leaves empty edges in the
+  display. Noise and bursts fill the whole window. Real DVB-T: **31 dB**. Channel 22: **1.2 dB**.
+- **Burst fraction** — broadcasting never stops. Channel 22 spends 7.6 % of its time 6 dB above
+  its own middle level.
 
-`scan_tv_band.py --selftest` now *reproduces this false positive synthetically* — it builds a
-pulsed signal, shows it scoring 27.7× on the cyclic-prefix test, and asserts that the
-classifier still refuses to call it television.
+`scan_tv_band.py --selftest` now **creates this false alarm on purpose** — a pulsed test signal
+that scores 27.7× on the cyclic-prefix test — and checks the scanner still refuses to call it TV.
 
-> **The general lesson, which is the same one Lab 08 taught in reverse.** There, an FFT said
-> "no RDS" and the CRC said "287 valid groups" — trust the decoder. Here two correlators say
-> "television" and the spectrum says "no" — trust the measurement that can be wrong in only one
-> direction. A detector that can only be fooled *into* firing needs a veto that can only be
-> fooled into staying silent.
+> **Lesson:** this is Lab 08's lesson the other way round. There, the spectrum said "no RDS" and the
+> CRC found 287 good groups — trust the decoder. Here, two correlators say "TV" and the spectrum
+> says "no". **Know how each test can be fooled, and pair it with one that is fooled the opposite
+> way.**
 
-### What was in the band here
+### What was actually in the band here
 
-Nothing. Channels 21–48 scanned with the FM whip from the earlier labs: **no DVB-T2, no DVB-T**,
-one bursty non-television carrier on ch22, and a noise floor that rises 14 dB from 474 MHz to
-618 MHz — which is the antenna's response, not the band's contents.
+Nothing. Channels 21–48, scanned with the FM whip from the earlier labs: **no DVB-T2, no DVB-T**,
+one on-off signal on channel 22, and a noise floor that rises 14 dB from 474 to 618 MHz — the
+antenna's behaviour, not the band's.
 
-That absence is not proof the band is empty. It is proof that *this antenna* cannot hear it.
-A quarter-wave for 474 MHz is 158 mm; the FM whip is cut for 100 MHz. See
-[Part 5 — Antennas](../../05_reference/03_antennas.md).
+That does **not** prove the band is empty. It proves **this antenna** cannot hear it. A
+quarter-wave antenna for 474 MHz is **158 mm**; the FM whip is cut for 100 MHz. See the
+[Antennas reference](../../05_reference/03_antennas.md).
 
 ---
 
-## 📊 Signal quality: MER, and the cliff
+## 4. Signal quality: MER, and the cliff
 
-MER is the honest version of a television's "signal quality" bar:
+**MER** (modulation error ratio) is the honest version of a TV's "signal quality" bar. It compares
+each received point with the nearest correct constellation point:
 
 $$\text{MER} = 10\log_{10}\frac{\sum |\text{ideal}|^2}{\sum |\text{received} - \text{ideal}|^2}$$
 
-where *ideal* is the nearest legal constellation point. No knowledge of the transmitted data is
-needed, which is exactly how a real receiver does it. Measured against a calibrated AWGN
-channel, this implementation tracks true SNR to within **0.9 dB**.
+It needs **no knowledge of the data sent** — which is how real receivers do it. Measured against a
+calibrated noise channel, this implementation follows the true SNR to within **0.9 dB**.
 
-**Watch MER, not the picture.** Measured on this chain, 8K 16QAM CR 2/3:
+**Watch MER, not the picture.** Measured on this chain (8K, 16QAM, code rate 2/3):
 
 | SNR | MER | Decoded | Verdict |
 |---|---|---|---|
@@ -213,21 +225,19 @@ channel, this implementation tracks true SNR to within **0.9 dB**.
 | **12 dB** | **11.9 dB** | 1,274 continuity errors | **broken** |
 | 10 dB | 10.5 dB | 75 % of packets lost | gone |
 
-**One decibel** separates a flawless picture from no picture. The published DVB-T figure for
-16QAM CR 2/3 in a Gaussian channel is 13.5 dB C/N, so the implementation lands within a
-decibel of the standard.
+**One decibel** separates a perfect picture from no picture. The published DVB-T figure for this
+mode is 13.5 dB, so the implementation agrees with the standard to within a decibel.
 
-This is the defining behaviour of digital television, and why analogue viewers found the
-switchover so strange. Analogue degraded: snow, then more snow. Digital does not degrade, it
-*expires*. By the time you can see a problem, all your margin is already gone.
+Analog TV got gradually worse: snow, then more snow. Digital TV does not get worse — it **stops**.
+By the time you can see a problem, all your margin is gone.
 
 ---
 
 ## 🔬 Verification
 
-### The modulator and demodulator are exact
+### The transmitter and receiver are exact
 
-A transport stream pushed through `DvbtTx` and back through `DvbtRx`, no noise:
+A transport stream sent through `DvbtTx` and back through `DvbtRx`, with no noise:
 
 ```
 noiseless : 4,298,432 TS bytes  MER 128.5 dB  null 99.6 %  CC errors 0
@@ -237,14 +247,14 @@ noiseless : 4,298,432 TS bytes  MER 128.5 dB  null 99.6 %  CC errors 0
 
 Run it yourself: `03_scripts/dvbt_chain.py --snr 24 18 13 12 10`
 
-> **How that comparison is anchored matters.** The obvious way — find the received bytes
-> somewhere in the source file — silently lies. 99.6 % of a television multiplex is null
-> packets, all 0xFF, which match *anywhere*. Anchoring on them made a completely broken decode
-> score 99.89 % correct. The comparison anchors on a PSI table packet instead, which is unique.
+> ⚠️ **How you compare matters.** The obvious way — search for the received bytes anywhere in the
+> source file — can lie. This test stream is 99.6 % null packets (all 0xFF), which match
+> **anywhere**. Comparing that way, a completely broken decode scored 99.89 % "correct". The
+> comparison must anchor on a unique packet, such as a table packet.
 
 ### Over the air, full duplex, in real time
 
-One SignalSDR Pro transmitting on TX/RX and receiving on RX2 simultaneously, 474 MHz:
+One SignalSDR Pro, transmitting on `TX/RX` and receiving on `RX2` at the same time, at 474 MHz:
 
 ```
   MER              : 15.7 dB
@@ -257,72 +267,94 @@ One SignalSDR Pro transmitting on TX/RX and receiving on RX2 simultaneously, 474
   VERDICT: PASS - clean
 ```
 
-That was 40 seconds of real video — 1920×1080 H.264 at 15.1 Mbit/s with MP2 audio — recovered
-**byte-identical**, then decoded into **975 video frames and 39.45 s of audio**. The service
-name came out of the Service Description Table: the receiver read the channel's own name off
-the air.
+40 seconds of real video — 1920×1080 H.264 at 15.1 Mbit/s with MP2 audio — received **exactly**,
+then decoded into **975 video frames and 39.45 s of audio**. The receiver read the channel's own
+name, `SDR LAB TV`, from the Service Description Table.
 
-Run it yourself: `03_scripts/verify_tv_link.py` (see [Lab 12](../lab12_fullduplex_tv/) first —
-it transmits).
+Run it yourself: `03_scripts/verify_tv_link.py` — but read [Lab 12](../lab12_fullduplex_tv/README.md)
+first: **it transmits**.
 
-### Real-time cost, measured
+### How fast it runs
 
-The Viterbi decoder sets the limit. Needed: **9.14 MSPS**.
+The Viterbi decoder sets the limit. It must keep up with **9.14 million samples per second**:
 
-| Mode | Bit rate | Decode speed | Margin |
+| Mode | Bit rate | Decode speed | Spare |
 |---|---|---|---|
-| QPSK 1/2 GI 1/4 | 4.98 Mbit/s | 38.7 MSPS | 4.2× |
-| QPSK 2/3 GI 1/32 | 8.04 Mbit/s | 29.1 MSPS | 3.2× |
-| **16QAM 2/3 GI 1/32** | **16.09 Mbit/s** | **16.4 MSPS** | **1.8×** ← default |
-| 64QAM 2/3 GI 1/32 | 24.13 Mbit/s | 11.2 MSPS | 1.2× — too tight |
+| QPSK 1/2, GI 1/4 | 4.98 Mbit/s | 38.7 MSPS | 4.2× |
+| QPSK 2/3, GI 1/32 | 8.04 Mbit/s | 29.1 MSPS | 3.2× |
+| **16QAM 2/3, GI 1/32** | **16.09 Mbit/s** | **16.4 MSPS** | **1.8×** ← default |
+| 64QAM 2/3, GI 1/32 | 24.13 Mbit/s | 11.2 MSPS | 1.2× — too tight |
 
 *(Intel i7-10875H, 16 threads.)*
 
-### The number that surprised me
+### The surprising number
 
-**An unlocked receiver runs at 1.55 MSPS — six times slower than a locked one.**
+**A receiver that has not locked runs at only 1.55 MSPS — about ten times slower than when
+locked.**
 
-With no signal present, `dvbt_ofdm_sym_acquisition` searches the full symbol for a correlation
-peak on every symbol. Once locked it merely tracks. Pointed at an empty channel the receiver
-cannot keep up with the radio at all, and the USRP overflows continuously.
-
-That is mostly harmless — an empty channel has nothing to decode — but it has one sharp
-consequence, in [Troubleshooting](#-troubleshooting) below.
+With no signal, the acquisition block searches every position of every symbol for a peak. Once
+locked, it only follows. So on an empty channel the receiver cannot keep up with the radio, and
+the radio overflows (`O`) constantly. Usually harmless — there is nothing to decode — but see the
+first row of Troubleshooting.
 
 ---
 
-## 🧰 Troubleshooting
+## 🔧 Troubleshooting
 
-| Symptom | Cause | Fix |
+| Problem | Cause | Fix |
 |---|---|---|
-| **Nothing decodes, USRP prints `O` continuously** | Normal on an empty channel: unlocked acquisition runs at 1.55 MSPS and cannot drain the radio. | Confirm a signal is actually there — spectrum should show a flat 7.6 MHz slab with steep shoulders. |
-| **Never locks even though the signal is visible** | Mode mismatch. All four of FFT size, constellation, code rate and guard interval must agree with the transmitter. | There is no error message for this — it just stays silent. Check all four. |
-| **Locks with GI 1/32 but never with GI 1/4** | Real, and measured. The acquisition search window is the cyclic-prefix length; GI 1/4 is 2048 samples, 8× the work of GI 1/32, and the search cannot keep up. | Use GI 1/32 for real-time work. Record to a file and decode offline if you need a long guard. |
-| **Transport stream flows, every packet starts 0x47, payload is garbage** | The **Symbol Deinterleaver is missing or set to Interleave**. | The energy descrambler writes 0x47 unconditionally, so sync bytes prove nothing. Check PIDs: a healthy multiplex is ~99.6 % PID 8191. |
-| **Picture freezes, radio starts overflowing** | A File Sink pointed at a FIFO: when the player stalls, the write blocks and the scheduler stops draining the USRP. | Use the supplied `PipeSink`/`tv_out` block — bounded queue, drops rather than blocks. |
-| **MER good, picture still breaks up** | Transport rate mismatch, not a radio problem. | The stream must be muxed at exactly the mode's bit rate. `make_video_ts.py` computes it; `--verify` checks it against the PCR. |
-| **`ffplay: not found`** | ffmpeg not installed. | `sudo apt install ffmpeg`. Everything except the picture works without it. |
-| **Level rises with gain but MER does not** | You are amplifying the noise floor along with the signal. | Stop raising gain. The limit is C/N, not level — see [Antennas](../../05_reference/03_antennas.md). |
+| **Nothing decodes; `O` printed constantly** | Normal on an empty channel: searching runs at 1.55 MSPS and cannot keep up | Check a signal is really there: the spectrum should show a flat 7.6 MHz block with steep edges |
+| **Never locks, though the signal is visible** | Mode mismatch: FFT size, constellation, code rate and guard interval must **all four** match the transmitter | There is no error message — it just stays silent. Check all four |
+| **Locks at GI 1/32, never at GI 1/4** | Real, and measured. The search covers the guard: GI 1/4 is 2048 samples, 8× the work of GI 1/32, and the CPU cannot keep up | Use GI 1/32 for real-time work. For a long guard, record to a file and decode afterwards |
+| **Packets flow, all start with 0x47, but the contents are rubbish** | The **Symbol Deinterleaver** is missing, or set to Interleave | Sync bytes prove nothing — the descrambler writes 0x47 every time. Check the PIDs: you should see PAT (0), PMT, SDT (17) and your video/audio PIDs, with correct continuity counters |
+| **The picture freezes, then the radio overflows** | A File Sink writing into a FIFO: when the player stalls, the write waits, and nothing drains the radio | Use the supplied `tv_out` block: a limited queue that drops data instead of waiting |
+| **MER is good, but the picture still breaks up** | The stream's rate does not match the mode — not a radio problem | The stream must be exactly the mode's rate. `make_video_ts.py` calculates it; `--verify` checks it |
+| `ffplay: not found` | ffmpeg is not installed | `sudo apt install ffmpeg`. Everything except the picture works without it |
+| **Level rises with gain, but MER does not** | You are amplifying noise along with the signal | Stop raising the gain. The limit is signal-to-noise, not level — improve the antenna |
 
 ---
 
-## ❓ What was not tested
+## ❓ Not yet tested
 
-- **No real broadcast was ever decoded here.** The band is empty at this location with this
-  antenna, so every decode in this lab came from our own transmitter (Lab 12). The receiver has
-  never been proved against a third-party DVB-T station.
-- **Nobody has sat and watched it.** The picture was verified by decoding frames out of the
-  received stream, not by a person watching `ffplay` run.
-- **DVB-T2 reception is impossible**, not untested — see the top of this page.
-- **2K mode** decodes correctly in file loopback but was not run over the air.
-- **Hierarchical modulation** (`alpha1/2/4`) is wired through the API but never exercised.
-- **The scanner has never seen a real DVB-T2 broadcast.** Its P1 detector is verified against a
-  synthetic P1 and against the DVB-T2 waveform Lab 10 generates, not against a broadcaster.
+- **No real broadcast has been decoded here.** There is no TV signal at this location with this
+  antenna, so every decode came from our own transmitter (Lab 12).
+- **Nobody has watched it live.** The picture was checked by decoding frames from the received
+  stream, not by a person watching `ffplay`.
+- **DVB-T2 reception is impossible here**, not just untested — see the top of this page.
+- **2K mode** decodes correctly from a file, but was not tested over the air.
+- **Hierarchical modulation** (`alpha1/2/4`) is wired in, but never tested.
+- **The scanner has never seen a real DVB-T2 broadcast.** Its P1 detector is tested against a
+  synthetic P1 and Lab 10's signal, not against a broadcaster.
 
 ---
 
-## ➡️ Next
+## ✅ Summary
 
-**[Lab 12 — Full-Duplex Video Link](../lab12_fullduplex_tv/)** — transmit a real video file and
-receive it back on the same radio at the same time, which is where this receiver gets something
-to watch.
+- GNU Radio can **receive DVB-T** fully in software; for DVB-T2 you need a TV or a USB tuner.
+- The receiver is the transmitter backwards, plus **symbol acquisition** and the **FFT**.
+- **Pilots + cyclic prefix** turn echo removal into one division per carrier.
+- Pair detectors that are fooled in **different** ways; correlation cannot see bursts.
+- **MER** falls smoothly; the picture fails suddenly. **Watch MER.**
+- Searching is ten times more expensive than tracking.
+
+## 🧠 Check yourself
+
+1. Why does this lab receive DVB-T instead of DVB-T2?
+   <details><summary>Answer</summary>GNU Radio has a DVB-T2 transmitter but no DVB-T2 receiver.
+   It has both for DVB-T.</details>
+2. What does Demod Reference Signals do?
+   <details><summary>Answer</summary>It measures the known pilots, estimates what the channel did
+   to each carrier, divides it out, reads the mode from the TPS carriers, and removes the
+   pilots.</details>
+3. Channel 22 scored high on both correlation tests, but was not TV. How was it caught?
+   <details><summary>Answer</summary>By tests that do not use correlation: the spectral shoulder
+   (1.2 dB, not 31) and the burst fraction (7.6 % on-off, not continuous).</details>
+4. MER is 12.6 dB, and the picture is perfect. Should you relax?
+   <details><summary>Answer</summary>No. You are right at the cliff: 1 dB less and the picture
+   is gone.</details>
+5. Why does the receiver lock at GI 1/32 but not at GI 1/4?
+   <details><summary>Answer</summary>The timing search compares across the guard; GI 1/4 is 8×
+   more work, and the CPU cannot keep up in real time.</details>
+
+**Next:** [Lab 12 — Send and Receive Video at Once →](../lab12_fullduplex_tv/README.md), where
+this receiver gets something to watch.
