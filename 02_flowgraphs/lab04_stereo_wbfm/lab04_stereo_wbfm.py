@@ -105,7 +105,7 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
         self.usrp_source.set_antenna("TX/RX", 0)
         self.usrp_source.set_bandwidth(samp_rate, 0)
         self.usrp_source.set_gain(rf_gain, 0)
-        self.subcarrier_to_real = blocks.complex_to_real(1)
+        self.subcarrier_to_imag = blocks.complex_to_imag(1)
         self.subcarrier_doubler = blocks.multiply_vcc(1)
         self.spectrum_sink = qtgui.freq_sink_f(
             2048, #size
@@ -151,7 +151,7 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
         self._spectrum_sink_win = sip.wrapinstance(self.spectrum_sink.qwidget(), Qt.QWidget)
         self.top_layout.addWidget(self._spectrum_sink_win)
         self.scale_right = blocks.multiply_const_ff((volume * 0.5))
-        self.scale_lr_minus = blocks.multiply_const_ff(2.0)
+        self.scale_lr_minus = blocks.multiply_const_ff((-2.0))
         self.scale_left = blocks.multiply_const_ff((volume * 0.5))
         self.right_subtract = blocks.sub_ff(1)
         self.rf_lowpass = filter.fir_filter_ccf(
@@ -170,10 +170,9 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
                 fractional_bw=0)
         self.quad_demod = analog.quadrature_demod_cf((mpx_rate / (2 * 3.141592653589793 * 75000)))
         self.pilot_pll = analog.pll_refout_cc(0.05, (2 * 3.141592653589793 * 19500 / mpx_rate), (2 * 3.141592653589793 * 18500 / mpx_rate))
-        self.pilot_float_to_complex = blocks.float_to_complex(1)
-        self.pilot_bandpass = filter.fir_filter_fff(
+        self.pilot_bandpass = filter.fir_filter_fcc(
             1,
-            firdes.band_pass(
+            firdes.complex_band_pass(
                 1,
                 mpx_rate,
                 18500,
@@ -181,6 +180,7 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
                 500,
                 window.WIN_HAMMING,
                 6.76))
+        self.mpx_delay = blocks.delay(gr.sizeof_float*1, ((len(firdes.complex_band_pass(1, mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76)) - 1) // 2))
         self.lrmix = blocks.multiply_vff(1)
         self.lr_plus_lowpass = filter.fir_filter_fff(
             5,
@@ -217,12 +217,12 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
         self.connect((self.lr_minus_lowpass, 0), (self.scale_lr_minus, 0))
         self.connect((self.lr_plus_lowpass, 0), (self.l_plus_r_deemph, 0))
         self.connect((self.lrmix, 0), (self.lr_minus_lowpass, 0))
-        self.connect((self.pilot_bandpass, 0), (self.pilot_float_to_complex, 0))
-        self.connect((self.pilot_float_to_complex, 0), (self.pilot_pll, 0))
-        self.connect((self.pilot_pll, 0), (self.subcarrier_doubler, 1))
+        self.connect((self.mpx_delay, 0), (self.lr_plus_lowpass, 0))
+        self.connect((self.mpx_delay, 0), (self.lrmix, 0))
+        self.connect((self.pilot_bandpass, 0), (self.pilot_pll, 0))
         self.connect((self.pilot_pll, 0), (self.subcarrier_doubler, 0))
-        self.connect((self.quad_demod, 0), (self.lr_plus_lowpass, 0))
-        self.connect((self.quad_demod, 0), (self.lrmix, 0))
+        self.connect((self.pilot_pll, 0), (self.subcarrier_doubler, 1))
+        self.connect((self.quad_demod, 0), (self.mpx_delay, 0))
         self.connect((self.quad_demod, 0), (self.pilot_bandpass, 0))
         self.connect((self.quad_demod, 0), (self.spectrum_sink, 0))
         self.connect((self.resampler, 0), (self.quad_demod, 0))
@@ -231,8 +231,8 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
         self.connect((self.scale_left, 0), (self.audio_sink, 0))
         self.connect((self.scale_lr_minus, 0), (self.l_minus_r_deemph, 0))
         self.connect((self.scale_right, 0), (self.audio_sink, 1))
-        self.connect((self.subcarrier_doubler, 0), (self.subcarrier_to_real, 0))
-        self.connect((self.subcarrier_to_real, 0), (self.lrmix, 1))
+        self.connect((self.subcarrier_doubler, 0), (self.subcarrier_to_imag, 0))
+        self.connect((self.subcarrier_to_imag, 0), (self.lrmix, 1))
         self.connect((self.usrp_source, 0), (self.rf_lowpass, 0))
 
 
@@ -290,7 +290,8 @@ class lab04_stereo_wbfm(gr.top_block, Qt.QWidget):
         self.quad_demod.set_gain((self.mpx_rate / (2 * 3.141592653589793 * 75000)))
         self.spectrum_sink.set_frequency_range(0, self.mpx_rate)
         self.lr_plus_lowpass.set_taps(firdes.low_pass(1, self.mpx_rate, 15000, 1500, window.WIN_HAMMING, 6.76))
-        self.pilot_bandpass.set_taps(firdes.band_pass(1, self.mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76))
+        self.pilot_bandpass.set_taps(firdes.complex_band_pass(1, self.mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76))
+        self.mpx_delay.set_dly(int(((len(firdes.complex_band_pass(1, self.mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76)) - 1) // 2)))
         self.pilot_pll.set_max_freq((2 * 3.141592653589793 * 19500 / self.mpx_rate))
         self.pilot_pll.set_min_freq((2 * 3.141592653589793 * 18500 / self.mpx_rate))
         self.lr_minus_lowpass.set_taps(firdes.low_pass(1, self.mpx_rate, 15000, 1500, window.WIN_HAMMING, 6.76))

@@ -1,411 +1,421 @@
-# 🔴 Lab 04 — Stereo WBFM with Full MPX Decoding
+# 🔴 Lab 04 — Stereo FM, Built by Hand
 
-> **Time:** 2 hours  
-> **Difficulty:** Advanced  
-> **New blocks:** Quadrature Demod, PLL Refout, Multiply, Add/Sub, De-emphasis Filter  
-> **Concepts:** Stereo multiplexing, PLL, subcarrier recovery, matrix operations
+> **What you will build:** a stereo FM receiver, **without** the ready-made WBFM Receive block.
+> You build every step yourself: the FM decoder, the pilot tone recovery, the 38 kHz
+> subcarrier, and the left/right matrix.
+> **What you will learn:** how stereo is hidden inside an FM broadcast, what a **PLL** does,
+> why **filter delay** matters, and how to check a design with a test signal.
+> **Before this:** [Lab 03](../lab03_advanced_wbfm/README.md) and
+> [Fundamentals 04 §5](../../01_fundamentals/04_fm_theory.md#5-what-is-inside-an-fm-broadcast).
+> **Time:** about 2 hours. **Difficulty:** advanced. **Needs the radio:** yes (or a test file).
 
 ---
 
 ## 🎯 Goal
 
-Decode **true stereo FM** by manually extracting the L+R and L−R components from the MPX baseband. This lab demonstrates what GNU Radio can really do — we'll rebuild the entire receiver chain from first principles, **without** using the black-box WBFM Receive block.
+Hear a music station in **real stereo**: instruments on the left, others on the right.
+Use headphones.
+
+To get there, you will rebuild what a stereo FM radio does inside, block by block.
 
 ---
 
-## 📖 Background: How Stereo FM Works
+## 1. How stereo hides inside FM (a quick reminder)
 
-As explained in [Fundamentals 04](../../01_fundamentals/04_fm_theory.md), an FM broadcast signal contains a multiplexed (MPX) baseband:
+After FM decoding, you do not get left and right audio. You get the **MPX** signal
+([Fundamentals 04](../../01_fundamentals/04_fm_theory.md#5-what-is-inside-an-fm-broadcast)):
 
 ```
-Amplitude
-  │
-  │ [L+R]   [Pilot]    [L-R DSB-SC]   [RDS]
-  │ 0-15kHz  19kHz    23-53kHz        57kHz
-  └───────────────────────────────────────────
-  0    15    19    23        53        57  kHz
+ strength
+    │ ████████      │     ▓▓▓▓▓▓▓▓▓ ▓▓▓▓▓▓▓▓▓    ░
+    └─┴───────┴───┴─┴───┴─────────┴─────────┴──┴─┴──── frequency (kHz)
+      0       15    19   23        38        53   57
+      └─ L+R ─┘   pilot  └──────── L−R ────────┘  RDS
 ```
 
-- **L+R** (0–15 kHz): Sum of left and right channels (mono)
-- **Pilot** (19 kHz): Reference tone at exactly half the stereo subcarrier
-- **L−R DSB-SC** (23–53 kHz): Difference signal, double-sideband suppressed-carrier at 38 kHz
-- **RDS** (57 kHz): Digital data (ignored here)
-
-To recover L and R:
-$$
-L = \frac{(L+R) + (L-R)}{2}, \quad R = \frac{(L+R) - (L-R)}{2}
-$$
-
-The challenge: the 38 kHz subcarrier is **not transmitted**. Only the 19 kHz pilot is. So we must **double** the pilot to recover the 38 kHz subcarrier.
-
----
-
-## 📐 Architecture
-
-```
-USRP Source (2 MSPS)
-      │
-      ▼
-Low Pass Filter (cutoff 100 kHz)
-      │
-      ▼
-Rational Resampler (2M → 240k)
-      │
-      ▼
-Quadrature Demod ─────── MPX signal (mono + stereo + pilot)
-      │
-      ├──────────────────────────────┐
-      │                              │
-      ▼                              ▼
-┌─────────────────┐         ┌──────────────────────┐
-│ LPF (0–15 kHz)  │         │ BPF (18.5–19.5 kHz)  │
-│ extracts L+R    │         │ extracts pilot tone  │
-└────────┬────────┘         └──────────┬───────────┘
-         │                             │
-         │                             ▼
-         │                     ┌───────────────┐
-         │                     │ PLL Refout    │
-         │                     │ locks to 19kHz│
-         │                     │ output = 19kHz│
-         │                     │ sine wave     │
-         │                     └───────┬───────┘
-         │                             │
-         │                             ▼
-         │                     ┌───────────────┐
-         │                     │ Multiply by   │
-         │                     │ itself → 38kHz│
-         │                     │ (× 2)         │
-         │                     └───────┬───────┘
-         │                             │
-         │                             ▼
-         │                     ┌───────────────┐
-         │                     │ Multiply with │
-         │                     │ MPX (float ×  │
-         │                     │ float) → L-R  │
-         │                     └───────┬───────┘
-         │                             │
-         │                             ▼
-         │                     ┌───────────────┐
-         │                     │ LPF (0–15 kHz)│
-         │                     │ extracts L-R  │
-         │                     └───────┬───────┘
-         │                             │
-         │                             ▼
-         │                     ┌───────────────┐
-         │                     │ Scale ×2      │
-         │                     │ (DSB-SC halves│
-         │                     │  amplitude)   │
-         │                     └───────┬───────┘
-         │                             │
-         ▼                             ▼
-  ┌────────────┐               ┌────────────┐
-  │ De-emph    │               │ De-emph    │
-  │ (50/75 μs) │               │ (50/75 μs) │
-  └──────┬─────┘               └──────┬─────┘
-         │                            │
-         ▼                            ▼
-   ┌────────────────────────────────────────┐
-   │  Matrix:                               │
-   │  Left  = (L+R) + (L-R)                 │
-   │  Right = (L+R) - (L-R)                 │
-   │  (using Add and Subtract blocks)       │
-   └────────────────────┬───────────────────┘
-                        │
-                        ▼
-                 ┌────────────┐
-                 │ Audio Sink │ (stereo)
-                 └────────────┘
-```
-
----
-
-## 📋 Block-by-Block Explanation
-
-### Stage 1: IQ to MPX Baseband
-
-#### USRP Source
-- Center freq: `freq` (88–108 MHz)
-- Sample rate: `samp_rate` = 2 MSPS
-- Gain: 40 dB
-
-#### Low Pass Filter
-- Complex in/out, cutoff 100 kHz
-- Removes all signals outside ±100 kHz of tuned frequency
-
-#### Rational Resampler
-- 2 MSPS → 240 kSPS (ratio 12/100 = 3/25)
-- 240 kSPS is plenty for the 100 kHz MPX signal
-- Reduces CPU load
-
-#### Quadrature Demod
-- Converts IQ to real-valued MPX signal
-- This is the heart of FM demodulation (see Fundamentals 04)
-
-**Output:** A real-valued float stream at 240 kSPS containing the full MPX signal.
-
----
-
-### Stage 2: L+R Extraction
-
-#### Low Pass Filter (audio)
-- Type: `fff` (float in/out)
-- Cutoff: 15 kHz
-- Transition: 1 kHz
-- Extracts the mono sum signal (L+R)
-
----
-
-### Stage 3: Pilot Tone Recovery
-
-#### Band Pass Filter
-- Type: `fff`
-- Low cutoff: 18.5 kHz
-- High cutoff: 19.5 kHz
-- Transition: 500 Hz
-- Isolates the 19 kHz pilot tone
-
-#### PLL Refout (`pll_refout_cc`)
-- Locks a complex oscillator to the pilot tone
-- Outputs a clean 19 kHz complex sinusoid: $e^{j 2\pi \cdot 19000 \cdot t}$
-- Type: `cc` (complex in, complex out)
-
-Wait — our pilot is a real signal. We need to convert it to complex first:
-
-**Float to Complex** block:
-- Real input: pilot
-- Imaginary input: 0
-- Output: complex pilot
-
-Then the PLL locks and produces a clean 19 kHz complex reference.
-
-#### Multiply (×2 trick)
-To get 38 kHz: multiply the 19 kHz complex signal by itself!
-
-$$
-e^{j 2\pi \cdot 19k \cdot t} \cdot e^{j 2\pi \cdot 19k \cdot t} = e^{j 2\pi \cdot 38k \cdot t}
-$$
-
-**Multiply** block (complex × complex):
-- Input 1: PLL output (19 kHz complex)
-- Input 2: PLL output (same)
-- Output: 38 kHz complex subcarrier
-
-#### Convert 38 kHz to Real
-The MPX signal is real-valued, so we need a real 38 kHz signal to multiply with.
-
-**Complex to Real** block: takes the real part of the 38 kHz complex signal.
-
----
-
-### Stage 4: L−R Recovery
-
-#### Multiply MPX × 38 kHz (`blocks_multiply_xx`, type ff)
-
-The L−R signal is DSB-SC at 38 kHz. Multiplying the MPX by a 38 kHz carrier demodulates it:
-
-$$
-\text{MPX}(t) \cdot \cos(2\pi \cdot 38k \cdot t) = \frac{L-R}{2} + \text{high-frequency terms}
-$$
-
-(The factor of 1/2 comes from the DSB-SC product identity.)
-
-Both inputs are **float** (the MPX from Quadrature Demod and the real part of the doubled subcarrier). Output is also **float**.
-
-> 💡 This is simpler than converting MPX to complex and multiplying complex × complex — because both signals are real, we can work entirely in the float domain.
-
-#### Low Pass Filter (L−R) (`low_pass_filter`, type fff)
-- Type: `fff`
-- Cutoff: 15 kHz
-- Extracts L−R, removes the high-frequency products
-
----
-
-### Stage 5: De-Emphasis
-
-Apply 50 μs (or 75 μs for North America) de-emphasis to both L+R and L−R paths.
-
-**De-emphasis filter** is a first-order IIR:
-
-$$
-H(s) = \frac{1}{1 + s\tau} \quad\text{or in z-domain:}\quad H(z) = \frac{1 - e^{-T/\tau}}{1 - e^{-T/\tau} z^{-1}}
-$$
-
-In GNU Radio, use a **Single Pole IIR Filter** (`filter_singlepole_iir_ff`) with:
-- Taps: $\alpha = 1 - e^{-T_s / \tau}$
-
-Where $T_s = 1/240000$ and $\tau = 50 \times 10^{-6}$ s.
-
-Compute:
-$$
-\alpha = 1 - e^{-1/240000/0.000050} = 1 - e^{-0.0833} \approx 0.0800
-$$
-
-So taps ≈ **0.08** (adjust for 75 μs: α ≈ 0.0533).
-
----
-
-### Stage 6: Stereo Matrix
-
-Using Add (`add_ff`) and Subtract (`sub_ff`) blocks:
-
-```
-Left  = (L+R) + (L-R)    [using Add]
-Right = (L+R) - (L-R)    [using Subtract]
-```
-
-Then combine into a 2-channel stream with **Streams to Stream** (2 inputs) or use **Float to Short** then play as stereo.
-
-Or more directly, use **Audio Sink** with `num_inputs = 2`.
-
----
-
-## 🔬 Mathematical Deep Dive
-
-Let's trace the math through the full chain.
-
-### FM signal at antenna
-$$
-s(t) = A \cos\!\left(2\pi f_c t + 2\pi \Delta f \int_0^t m(\tau) \, d\tau\right)
-$$
-
-Where $m(t)$ is the MPX baseband:
-$$
-m(t) = [L(t) + R(t)] + P \cos(2\pi \cdot 19k \cdot t) + [L(t) - R(t)] \cos(2\pi \cdot 38k \cdot t) + \text{RDS}(t)
-$$
-
-### After Quadrature Demod
-$$
-y(t) \propto m(t)
-$$
-
-We recover the MPX baseband directly.
-
-### L+R Path
-$$
-\text{LPF}_{15k}[y(t)] = L(t) + R(t)
-$$
-
-### Pilot Path
-$$
-\text{BPF}_{18.5k-19.5k}[y(t)] = P \cos(2\pi \cdot 19k \cdot t)
-$$
-
-PLL locks: output = $e^{j 2\pi \cdot 19k \cdot t}$.
-
-Self-multiply: $e^{j 2\pi \cdot 19k \cdot t} \cdot e^{j 2\pi \cdot 19k \cdot t} = e^{j 2\pi \cdot 38k \cdot t}$
-
-Real part: $\cos(2\pi \cdot 38k \cdot t)$.
-
-### L−R Path
-$$
-y(t) \cdot \cos(2\pi \cdot 38k \cdot t) = \ldots + [L(t) - R(t)] \cos^2(2\pi \cdot 38k \cdot t) + \ldots
-$$
-
-Using the identity $\cos^2(\theta) = \frac{1}{2} + \frac{1}{2}\cos(2\theta)$:
-
-$$
-= \frac{L(t) - R(t)}{2} + \text{high-frequency at 76 kHz}
-$$
-
-After LPF:
-$$
-\text{LPF}_{15k}[y(t) \cdot \cos(2\pi \cdot 38k \cdot t)] = \frac{L(t) - R(t)}{2}
-$$
-
-Multiply by 2 to get $L-R$ (or just scale at the end).
-
-### Matrix
-$$
-L = (L+R) + (L-R) = 2L \\
-R = (L+R) - (L-R) = 2R
-$$
-
-Divide by 2 (or scale by 0.5) to get correct levels.
-
----
-
-## 🎛️ GUI Controls
-
-| Control | Range | Purpose |
+| Part | Where | What it is |
 |---|---|---|
-| Frequency | 87.5–108 MHz | Tune the station |
-| RF Gain | 0–76 dB | Hardware gain |
-| De-emphasis | {50, 75} μs | Switch between EU/US standards |
-| Volume | 0.0–3.0 | Output audio level |
+| **L+R** | 0–15 kHz | Left plus right: the normal mono sound |
+| **Pilot** | 19 kHz | A steady tone, sent so receivers can rebuild the 38 kHz carrier |
+| **L−R** | 23–53 kHz | Left minus right, moved up to sit around 38 kHz |
+| **RDS** | 57 kHz | Data (Lab 08). Ignored here |
+
+Once you have L+R and L−R, getting left and right is simple arithmetic:
+
+```
+ (L+R) + (L−R) = 2L      →  left
+ (L+R) − (L−R) = 2R      →  right
+```
+
+**The hard part is L−R.** It was moved up to 38 kHz by multiplying it with a 38 kHz carrier.
+To move it back down, you multiply by the *same* 38 kHz carrier again. But the station does
+**not send** the 38 kHz carrier (this saves power). It only sends the 19 kHz **pilot**. So the
+receiver must **rebuild** the 38 kHz carrier from the pilot — and get its timing (phase) exactly
+right. Most of this lab is about that.
 
 ---
 
-## 🧪 Testing the Flowgraph
+## 2. Run it first
 
-1. **Open:** `gnuradio-companion lab04_stereo_wbfm.grc`
-2. **Execute:** Press F5
-3. **Tune** to a known **stereo** FM station (most music stations are stereo; talk stations are often mono).
-4. **Listen** — you should hear clear stereo separation.
-5. **Compare** with Lab 01 (mono WBFM Receive):
-   - Mono: single channel, everything "in the middle"
-   - Stereo: instruments/voices panned left and right
-6. **Visualize** with a QT GUI Time Sink on L and R outputs — they should be different waveforms.
-7. **Verify** stereo by listening with headphones.
+```bash
+cd "02_flowgraphs/lab04_stereo_wbfm"
+gnuradio-companion lab04_stereo_wbfm.grc
+```
 
----
+Press **F5**. Tune to a **music** station (talk stations are often mono). Put on headphones.
 
-## 🐛 Troubleshooting
+| Control | Range | What it does |
+|---|---|---|
+| **Frequency** | 87.5–108 MHz | Tunes the radio |
+| **RF Gain** | 0–76 dB | Hardware gain. Stereo needs a stronger signal than mono |
+| **Volume** | 0.0–3.0 | Loudness of both channels |
 
-### "Audio sounds like a buzz or whine"
-→ The PLL isn't locked properly. Check the BPF is centered on 19 kHz exactly. Try increasing the PLL bandwidth.
+The **MPX Spectrum** display shows the decoded MPX. Look for the thin **pilot line at 19 kHz**.
+If you can see it, the station is in stereo.
 
-### "No stereo effect, just mono"
-→ The L-R path isn't working. Verify the multiply is producing a signal, and the LPF is extracting L-R.
-
-### "Audio is 2× too loud"
-→ You forgot to divide by 2 in the matrix. Add a Multiply Const with value 0.5 at the end.
-
-### "Audio is too quiet"
-→ You might have an extra 0.5× scaling somewhere. Trace the gain through the chain.
-
-### "PLL drifts"
-→ Pilot tone is too weak. Increase RF gain or check the station actually transmits stereo.
+> 💡 **No radio?** Make a stereo test signal and run the real flowgraph on it — see
+> [Section 7](#7-test-it-with-a-signal-you-know).
 
 ---
 
-## ❓ Questions to Ponder
+## 3. The flowgraph
 
-1. Why is the pilot at 19 kHz and not 38 kHz?
-   → To save bandwidth and to allow simple doubling (19 kHz × 2 = 38 kHz).
+```
+ USRP Source (2 MSPS)
+      │
+ Low Pass Filter (±100 kHz)          keep one station
+      │
+ Rational Resampler (×12 ÷100)       2 MSPS → 240 kSPS
+      │
+ Quadrature Demod                    FM → MPX (a float signal)
+      │
+      ├─────────────────────────────────────────┐
+      │                                         │
+ Delay (578 samples)                    Band Pass Filter, COMPLEX out
+      │                                  (18.5–19.5 kHz): the pilot
+      │                                         │
+      │                                 PLL Refout: a clean 19 kHz tone
+      │                                         │
+      │                                 Multiply by itself: 38 kHz
+      │                                         │
+      │                                 Complex to Imag
+      │                                         │
+      ├──────────────┐                          │
+      │              ▼                          │
+      │          Multiply ◀─────────────────────┘   L−R comes down to audio
+      │              │
+ Low Pass (15 kHz, ÷5)   Low Pass (15 kHz, ÷5)
+      │              │
+      │          ×(−2)
+      │              │
+ De-emphasis     De-emphasis          50 µs (Malaysia)
+   (L+R)           (L−R)
+      │              │
+      ├──── Add ─────┤──▶ ×0.5×volume ──▶ Audio Sink, left
+      └── Subtract ──┘──▶ ×0.5×volume ──▶ Audio Sink, right
+```
 
-2. Why is L-R transmitted as DSB-SC and not as a simple signal?
-   → DSB-SC suppresses the 38 kHz carrier, saving power and reducing interference.
-
-3. What happens to mono-only stations?
-   → They transmit only L+R. The 19 kHz pilot may be absent. The L-R path outputs silence. Result: mono playback (correct!).
-
-4. What's the effect of swapping L+R and L-R in the matrix?
-   → L and R are swapped — you hear "inside-out" stereo.
+Rates: 240,000 samples/s until the two 15 kHz low-pass filters, which also decimate by 5, to
+**48,000** samples/s audio.
 
 ---
 
-## 📚 Key Takeaways
+## 4. The steps, one by one
 
-- **You can rebuild any SDR from first principles** — you don't need black-box blocks.
-- **Stereo FM is an elegant engineering solution** from the 1960s — still used today.
-- **PLLs are essential** whenever you need to recover a suppressed carrier.
-- **Understanding the math** lets you debug and extend any flowgraph.
+### Step 1 — From IQ to MPX
+
+| Block | Settings | Job |
+|---|---|---|
+| USRP Source | 2 MSPS, `bw0` = 2 MHz | The radio |
+| Low Pass Filter | cutoff 100 kHz, width 20 kHz | Keep only our station |
+| Rational Resampler | ×12 ÷100 | 2,000,000 × 12/100 = **240,000** samples/s |
+| Quadrature Demod | gain = 240000 / (2π × 75000) | FM decoder. Full deviation (±75 kHz) comes out as ±1 |
+
+Why 240 kSPS? The MPX goes up to about 60 kHz. By the Nyquist rule, a real (float) signal
+needs more than 2 × 60 = 120 kSPS. 240 kSPS gives plenty of room.
+
+The output of the Quadrature Demod is the **MPX**: a float signal containing L+R, the pilot
+and L−R.
+
+### Step 2 — L+R (the mono sound)
+
+A **low-pass filter at 15 kHz** keeps only 0–15 kHz of the MPX. That is L+R. The filter also
+**decimates by 5**: 240,000 ÷ 5 = 48,000 samples/s, the audio rate.
+
+### Step 3 — Recover the pilot, and clean it up with a PLL
+
+**Band Pass Filter (18.5–19.5 kHz).** Keeps only the 19 kHz pilot.
+It is set to **Float → Complex** (complex taps). This keeps only the *positive* 19 kHz, and
+throws away the −19 kHz mirror image that every real signal has
+([Fundamentals 02](../../01_fundamentals/02_iq_sampling.md)). The next block works much better
+with a single clean tone.
+
+**PLL Refout.** A **PLL** (phase-locked loop) is a circuit — here, code — that produces its own
+tone and constantly adjusts it to match an incoming tone in **frequency and phase**. Think of
+someone clapping along to music: they listen, and speed up or slow down until their claps land
+exactly on the beat.
+
+Why not just use the filtered pilot directly? Because it is noisy and it wobbles. The PLL's
+output is a **perfectly clean** 19 kHz tone that follows the pilot exactly.
+
+| Setting | Value | Meaning |
+|---|---|---|
+| Loop bandwidth `w` | 0.05 | How quickly it follows changes |
+| Min / max frequency | 18.5 / 19.5 kHz | It will only lock inside this range |
+
+[Fundamentals 09](../../01_fundamentals/09_synchronization.md) explains PLLs in detail.
+
+### Step 4 — Double the pilot to make 38 kHz
+
+**Multiply** the PLL's output by itself. For a spinning IQ arrow, multiplying by itself
+**doubles the angle**, so 19 kHz becomes **38 kHz**, with the phase also doubled — exactly
+locked to the pilot, as the standard requires.
+
+**Complex to Imag.** Take the imaginary part (Q) of the 38 kHz tone. Why the imaginary part and
+not the real part? See the box below.
+
+> 🔎 **Why "Imag" and "−2"? (the sine rule)**
+>
+> The FM stereo standard sends the pilot as a **sine** wave, and the 38 kHz carrier as a
+> **sine** wave too, both crossing zero at the same moment.
+>
+> The PLL copies the pilot's phase. Doubling a sine-phase tone gives:
+>
+> ```
+>  (PLL output)²  =  −cos(2ωt)  −  j·sin(2ωt)
+> ```
+>
+> The carrier we need is **+sin(2ωt)**. That is **minus the imaginary part**. So we take the
+> imaginary part here, and the minus sign goes into the ×(−2) block in Step 5.
+>
+> If you take the **real part** instead (−cos), it is a quarter-turn out of step. Multiplying
+> L−R by a carrier a quarter-turn out of step gives **zero** — no stereo at all.
+
+<details>
+<summary><b>Going deeper:</b> the maths</summary>
+
+The standard MPX (ITU-R BS.450) is:
+
+$$
+m(t) = 0.9\left[\frac{L+R}{2} + \frac{L-R}{2}\sin(2\omega_p t)\right] + 0.1\sin(\omega_p t),
+\qquad \omega_p = 2\pi \cdot 19\,\text{kHz}
+$$
+
+The PLL output follows the pilot's phase: $\sin(\omega_p t) = \cos(\omega_p t - \tfrac{\pi}{2})$,
+so the PLL gives $e^{j(\omega_p t - \pi/2)}$. Squared:
+
+$$
+e^{j(2\omega_p t - \pi)} = -\cos(2\omega_p t) - j\sin(2\omega_p t)
+$$
+
+$-\,\text{Imag} = \sin(2\omega_p t)$. Multiplying the MPX by it and low-pass filtering:
+
+$$
+m(t)\sin(2\omega_p t) \;\xrightarrow{\text{LPF}}\; 0.9\,\frac{L-R}{2}\cdot\frac{1}{2}
+$$
+
+because $\sin^2\theta = \tfrac12 - \tfrac12\cos 2\theta$. The ×2 restores the lost half, giving
+$0.9\,\frac{L-R}{2}$ — the same scale as the L+R path, $0.9\,\frac{L+R}{2}$. So the matrix gives
+$0.9L$ and $0.9R$.
+</details>
+
+### Step 5 — Bring L−R down to audio
+
+**Multiply** the MPX by the rebuilt 38 kHz carrier. This moves L−R from around 38 kHz down to
+0–15 kHz (and makes some copies at around 76 kHz, which we throw away).
+
+**Low-pass filter at 15 kHz, decimate by 5** — the same as the L+R path. It removes everything
+except L−R and brings it to 48 kHz.
+
+**Multiply Const ×(−2).** The multiplication halved the size of L−R, so ×2 restores it. The
+minus sign is the one from the box above.
+
+### Step 6 — The delay: keeping the two paths in step
+
+This is the subtle part, and the most important lesson in this lab.
+
+Every filter **delays** the signal a little. A filter with many taps delays it more. The pilot's
+band-pass filter is very narrow (only 1 kHz wide), so it needs many taps — **1,157** — and delays
+the pilot by **578 samples**, about 2.4 ms.
+
+So the rebuilt 38 kHz carrier is 2.4 ms **late** compared with the MPX. At 38 kHz, 2.4 ms is
+about 91.5 cycles. The ".5" means the carrier arrives half a cycle out of step — completely
+wrong. Any other delay would give some other wrong phase.
+
+**The fix:** delay the MPX by the **same** 578 samples before it is used. Then everything lines
+up again. In the flowgraph, the **Delay** block does this. Its value is not typed by hand; it is
+calculated from the filter itself:
+
+```python
+(len(firdes.complex_band_pass(1, mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76)) - 1) // 2
+```
+
+A symmetric FIR filter with N taps delays by (N−1)/2 samples. If you change the filter, the
+delay follows automatically.
+
+> 💡 The delayed MPX feeds **both** the L+R path and the L−R multiplier. That keeps L+R and L−R
+> in step with each other too. If only one path were delayed, left and right would be mixed
+> up again.
+
+### Step 7 — De-emphasis
+
+Both L+R and L−R go through a de-emphasis filter
+([Fundamentals 04 §6](../../01_fundamentals/04_fm_theory.md#6-pre-emphasis-and-de-emphasis)).
+Here it is a **Single Pole IIR Filter**, with:
+
+$$
+\alpha = 1 - e^{-1/(\text{audio\_rate} \times \tau)} = 1 - e^{-1/(48000 \times 50\times10^{-6})} \approx 0.341
+$$
+
+The variable `deemph_tau` is **50e-6** (50 µs, the Malaysian standard). Change it to 75e-6 for
+the USA.
+
+### Step 8 — The stereo matrix
+
+- **Add:** (L+R) + (L−R) = 2L → left.
+- **Subtract:** (L+R) − (L−R) = 2R → right.
+- **Multiply Const:** × 0.5 × volume on each, to undo the factor of 2 and apply the volume.
+- **Audio Sink** with 2 inputs: input 0 = left, input 1 = right.
 
 ---
 
-## 🚀 What's Next?
+## 5. What went wrong in the first version (and how it was found)
 
-You now have the skills to tackle the next series of labs:
-- ✈️ **ADS-B Airplane Detection** — detect aircraft at 1090 MHz, decode their positions
-- 📻 **FM Transmitter** — broadcast your own signal (be careful with local laws!)
-- 📡 **Weather Satellite Reception** — Meteor-M LRPT at 137.9 MHz
-- 📱 **GSM Sniffing** — decode GSM control channels with LTESniffer / gr-gsm
+The first version of this lab had **two** mistakes. Together, they made it almost exactly mono:
+about **1 dB** of stereo separation, when a good receiver gives 30 dB or more.
+
+1. **No delay** on the MPX path (Step 6). The rebuilt carrier had the wrong phase.
+2. **The real part** was used instead of the imaginary part (Step 4). Wrong by a quarter-turn.
+
+It also fed the PLL a real (float) pilot, with its −19 kHz mirror, which cost more separation.
+
+It sounded fine — music played, in both ears. A test on real radio even showed the left and
+right channels were different (correlation 0.78). But normal music is partly different in each
+channel anyway. That number could not tell "stereo" from "mono plus noise".
+
+What found the bug was a **test signal with known content**: a 1000 Hz tone on the left only
+and a 1700 Hz tone on the right only. A working decoder must put almost no 1700 Hz in the left
+channel. Results, running the real flowgraph:
+
+| Version | Left separation | Right separation |
+|---|---|---|
+| First version | 1.2 dB | −0.4 dB |
+| Delay added, still real part | about 1 dB | about 1 dB |
+| Imag part, no delay | −20 dB (left and right **swapped**!) | −14 dB |
+| Delay + imag part, float pilot | 19.8 dB | 14.4 dB |
+| **Delay + imag part + complex pilot filter (this version)** | **32.5 dB** | **31.0 dB** |
+| An ideal decoder, for comparison | 146 dB | 155 dB |
+
+About 30 dB is typical for a real FM stereo receiver.
+
+> **Lesson:** "it plays music" is not a test. Test with a signal whose right answer you know.
+
+---
+
+## 6. Limitation: mono stations
+
+Real radios have a **pilot detector**. If there is no 19 kHz pilot, they switch to mono.
+
+This lab does not. On a **mono** station, the PLL has no pilot to follow, so the rebuilt
+carrier is wrong, and some of the mono sound leaks into L−R. Measured with a mono test signal,
+the leftover L−R was about **10 dB** below L+R. You may hear the sound pulled slightly to one
+side. It is still easy to listen to.
+
+**Challenge:** add a pilot detector. Measure the power coming out of the pilot band-pass filter
+(a **Complex to Mag²** block and a **Moving Average**). When it is too low, multiply L−R by 0.
+
+---
+
+## 7. Test it with a signal you know
+
+You can check this lab with **no radio at all**, using two helper scripts:
+
+```bash
+cd 03_scripts
+
+# 1. make 3 seconds of stereo FM: 1000 Hz on the left only, 1700 Hz on the right only
+python3 make_fm_test_iq.py /tmp/stereo.cfile
+
+# 2. run the real Lab 04 flowgraph on it, and save the audio
+python3 run_offline.py ../02_flowgraphs/lab04_stereo_wbfm/lab04_stereo_wbfm.py \
+        /tmp/stereo.cfile --out /tmp/lab04_out
+```
+
+Expected output:
+
+```
+channel 0: 143992 samples at 48000 Hz (3.00 s)  rms 0.2370
+channel 1: 143992 samples at 48000 Hz (3.00 s)  rms 0.2195
+```
+
+To hear it: `play -t f32 -r 48000 -c 1 /tmp/lab04_out/audio_ch0.f32` (from the `sox` package).
+You should hear only the lower tone in the left file, and only the higher tone in the right.
+
+`test_labs_offline.py` (in the same folder) runs this check automatically and fails if the
+separation drops below 25 dB.
+
+---
+
+## 8. Experiments
+
+1. **Remove the delay.** Set the Delay block's value to 0 and run the test in Section 7. What
+   happens to the separation? (Look at the table in Section 5.)
+2. **Swap to the real part.** Replace Complex to Imag with Complex to Real. What happens?
+3. **Watch the pilot.** On the MPX Spectrum, find the 19 kHz pilot and the L−R humps either side
+   of 38 kHz. On a mono station, the pilot is missing.
+4. **Talk vs music.** Many talk stations are mono. Compare them.
+5. **De-emphasis.** Change `deemph_tau` to 75e-6. The treble becomes slightly duller.
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Try this |
+|---|---|
+| A whine or buzz in the audio | The PLL is not locked. Is there a pilot at 19 kHz on the MPX display? Is the station stereo? |
+| Sounds mono on a music station | Check the pilot is visible. Raise the gain — stereo needs a stronger signal than mono |
+| Stereo is hissy but mono was clean | Normal: stereo needs about 20 dB more signal than mono. Find a stronger station |
+| Left and right are swapped | Check the ×(−2) block still has the minus sign |
+| Everything is twice as loud | The ×0.5 in the final Multiply Const blocks is missing |
+
+---
+
+## ✅ Summary
+
+- Stereo FM sends **L+R** normally and **L−R** on a 38 kHz carrier that is **not transmitted**.
+- The receiver rebuilds 38 kHz by **doubling** the 19 kHz **pilot**, using a **PLL**.
+- The standard uses **sine** phase, so the carrier is −Imag of the doubled PLL output.
+- **Every filter delays the signal.** Paths that meet again must be delayed equally. A narrow
+  filter delays a lot: here 578 samples.
+- Test with a **known** signal. "It plays music" hid a decoder that was really mono.
+
+## 🧠 Check yourself
+
+1. Why does the station send a 19 kHz pilot instead of the 38 kHz carrier itself?
+   <details><summary>Answer</summary>Not sending the 38 kHz carrier saves transmitter power,
+   and a 19 kHz tone sits in an empty gap between L+R and L−R where it is easy to filter out.
+   Doubling it gives exactly 38 kHz.</details>
+2. What does a PLL do?
+   <details><summary>Answer</summary>It makes its own clean tone and keeps adjusting it until it
+   matches an incoming tone in frequency and phase.</details>
+3. Why is there a Delay block of 578 samples?
+   <details><summary>Answer</summary>The narrow pilot filter delays the pilot by 578 samples.
+   The MPX must be delayed by the same amount so the rebuilt carrier lines up with it.</details>
+4. A station is mono. What happens to the L−R path in real radios, and in this lab?
+   <details><summary>Answer</summary>Real radios detect the missing pilot and switch to mono.
+   This lab does not, so a little of the mono sound leaks into L−R.</details>
+5. You measure left/right correlation 0.78 on real music. Does that prove the decoder works?
+   <details><summary>Answer</summary>No. Real music is partly different in each channel anyway.
+   You need a test signal where you know exactly what should come out of each channel.</details>
+
+**Next:** [Lab 05 — Record and Play Back Radio →](../lab05_iq_record_playback/README.md)
 
 ---
 
 ## 📖 References
 
-1. Wikipedia: [FM broadcasting](https://en.wikipedia.org/wiki/FM_broadcasting)
-2. GNU Radio Wiki: [WBFM Stereo](https://wiki.gnuradio.org/index.php?title=WBFM_Stereo)
-3. Ettus Research: [USRP B210 Manual](https://files.ettus.com/manual/page_usrp_b200.html)
-4. Signalens: [SignalSDR Pro](https://signalens.com/)
+1. [FM broadcasting](https://en.wikipedia.org/wiki/FM_broadcasting) (Wikipedia)
+2. ITU-R Recommendation BS.450 — Transmission standards for FM sound broadcasting
+3. GNU Radio's own stereo decoder: `gr-analog/python/analog/wfm_rcv_pll.py`, which uses the
+   same delay and −Imag approach
+4. [USRP B210 manual](https://files.ettus.com/manual/page_usrp_b200.html)

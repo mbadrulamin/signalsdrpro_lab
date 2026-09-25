@@ -230,7 +230,7 @@ blocks:
 - name: pilot_bandpass
   id: band_pass_filter
   parameters:
-    type: fir_filter_fff
+    type: fir_filter_fcc
     decim: '1'
     gain: '1'
     samp_rate: mpx_rate
@@ -239,19 +239,22 @@ blocks:
     width: '500'
     win: window.WIN_HAMMING
     beta: '6.76'
-    comment: 'Isolate 19 kHz pilot tone (±500 Hz)'
+    comment: 'Isolate the 19 kHz pilot (±500 Hz). Float in, COMPLEX out: a complex band-pass keeps only +19 kHz, so the PLL sees one clean tone instead of +19 and -19 kHz together (worth about 12 dB of separation).'
   states:
     coordinate: [960, 420]
     rotation: 0
     state: enabled
 
-- name: pilot_float_to_complex
-  id: blocks_float_to_complex
+- name: mpx_delay
+  id: blocks_delay
   parameters:
+    type: float
+    delay: (len(firdes.complex_band_pass(1, mpx_rate, 18500, 19500, 500, window.WIN_HAMMING, 6.76)) - 1) // 2
+    num_ports: '1'
     vlen: '1'
-    comment: 'Convert real pilot to complex for PLL'
+    comment: 'Delays the MPX by exactly the pilot filter''s delay (578 samples), so the rebuilt 38 kHz carrier lines up with the L-R signal it demodulates. Without it the carrier phase is effectively random and stereo collapses to mono.'
   states:
-    coordinate: [1180, 420]
+    coordinate: [960, 540]
     rotation: 0
     state: enabled
 
@@ -261,7 +264,7 @@ blocks:
     w: '0.05'
     min_freq: '2 * 3.141592653589793 * 18500 / mpx_rate'
     max_freq: '2 * 3.141592653589793 * 19500 / mpx_rate'
-    comment: 'PLL locks to 19 kHz pilot, outputs clean complex sinusoid'
+    comment: 'PLL locks to the 19 kHz pilot and outputs a clean complex tone with the same phase.'
   states:
     coordinate: [1400, 420]
     rotation: 0
@@ -279,11 +282,11 @@ blocks:
     rotation: 0
     state: enabled
 
-- name: subcarrier_to_real
-  id: blocks_complex_to_real
+- name: subcarrier_to_imag
+  id: blocks_complex_to_imag
   parameters:
     vlen: '1'
-    comment: 'Take real part: cos(2π·38k·t)'
+    comment: 'Broadcast stereo uses a SINE pilot and a SINE 38 kHz carrier. Squaring the PLL output of sin(wt) gives -cos(2wt) - j*sin(2wt), so the carrier we need is minus the IMAGINARY part (the minus sign is applied in scale_lr_minus).'
   states:
     coordinate: [1840, 420]
     rotation: 0
@@ -296,7 +299,7 @@ blocks:
     type: float
     num_inputs: '2'
     vlen: '1'
-    comment: 'MPX × cos(2π·38k·t) demodulates DSB-SC L-R'
+    comment: 'Delayed MPX x sin(2*pi*38k*t) moves L-R from 38 kHz down to audio.'
   states:
     coordinate: [1400, 620]
     rotation: 0
@@ -323,9 +326,9 @@ blocks:
   id: blocks_multiply_const_vxx
   parameters:
     type: float
-    const: '2.0'
+    const: '-2.0'
     vlen: '1'
-    comment: 'DSB-SC demod halves amplitude; restore it'
+    comment: 'x2 because DSB-SC demodulation halves the amplitude; the minus sign completes -Imag = +sin(2wt).'
   states:
     coordinate: [1840, 620]
     rotation: 0
@@ -413,18 +416,18 @@ connections:
 # MPX visualization
 - [quad_demod, '0', spectrum_sink, '0']
 # L+R path
-- [quad_demod, '0', lr_plus_lowpass, '0']
+- [quad_demod, '0', mpx_delay, '0']
+- [mpx_delay, '0', lr_plus_lowpass, '0']
 - [lr_plus_lowpass, '0', l_plus_r_deemph, '0']
 # Pilot path
 - [quad_demod, '0', pilot_bandpass, '0']
-- [pilot_bandpass, '0', pilot_float_to_complex, '0']
-- [pilot_float_to_complex, '0', pilot_pll, '0']
+- [pilot_bandpass, '0', pilot_pll, '0']
 - [pilot_pll, '0', subcarrier_doubler, '0']
 - [pilot_pll, '0', subcarrier_doubler, '1']
-- [subcarrier_doubler, '0', subcarrier_to_real, '0']
+- [subcarrier_doubler, '0', subcarrier_to_imag, '0']
 # L-R path: MPX (float) × 38kHz carrier (float) → demodulated L-R
-- [quad_demod, '0', lrmix, '0']
-- [subcarrier_to_real, '0', lrmix, '1']
+- [mpx_delay, '0', lrmix, '0']
+- [subcarrier_to_imag, '0', lrmix, '1']
 - [lrmix, '0', lr_minus_lowpass, '0']
 - [lr_minus_lowpass, '0', scale_lr_minus, '0']
 - [scale_lr_minus, '0', l_minus_r_deemph, '0']

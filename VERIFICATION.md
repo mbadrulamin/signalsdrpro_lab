@@ -1,7 +1,7 @@
 # 🔬 How This Repository Was Tested
 
-> **What you will learn:** how each lab was checked, the real measurements, seven lessons that
-> only real hardware could teach, and what is still **not** tested.
+> **What you will learn:** how each lab was checked, the real measurements, the lessons that
+> real hardware and careful testing taught us, and what is still **not** tested.
 > **Before this:** nothing. But the lessons make more sense after Labs 01–06.
 > **Time:** about 20 minutes.
 
@@ -25,11 +25,11 @@ Each level catches mistakes the level above it cannot.
 | **Deep** | Does every block, setting and connection exist in the installed GNU Radio 3.10? | `validate_flowgraph.py <folder>` |
 | **Compile** | Does GNU Radio turn it into Python that runs? | `validate_flowgraph.py <folder> --compile` |
 | **Maths** | Does the signal processing give the right answer? | the `simulate_*.py` scripts |
-| **Run** | Does the real flowgraph produce the right output from a test file? | run it on a recorded or generated signal |
+| **Run** | Does the real flowgraph produce the right output from a test signal with a known answer? | `test_labs_offline.py` |
 | **Hardware** | Does it work on a real radio, with real stations? | run it on a live SignalSDR Pro |
 
-**Status:** all 17 flowgraphs pass Structure, Deep and Compile. Labs 01, 03, 04, 05, 06 and 08
-were also run on live radio signals.
+**Status:** all 17 flowgraphs pass Structure, Deep and Compile. Labs 01–04 pass Run
+(`test_labs_offline.py`). Labs 01, 03, 04, 05, 06 and 08 were also run on live radio signals.
 
 ---
 
@@ -50,10 +50,10 @@ Every result below came from the flowgraphs in this repository, not a special te
 | Lab | What we measured | Result | What it means |
 |---|---|---|---|
 | 01 | Audio SNR, 3-block radio | **53.2 dB** | Clean audio from the simplest possible radio |
-| 03 | Audio SNR, with filter + automatic volume + mute | **62.6 dB** | Better again — the extra blocks help |
+| 03 | Audio SNR, with channel filter + AGC + squelch | **62.6 dB** | Better again — mostly thanks to the channel filter |
 | 04 | Frequency the stereo circuit locked to | **18999.79 Hz** (target 19000) | Off by only 11 parts per million |
 | 04 | How clean the rebuilt 38 kHz tone was | **47.8 dB** above nearby noise | A very clean reference for stereo |
-| 04 | How similar left and right channels are | **0.78** (1.0 = identical) | Real stereo: the channels are different |
+| 04 | How similar left and right channels are | **0.78** (1.0 = identical) | ⚠️ **Not proof of stereo** — see Lesson 9. The decoder was in fact almost mono at the time |
 | 05 | Record 6 s, then play back | **79.7 dB** audio SNR | Recording loses nothing |
 | 06 | Audio SNR, tuned 200 kHz to the side | **75.7 dB** | The best result of all |
 | 06 | Audio SNR, tuned exactly on the station | **66.9 dB** | 8.8 dB worse — see Lesson 2 |
@@ -76,10 +76,11 @@ Every result below came from the flowgraphs in this repository, not a special te
 
 ---
 
-## 3. Seven lessons that only real hardware could teach
+## 3. Nine lessons
 
-Simulation is useful, but it only tests what you thought of. These seven problems were found
-only by using a real radio. Each one is now fixed or documented where it matters.
+Simulation is useful, but it only tests what you thought of. Lessons 1–7 were found only by
+using a real radio. Lessons 8 and 9 were found later, by running the real flowgraphs on test
+signals with known answers. Each one is now fixed or documented where it matters.
 
 ### Lesson 1 — One missing setting cost up to 43 dB
 
@@ -98,9 +99,8 @@ centre of the screen (called **DC** or **LO leakage**; see
 
 The wanted station is the same size in both rows. Only the junk changed.
 
-**Why it matters.** The next blocks cannot tell junk from signal. The automatic volume control
-adjusts itself to the junk, and the FM decoder gets a tiny wanted signal sitting on a big
-unwanted one.
+**Why it matters.** The next blocks cannot tell junk from signal. The AGC adjusts itself to
+the junk, and the FM decoder gets a tiny wanted signal sitting on a big unwanted one.
 
 **The fix:** one line, `bw0: samp_rate`.
 
@@ -225,6 +225,58 @@ This is what real TV stations do. `tv_playout.py` does this. Tested for 4.2 laps
 > **Rule:** TV is a timing system that happens to carry data. Correct bytes are not enough;
 > the timing must be correct too. Only watching a real TV found this bug.
 
+### Lesson 8 — A squelch placed after an AGC can never close
+
+*Found in the September 2026 review, by testing the real flowgraph on known signals.*
+
+Lab 03 promised "silence between stations". It could not deliver it. Its squelch came
+**after** the AGC. The AGC's job is to lift every signal to the same level — including plain
+noise. So the squelch always saw a "strong" signal and never muted.
+
+Pure noise at −60 dBFS (a typical empty channel), squelch set to −50 dB:
+
+| Order | What came out | Squelch |
+|---|---|---|
+| AGC → Squelch (old) | −12.9 dB of hiss | never closes |
+| **Squelch → AGC (fixed)** | silence | closes correctly |
+
+Lab 06 already had the right order. Lab 03 now matches it.
+
+> **Rule:** anything that *measures* signal strength must come before anything that
+> *changes* it automatically.
+
+### Lesson 9 — "It plays music" hid a stereo decoder that was really mono
+
+*Found in the September 2026 review.*
+
+Lab 04's stereo decoder played music in both ears, and a hardware test showed the left and
+right channels were different (correlation 0.78). It looked like stereo. It was not.
+
+A test signal with a **1000 Hz tone only on the left** and a **1700 Hz tone only on the right**
+showed about **1 dB** of separation — the left channel had almost as much of the right tone as
+its own. A working decoder gives 30 dB or more.
+
+Two mistakes caused it (Lab 04, Section 5 explains both):
+
+1. The narrow pilot filter delays the pilot by 578 samples, but the MPX it is multiplied with
+   was not delayed to match. The rebuilt 38 kHz carrier had the wrong phase.
+2. The standard uses a **sine** carrier. The decoder took the real part (a cosine) of the
+   rebuilt carrier — a quarter-turn wrong.
+
+| Version (real flowgraph, same test signal) | Left | Right |
+|---|---|---|
+| Before | 1.2 dB | −0.4 dB |
+| **After** | **32.5 dB** | **31.0 dB** |
+
+The two simulation scripts that were meant to check Lab 04 did not catch this. They used
+perfect zero-delay filters and a cosine pilot, so they never met either problem. One of them
+was also quietly failing. They have been replaced by `test_labs_offline.py`, which runs the
+lab's **real** generated code.
+
+> **Rule:** test with a signal whose right answer you know exactly — and test the real code,
+> not a copy of it. Real music is partly different in each ear anyway, so a correlation number
+> cannot tell stereo from mono.
+
 ---
 
 ## 4. Known issue
@@ -264,6 +316,11 @@ Being clear about what is **not** proven is as important as what is.
   official Mode S test examples, but real reception is not proven (see Lesson 4).
 - **Lab 06's AM and narrow-FM modes** were not tested on real signals. No aircraft or marine
   voice could be heard with this antenna. Only the wide-FM mode was measured.
+- **The Lab 03 and Lab 04 fixes (Lessons 8 and 9) have not yet been re-run on the radio.**
+  The radio was not available during the review. Both fixes are proven on test signals by
+  `test_labs_offline.py`, which runs the real flowgraphs.
+- **Lab 04 on a mono station:** there is no pilot detector, so a little of the mono sound
+  leaks into L−R (measured about 10 dB below L+R on a test signal). Real radios switch to mono.
 - **Lab 08's RadioText** (the scrolling song title) was not tested. The only RDS station here
   sends only the station name (group type 0), never RadioText (group type 2).
 
@@ -275,6 +332,8 @@ Being clear about what is **not** proven is as important as what is.
 - Always set `bw0` (the analog bandwidth) to the sample rate. It is worth up to 43 dB.
 - Tune a little beside the signal, not exactly on it. It is worth 8.8 dB.
 - Pair detectors that fail in different ways. Trust error checks over your eyes.
+- Test the real code with a signal whose right answer you know. "It works" is not a test.
+- A squelch must come before an AGC.
 - The antenna is usually the problem when you hear nothing at all.
 - For TV, correct timing matters as much as correct data.
 

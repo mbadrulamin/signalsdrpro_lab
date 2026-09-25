@@ -202,13 +202,18 @@ tell you when to use them.
 | [verify_tv_link.py](./03_scripts/verify_tv_link.py) | Sends a test stream and checks every byte came back correctly. 🚨 transmits. |
 | [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Measures a DVB-T2 signal file and checks it matches the standard. |
 | [make_diagrams.py](./03_scripts/make_diagrams.py) | Redraws the pictures used in the Introduction. |
-| [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Checks the maths of Lab 04's stereo decoder. |
+| [test_labs_offline.py](./03_scripts/test_labs_offline.py) | Runs the **real** lab flowgraphs on test signals with known answers, and checks the results (audio rate, squelch, stereo separation). No radio needed. |
+| [run_offline.py](./03_scripts/run_offline.py) | Runs any lab's `.py` with a recorded file instead of the radio, and saves the audio instead of playing it. |
+| [make_fm_test_iq.py](./03_scripts/make_fm_test_iq.py) | Makes a test FM station (mono or stereo, with a different tone in each ear) as an IQ file. |
+| [check_links.py](./03_scripts/check_links.py) | Checks every link between the pages of this repository. |
 
 To run all the self-tests at once:
 
 ```bash
 cd 03_scripts
 python3 validate_flowgraph.py ../02_flowgraphs --compile
+python3 test_labs_offline.py
+python3 check_links.py
 python3 simulate_rds_decode.py  --selftest
 python3 simulate_adsb_decode.py --selftest
 python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
