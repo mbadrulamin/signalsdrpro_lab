@@ -1,7 +1,7 @@
 # 🛰️ 04 — Satellite & Space
 
-> The domain with the highest reward-to-effort ratio in all of SDR. A $5 antenna made of coat
-> hanger wire will give you a photograph of your own continent, taken from orbit ten minutes ago.
+> The best reward for the effort in all of SDR. A $5 antenna made from a coat hanger can give you
+> a photograph of your own part of the world, taken from space ten minutes ago.
 >
 > [← Maritime](./03_maritime.md) · [Catalogue index](./README.md) · [Next: Weather & Environment →](./05_weather_and_environment.md)
 
@@ -24,9 +24,10 @@ $$
 \Delta f = f_0 \cdot \frac{v_{\text{radial}}}{c}
 $$
 
-A NOAA satellite at 137 MHz closing at 7 km/s gives $137\text{e}6 \times 7000/3\text{e}8 = 3.2$ kHz
-of shift, sweeping through zero at closest approach. Wideband FM tolerates it; anything
-narrowband or coherent does not, and you must correct with predicted orbital elements (TLEs).
+A weather satellite at 137 MHz coming towards you at 7 km/s shifts the frequency by
+$137\text{e}6 \times 7000/3\text{e}8 = 3.2$ kHz. The shift passes through zero as it flies
+overhead, then reverses. Wide FM does not mind. Narrow or phase-based signals do, and you must
+correct the shift using the satellite's predicted orbit (its **TLEs**).
 
 ---
 
@@ -132,8 +133,9 @@ Two things remain worth doing:
 **137.9 MHz**, QPSK at 72 kbit/s, with Viterbi and Reed–Solomon coding — digital where APT was
 analog, and considerably sharper.
 
-**The antenna** — a V-dipole. Two 530 mm wires at 120°, horizontal, pointing north–south. Cost:
-a coat hanger and an SMA pigtail. It genuinely works.
+**The antenna** — a V-dipole. Two wires at 120°, horizontal, pointing north–south. The formula
+gives 546 mm each ([Antennas](../05_reference/03_antennas.md)); trimmed for real wire, about
+530 mm. Cost: a coat hanger and an SMA cable. It really works.
 
 **The pass** — use `gpredict` or any tracking site. You get 10–15 minutes.
 
@@ -151,19 +153,19 @@ USRP (137.9 MHz, ~1 MSPS)
 one attempt per pass; a recording gives you unlimited attempts at the decoder. This matters more
 here than anywhere else in the catalogue.
 
-**The Doppler catch:** at 137 MHz a LEO pass shifts ±3.5 kHz, sweeping through zero at closest
-approach. WBFM shrugged that off; **QPSK will not.** You must either correct it from predicted
-orbital elements or give the Costas loop enough bandwidth to chase it — which is the Lab 07
-Exercise 3 trade-off, now with a real satellite instead of a slider.
+**The Doppler catch:** during a pass, the frequency shifts by up to about ±3.5 kHz, passing
+through zero overhead. Wide FM did not mind; **QPSK does.** Either correct it from the predicted
+orbit, or give the Costas loop enough bandwidth to follow it — the Lab 07 Exercise 3 trade-off,
+now with a real satellite instead of a slider.
 
 ---
 
 ## Then: geostationary, because you only aim once
 
-Once LEO passes start feeling like a scheduling chore, **Inmarsat STD-C** is a revelation: the
-satellite never moves, so you aim a small patch antenna once and leave it. It transmits
-maritime safety broadcasts in plain readable English, continuously, forever. It is the easiest
-geostationary decode there is, and it makes the jump to GOES HRIT feel natural.
+When chasing passing satellites starts to feel like a timetable, try **Inmarsat STD-C**. The
+satellite never moves in the sky, so you aim a small patch antenna once and leave it. It sends
+ship-safety messages in plain English, all day, every day. It is the easiest geostationary signal
+to decode.
 
 ---
 

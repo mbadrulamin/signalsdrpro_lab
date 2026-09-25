@@ -1,7 +1,7 @@
 # 📻 01 — Broadcast & Media
 
-> **34 entries** · The signals designed to be received by everyone. The easiest place to start,
-> and the only domain where reception is unambiguously legal everywhere.
+> **32 entries** · Signals made for everyone to receive. The easiest place to start — and the
+> only area where listening is clearly legal everywhere.
 >
 > [← Catalogue index](./README.md) · [Next: Aviation →](./02_aviation.md)
 
@@ -9,10 +9,10 @@
 
 ## Why start here
 
-Broadcast signals are **strong, continuous, and legal**. They are also unusually rich: a single
-FM broadcast carries mono audio, a stereo subcarrier, a data channel and sometimes more, all
-stacked in one 200 kHz slot. That layering is why Labs 01–08 live here — you can climb from a
-three-block receiver to a CRC-checked data decoder without ever retuning.
+Broadcast signals are **strong, always on, and legal to receive**. They also carry more than you
+might think: one FM station carries mono sound, a stereo signal, a data channel (RDS) and
+sometimes more, all stacked in one 200 kHz slot. That is why Labs 01–08 use FM: you can go from a
+three-block radio to a data decoder with an error check, without ever changing station.
 
 ---
 
@@ -78,7 +78,7 @@ three-block receiver to a CRC-checked data decoder without ever retuning.
 
 ## Try this first
 
-**Sweep the entire FM band and log every station's RDS.** You already have every piece:
+**Scan the whole FM band and record every station's RDS.** You already have every piece:
 
 ```bash
 # Lab 08's decoder, driven across the band
@@ -86,10 +86,12 @@ cd 02_flowgraphs/lab08_rds_decoder
 # capture 12 s per station with Lab 05's recorder, then decode each file
 ```
 
-You will discover, as this repo's own verification did, that **the decoder is far more sensitive
-than the spectrum display** — stations that show no visible 57 kHz hump often decode perfectly.
-Build a table of PI code, station name and PTY for your area. It takes an evening and it turns
-the FM band from noise into a map.
+You will find, as this course's own testing did, that **the decoder is far more sensitive than
+the spectrum display**: a station with no visible bump at 57 kHz may still decode perfectly. Make
+a table of each station's PI code, name and programme type for your area. It takes an evening,
+and it turns the FM band from noise into a map. (Very few Malaysian stations seem to send RDS —
+a careful survey would be genuinely new information. See the
+[Malaysia reference](../05_reference/04_malaysia.md#22-a-measured-fm-band-survey).)
 
 ---
 

@@ -1,8 +1,8 @@
 # 🚢 03 — Maritime
 
-> Ships are aircraft that move slowly, transmit more predictably, and carry a legal obligation
-> to broadcast their identity. If you live near water, AIS is the easiest tracking project there
-> is.
+> Ships are like slow aircraft. They transmit regularly, and most are required by law to
+> broadcast who they are. If you live near water, AIS ship tracking is the easiest tracking
+> project there is.
 >
 > [← Aviation](./02_aviation.md) · [Catalogue index](./README.md) · [Next: Satellite & Space →](./04_satellite_and_space.md)
 
@@ -10,14 +10,21 @@
 
 ## Why maritime is easy
 
-**AIS is mandatory** for most commercial vessels over 300 gross tonnes, transmits every 2–10
-seconds, uses a single well-documented format, and sits in a quiet part of VHF with almost no
-interference. A vertical antenna and a few metres of height will reach 20–40 km over water —
-much further than the same setup manages over land, because the sea is flat and conductive.
+**AIS** (Automatic Identification System) is **required** on most commercial ships over 300
+gross tonnes. It:
 
-> ⚖️ Reception of AIS is unrestricted in most countries and the data is published openly by
-> several services. **Distress traffic (DSC, EPIRB, Ch 16) is different** — never transmit, and
-> if you decode a genuine distress message, contact your coastguard rather than posting it.
+- sends a message every 2–10 seconds,
+- uses one well-documented format, and
+- sits in a quiet part of VHF, with almost no interference.
+
+A vertical antenna a few metres up will reach **20–40 km over water** — much further than over
+land, because the sea is flat and conducts well. The Straits of Malacca is one of the busiest
+shipping lanes in the world.
+
+> ⚖️ Receiving AIS is allowed in most countries, and several websites publish the data openly.
+> **Distress signals (DSC, EPIRB, channel 16) are different.** Never transmit on them. If you
+> ever decode a real distress message, contact the coastguard (in Malaysia, the Malaysian
+> Maritime Enforcement Agency) — do not post it online.
 
 ---
 
@@ -77,27 +84,27 @@ much further than the same setup manages over land, because the sea is flat and 
 
 ## Try this first: AIS
 
-If you can see water from where you live, AIS is a better second project than ADS-B:
+If you can see the sea from where you live, AIS is an even better second project than ADS-B:
 
-- **Two channels only** — 161.975 and 162.025 MHz, so a 2 MSPS capture covers both at once
-- **Slow** — 9600 bit/s GMSK, far gentler than 1 Mbit/s PPM
-- **Self-verifying** — every message contains an MMSI you can look up, and a position you can
-  sanity-check against a public tracker
-- **The antenna is easy** — a 470 mm quarter-wave, which is a length you can cut accurately
+- **Only two channels** — 161.975 and 162.025 MHz. One 2 MSPS recording covers both.
+- **Slow** — 9600 bits per second (GMSK), much gentler than ADS-B's 1 Mbit/s.
+- **Easy to check** — every message has the ship's **MMSI** number, which you can look up, and a
+  position you can compare with a public ship-tracking website.
+- **An easy antenna** — a **463 mm** quarter-wave.
 
-The decode chain is: NBFM demodulate → GMSK bit recovery → NRZI decode → HDLC de-stuffing →
-CRC-16 → six-bit ASCII payload unpacking. Everything except GMSK is already in your toolkit
-after [Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md).
+The decoding steps: narrow-FM demodulate → recover the GMSK bits → NRZI decode → remove HDLC
+"bit stuffing" → check the 16-bit CRC → unpack the 6-bit text. After
+[Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md) you already know every step except GMSK.
 
 ---
 
 ## Then: NAVTEX
 
-If you have an upconverter, NAVTEX at 518 kHz is one of the most satisfying decodes in radio: a
-100-baud FSK signal that resolves into **readable English sentences** about storms and
-navigation hazards, transmitted on a fixed schedule from a station you can identify. It uses
-SITOR-B forward error correction — each character is sent twice, offset in time — which is a
-gentle introduction to FEC.
+With an upconverter (NAVTEX is at 518 kHz, below the SignalSDR Pro's range), NAVTEX is one of the
+most satisfying decodes in radio. A slow 100-baud FSK signal turns into **readable English
+sentences** about storms and hazards to ships, sent on a fixed schedule from a known station. It
+sends every character twice, a little apart in time (SITOR-B) — a gentle first look at error
+correction.
 
 ---
 

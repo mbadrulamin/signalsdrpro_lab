@@ -1,7 +1,8 @@
 # ✈️ 02 — Aviation
 
-> Aircraft are the most rewarding thing a beginner can track: they are numerous, they broadcast
-> constantly, they move, and you can verify every decode against a public flight tracker.
+> Aircraft are the most rewarding thing a beginner can track. There are many of them, they
+> transmit all the time, they move, and you can check every decode against a public flight
+> tracker.
 >
 > [← Broadcast](./01_broadcast_and_media.md) · [Catalogue index](./README.md) · [Next: Maritime →](./03_maritime.md)
 
@@ -9,14 +10,14 @@
 
 ## Why aviation is a good hunting ground
 
-Everything in this domain is designed for **safety**, which means it is designed to be
-*received easily*. Signals are unencrypted, formats are published in ICAO standards, and there
-is a global fleet transmitting them 24 hours a day. It is also the domain where
-[Lab 09](../02_flowgraphs/lab09_adsb_receiver/README.md) already gave you a working decoder.
+Everything here is designed for **safety** — so it is designed to be **easy to receive**. The
+signals are not encrypted, the formats are published by ICAO, and aircraft all over the world send
+them 24 hours a day. And [Lab 09](../02_flowgraphs/lab09_adsb_receiver/README.md) already gave you
+a working decoder.
 
-> ⚖️ **Reception is legal in most countries. Publishing or acting on it may not be.** Several
-> jurisdictions restrict re-transmission of aeronautical communications specifically. Never
-> transmit on any aviation frequency, ever — this is the clearest bright line in the hobby.
+> ⚖️ **Listening is legal in most countries. Publishing or acting on what you hear may not be.**
+> Some countries specifically forbid re-broadcasting aircraft communications. **Never transmit on
+> any aviation frequency** — this is the clearest rule in the whole hobby.
 
 ---
 
@@ -89,14 +90,15 @@ frequency (find it on any aviation chart or airport website). It is:
 - **Strong** — transmitted from the airport at high power
 - **Verifiable** — it reads out the weather, which you can check
 
-It is the perfect signal for confirming that your AM chain, your antenna and your squelch
-setting all work, before you go hunting for something bursty.
+It is the perfect signal to check that your AM receiver, your antenna and your squelch all
+work — before you go hunting for signals that come and go. (Near Kuala Lumpur: KLIA and Subang
+both have ATIS.)
 
 ---
 
 ## Then: extend Lab 09
 
-Your ADS-B decoder handles DF17 only. Three natural extensions, in increasing difficulty:
+Your ADS-B decoder only reads DF 17 messages. Three next steps, easiest first:
 
 1. **Short frames (56-bit)** — DF 0/4/5/11. Note the parity trick: for DF 4/5/20/21 the CRC is
    XORed with the aircraft address, so you must maintain a list of addresses seen from DF17 to
