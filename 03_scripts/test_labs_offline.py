@@ -50,7 +50,7 @@ def run_lab(lab_py, iq, workdir, sets=(), seconds=None, after=()):
         cmd += ['--after', s]
     if seconds:
         cmd += ['--seconds', str(seconds)]
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    res = subprocess.run(cmd, capture_output=True, text=True, errors='replace', timeout=600)
     if res.returncode != 0:
         raise RuntimeError(res.stderr[-2000:])
     LAST_OUTPUT = res.stdout
@@ -98,18 +98,24 @@ def lab02_tone(tmp):
     return ok, f'audio rate {rate:g} Hz (want 48000); 1 kHz tone recovered, rms {np.std(a):.3f}'
 
 
+# A real SignalSDR Pro puts its own spike (DC / LO leakage) at the tuned frequency.
+# Measured at gain 40 on 2026-09-26: the spike alone was -47.6 dB. Tests that tune
+# straight onto a channel must include it, or they pass where the radio fails.
+DC_SPIKE = 10 ** (-47.6 / 20)
+
+
 def lab03_squelch(tmp):
     station, rate = run_lab('lab03_advanced_wbfm/lab03_advanced_wbfm.py',
-                            make(rate=2e6, seconds=2, stereo=False, snr_db=40), tmp)
+                            make(rate=2e6, seconds=2, stereo=False, snr_db=40) + DC_SPIKE, tmp)
     rng = np.random.default_rng(2)
     n = int(2e6 * 2)
-    noise = 0.001 * (rng.standard_normal(n) + 1j * rng.standard_normal(n)) / np.sqrt(2)
+    noise = 0.001 * (rng.standard_normal(n) + 1j * rng.standard_normal(n)) / np.sqrt(2) + DC_SPIKE
     empty, _ = run_lab('lab03_advanced_wbfm/lab03_advanced_wbfm.py', noise, tmp)
     s_rms = np.std(station[0][len(station[0]) // 2:])
     e_rms = np.std(empty[0][len(empty[0]) // 2:])
     ok = s_rms > 0.05 and e_rms < 1e-6
     return ok, (f'station: audio rms {s_rms:.3f} (want > 0.05);  '
-                f'empty channel at -60 dBFS: audio rms {e_rms:.2e} (want silence)')
+                f'empty channel (noise + the radio\'s centre spike): audio rms {e_rms:.2e} (want silence)')
 
 
 def lab04_separation(tmp):

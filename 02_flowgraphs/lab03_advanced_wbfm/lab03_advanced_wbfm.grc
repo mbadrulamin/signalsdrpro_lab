@@ -212,6 +212,18 @@ blocks:
     rotation: 0
     state: enabled
 
+- name: dc_blocker
+  id: dc_blocker_xx
+  parameters:
+    type: cc
+    length: '128'
+    long_form: 'True'
+    comment: 'Removes the radio''s own centre spike (DC / LO leakage). Lab 03 tunes straight onto the station, so the spike sits inside the channel. Measured on a SignalSDR Pro at gain 40: the spike alone was -47.6 dB, as strong as BFM 89.9 itself (-47.8 dB), so the squelch could not tell a station (-45.1 dB) from an empty channel (-46.9 dB). Without the spike: -47.8 vs -55.4 dB, and the squelch works.'
+  states:
+    coordinate: [740, 420]
+    rotation: 0
+    state: enabled
+
 - name: squelch
   id: analog_pwr_squelch_xx
   parameters:
@@ -267,7 +279,8 @@ connections:
 - [pre_filter, '0', freq_sink, '0']
 - [pre_filter, '0', waterfall_sink, '0']
 - [pre_filter, '0', rational_resampler, '0']
-- [rational_resampler, '0', squelch, '0']
+- [rational_resampler, '0', dc_blocker, '0']
+- [dc_blocker, '0', squelch, '0']
 - [squelch, '0', agc, '0']
 - [agc, '0', wbfm_rcv, '0']
 - [wbfm_rcv, '0', volume_control, '0']

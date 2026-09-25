@@ -39,7 +39,7 @@ def run_live(lab_py, workdir, seconds, sets=(), after=()):
         cmd += ['--set', s]
     for s in after:
         cmd += ['--after', s]
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=seconds + 120)
+    res = subprocess.run(cmd, capture_output=True, text=True, errors='replace', timeout=seconds + 120)
     if res.returncode != 0:
         raise RuntimeError(res.stderr[-1500:])
     rate = None
@@ -57,6 +57,8 @@ def run_live(lab_py, workdir, seconds, sets=(), after=()):
 
 def audio_snr(x, rate):
     x = x[int(rate):]                               # skip the first second (start-up)
+    if not np.any(x):
+        return float('-inf')
     n = 1 << int(np.log2(min(len(x), 1 << 16)))
     segs = [x[i:i + n] for i in range(0, len(x) - n, n // 2)]
     spec = np.mean([np.abs(np.fft.rfft(s * np.hanning(n))) ** 2 for s in segs], axis=0)
@@ -88,13 +90,19 @@ def main():
         with tempfile.TemporaryDirectory() as tmp:
             try:
                 chans, rate, _ = run_live(py, tmp, a.seconds, sets, after)
-                snr = audio_snr(chans[0], rate)
-                ok = snr > 30
-                extra = ''
                 if 1 in chans:
-                    lr = chans[0] - chans[1]; lpr = chans[0] + chans[1]
-                    extra = f'   L-R is {10 * np.log10(np.mean(lr ** 2) / np.mean(lpr ** 2)):.1f} dB below L+R'
-                print(f'{"PASS" if ok else "FAIL"}  {name}  audio SNR {snr:5.1f} dB (want > 30){extra}')
+                    # Lab 04's own 15 kHz filters empty the 'quiet' reference band, so the
+                    # SNR figure would be meaningless. Report the stereo content instead.
+                    x0, x1 = chans[0][int(rate):], chans[1][int(rate):]
+                    lr, lpr = x0 - x1, x0 + x1
+                    ratio = 10 * np.log10(np.mean(lr ** 2) / np.mean(lpr ** 2))
+                    ok = np.std(x0) > 0.01 and -40 < ratio < 0
+                    print(f'{"PASS" if ok else "FAIL"}  {name}  stereo decoded: L-R is {-ratio:.1f} dB below L+R '
+                          f'(music is usually 3-20 dB; mono would be much lower)')
+                else:
+                    snr = audio_snr(chans[0], rate)
+                    ok = snr > 30
+                    print(f'{"PASS" if ok else "FAIL"}  {name}  audio SNR {snr:5.1f} dB (want > 30)')
             except Exception as e:
                 ok = False
                 print(f'FAIL  {name}  ERROR: {str(e)[-300:]}')

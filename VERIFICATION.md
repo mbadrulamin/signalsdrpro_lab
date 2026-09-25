@@ -77,11 +77,29 @@ Every result below came from the flowgraphs in this repository, not a special te
 
 ---
 
-## 3. Eleven lessons
+### Re-checked on the radio, 26 September 2026
+
+After the review's fixes, the receive labs were run again on the live radio with
+`03_scripts/test_labs_live.py` (receive only; BFM 89.9 MHz, gain 40, 8 s each):
+
+| Lab | Result |
+|---|---|
+| 01 | audio SNR **64.1 dB** |
+| 02 | audio SNR **63.4 dB** |
+| 03 | audio SNR **61.4 dB**; squelch on an empty channel (104.0 MHz): **silent** |
+| 04 | stereo decoded (on music stations the fix recovers 4–8 dB more L−R — see Lesson 9) |
+| 06 | audio SNR **68.2 dB** |
+
+The audio SNRs are close to the original measurements (which were taken at higher gain: 55–62).
+
+---
+
+## 3. Twelve lessons
 
 Simulation is useful, but it only tests what you thought of. Lessons 1–7 were found only by
 using a real radio. Lessons 8–11 were found later, by running the real flowgraphs on test
-signals with known answers. Each one is now fixed or documented where it matters.
+signals with known answers. Lesson 12 was found by running the fixed labs on the real radio again.
+Each one is now fixed or documented where it matters.
 
 ### Lesson 1 — One missing setting cost up to 43 dB
 
@@ -274,9 +292,17 @@ perfect zero-delay filters and a cosine pilot, so they never met either problem.
 was also quietly failing. They have been replaced by `test_labs_offline.py`, which runs the
 lab's **real** generated code.
 
+**Confirmed on the air afterwards.** A survey of Kuala Lumpur FM stations measured the phase of
+each station's stereo signal against its own pilot: every station with real stereo content had
+it at **90°** — the sine phase the standard specifies, and what the fixed decoder uses. On two
+music stations, the new decoder recovered **4–8 dB more** of the stereo difference than the old
+one (97.6 MHz: L−R 8.3 dB below L+R instead of 12.7; 92.9 MHz: 6.9 instead of 14.7), and left and
+right became clearly more different (correlation 0.92 → 0.74 and 0.96 → 0.66).
+
 > **Rule:** test with a signal whose right answer you know exactly — and test the real code,
 > not a copy of it. Real music is partly different in each ear anyway, so a correlation number
-> cannot tell stereo from mono.
+> cannot tell stereo from mono. (And BFM 89.9, used for most tests here, is a talk station: its
+> stereo content is almost empty. Test stereo on a music station.)
 
 ### Lesson 10 — An AGC level must suit the block after it
 
@@ -310,6 +336,39 @@ options.
 
 > **Rule:** a mode change is not finished until the tools that check it have changed too — and
 > have been run on the new output.
+
+### Lesson 12 — The radio's centre spike can hide an empty channel
+
+*Found by re-running the fixed Lab 03 on the real radio, 26 September 2026.*
+
+With Lesson 8 fixed, the test signals said Lab 03's squelch worked. On the real radio, it still
+let a little noise through on an empty channel. Measuring what the squelch sees (gain 40):
+
+| | Channel power | The centre spike alone | Without the spike |
+|---|---|---|---|
+| BFM 89.9 MHz (a station) | −45.1 dB | −48.6 dB | **−47.8 dB** |
+| 104.0 MHz (empty) | −46.9 dB | −47.6 dB | **−55.4 dB** |
+
+Lab 03 tunes straight onto the station, so the radio's own centre spike (DC / LO leakage) sits
+inside the channel — and it was **as strong as the station**. A station and an empty channel
+differed by only 1.8 dB, so no squelch setting could separate them. Without the spike, they
+differ by 7.6 dB.
+
+**The fix:** a **DC Blocker** block before the squelch. On the real radio: empty channels
+**completely silent**, and the station's audio SNR slightly better (63.6 dB against 61.9 dB).
+`test_labs_offline.py` now adds a centre spike of the measured size to its test signals — and it
+fails on the old Lab 03, so the mistake cannot come back unnoticed.
+
+Two related findings from the same session:
+
+- **`uhd_rx_cfile` cannot set the analog bandwidth.** A recording made with it had the 56 MHz
+  filter problem of Lesson 1: BFM's stereo pilot was buried. Recorded with `bw0` set, it was clean.
+  Setup 04 now warns about this.
+- **Gain matters for stereo.** With the FM whip, gain 40 left the stereo pilot only 11 dB above
+  the noise; gain 55 gave 27 dB.
+
+> **Rule:** test signals must include the real radio's flaws (here, the centre spike), or the
+> test passes where the radio fails. And re-test on the radio after every fix.
 
 ---
 
@@ -350,9 +409,10 @@ Being clear about what is **not** proven is as important as what is.
   official Mode S test examples, but real reception is not proven (see Lesson 4).
 - **Lab 06's AM and narrow-FM modes** were not tested on real signals. No aircraft or marine
   voice could be heard with this antenna. Only the wide-FM mode was measured.
-- **The fixes from the September 2026 review (Lessons 8–11) have not yet been re-run on the
-  radio.** The radio could not connect during the review (its USB link failed to start). All
-  four fixes are proven on test signals by running the real flowgraphs.
+- **Lab 06's AM fix (Lesson 10) and Lab 10's analyser fix (Lesson 11) have not been tested on the
+  radio.** There was no AM signal to receive, and Lab 10's analyser needs a transmitter, which was
+  not switched on. Both are proven on test signals. (Lessons 8, 9 and 12 were re-checked on the
+  radio — see above.)
 - **Lab 04 on a mono station:** there is no pilot detector, so a little of the mono sound
   leaks into L−R (measured about 10 dB below L+R on a test signal). Real radios switch to mono.
 - **Lab 08's RadioText** (the scrolling song title) was not tested. The only RDS station here
@@ -367,7 +427,8 @@ Being clear about what is **not** proven is as important as what is.
 - Tune a little beside the signal, not exactly on it. It is worth 8.8 dB.
 - Pair detectors that fail in different ways. Trust error checks over your eyes.
 - Test the real code with a signal whose right answer you know. "It works" is not a test.
-- A squelch must come before an AGC. An AGC's level must suit the block after it.
+- A squelch must come before an AGC, and must not be fooled by the centre spike. An AGC's level
+  must suit the block after it.
 - When you change a mode, update and re-run every tool that measures it.
 - The antenna is usually the problem when you hear nothing at all.
 - For TV, correct timing matters as much as correct data.

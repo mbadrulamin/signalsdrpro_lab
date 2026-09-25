@@ -308,6 +308,24 @@ channel. Results, running the real flowgraph:
 
 About 30 dB is typical for a real FM stereo receiver.
 
+**Then it was checked on the air** (SignalSDR Pro, gain 55, 26 September 2026). First, a survey of
+Kuala Lumpur stations measured the stereo signal's phase against each station's own pilot. Every
+station with real stereo content had it at **90°** — the sine phase the standard specifies, and
+the phase this decoder now uses. Then the old and new decoders were run on two music stations:
+
+| Station | Old: L−R below L+R | **New: L−R below L+R** | L/R correlation, old → new |
+|---|---|---|---|
+| 97.6 MHz | 12.7 dB | **8.3 dB** | 0.92 → **0.74** |
+| 92.9 MHz | 14.7 dB | **6.9 dB** | 0.96 → **0.66** |
+
+The new decoder recovers 4–8 dB more of the real stereo difference: left and right are clearly
+more different. (Separation itself cannot be measured on the air, because you do not know what the
+station put in each channel — that is what the test signal is for.)
+
+> ⚠️ **Choose a music station, and enough gain.** BFM 89.9 is mostly talk, so its L−R is nearly
+> empty. And with this course's FM whip, gain 40 left the pilot only 11 dB above the noise; gain
+> 55 gave 27 dB. Stereo needs a strong signal.
+
 > **Lesson:** "it plays music" is not a test. Test with a signal whose right answer you know.
 
 ---

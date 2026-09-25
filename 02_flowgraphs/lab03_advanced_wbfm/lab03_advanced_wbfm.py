@@ -203,6 +203,7 @@ class lab03_advanced_wbfm(gr.top_block, Qt.QWidget):
 
         self._freq_sink_win = sip.wrapinstance(self.freq_sink.qwidget(), Qt.QWidget)
         self.top_layout.addWidget(self._freq_sink_win)
+        self.dc_blocker = filter.dc_blocker_cc(128, True)
         self.audio_sink = audio.sink(audio_rate, "", True)
         self.agc = analog.agc2_cc(0.01, 0.001, 0.5, 1.0, 65536)
 
@@ -211,10 +212,11 @@ class lab03_advanced_wbfm(gr.top_block, Qt.QWidget):
         # Connections
         ##################################################
         self.connect((self.agc, 0), (self.wbfm_rcv, 0))
+        self.connect((self.dc_blocker, 0), (self.squelch, 0))
         self.connect((self.pre_filter, 0), (self.freq_sink, 0))
         self.connect((self.pre_filter, 0), (self.rational_resampler, 0))
         self.connect((self.pre_filter, 0), (self.waterfall_sink, 0))
-        self.connect((self.rational_resampler, 0), (self.squelch, 0))
+        self.connect((self.rational_resampler, 0), (self.dc_blocker, 0))
         self.connect((self.squelch, 0), (self.agc, 0))
         self.connect((self.usrp_source, 0), (self.pre_filter, 0))
         self.connect((self.volume_control, 0), (self.audio_sink, 0))

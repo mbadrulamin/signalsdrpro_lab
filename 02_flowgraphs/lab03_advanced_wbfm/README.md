@@ -40,7 +40,7 @@ Press **F5**. You now have **four** controls:
 | **Frequency** | 87.5–108 MHz | Tunes the radio (changes the LO) |
 | **RF Gain** | 0–76 dB | Amplification in the radio hardware, *before* the ADC |
 | **Squelch** | −80 to 0 dB | The level below which the audio is muted |
-| **Volume** | 0.0–5.0 | Loudness, *after* decoding. Starts at 0.5 (see Section 3.4) |
+| **Volume** | 0.0–5.0 | Loudness, *after* decoding. Starts at 0.5 (see Section 3.5) |
 
 Tune to a station and listen. Then set the squelch as described in
 [Section 5](#5-setting-the-squelch).
@@ -50,11 +50,11 @@ Tune to a station and listen. Then set the squelch as described in
 ## 2. The flowgraph
 
 ```
-┌─────────────┐   ┌────────────┐   ┌────────────┐   ┌─────────┐   ┌─────┐   ┌──────────┐   ┌────────┐   ┌───────┐
-│ USRP Source │──▶│ Low Pass   │──▶│ Rational   │──▶│ Squelch │──▶│ AGC │──▶│   WBFM   │──▶│ Volume │──▶│ Audio │
-│   2 MSPS    │   │ Filter     │   │ Resampler  │   │         │   │     │   │ Receive  │   │        │   │ Sink  │
-└─────────────┘   └─────┬──────┘   └────────────┘   └─────────┘   └─────┘   └──────────┘   └────────┘   └───────┘
-                        │           2 M → 384 k                              384 k → 48 k
+┌─────────────┐   ┌────────────┐   ┌────────────┐   ┌─────────┐   ┌─────────┐   ┌─────┐   ┌──────────┐   ┌────────┐   ┌───────┐
+│ USRP Source │──▶│ Low Pass   │──▶│ Rational   │──▶│   DC    │──▶│ Squelch │──▶│ AGC │──▶│   WBFM   │──▶│ Volume │──▶│ Audio │
+│   2 MSPS    │   │ Filter     │   │ Resampler  │   │ Blocker │   │         │   │     │   │ Receive  │   │        │   │ Sink  │
+└─────────────┘   └─────┬──────┘   └────────────┘   └─────────┘   └─────────┘   └─────┘   └──────────┘   └────────┘   └───────┘
+                        │           2 M → 384 k                                             384 k → 48 k
                         ├──▶ Spectrum
                         └──▶ Waterfall
 ```
@@ -94,7 +94,37 @@ only see our station.
 > sample). [Fundamentals 05](../../01_fundamentals/05_sampling_and_filters.md) shows how to
 > work that number out.
 
-### 3.2 Power Squelch — silence when there is no station
+### 3.2 DC Blocker — removing the radio's own centre spike
+
+Every SDR has a spike exactly at the frequency it is tuned to: a little of its own tuning signal
+leaks in (**DC** or **LO leakage**). This lab tunes **straight onto** the station, so the spike
+sits right in the middle of our channel. The **DC Blocker** removes anything that does not
+change (the 0 Hz part), and lets the station through.
+
+| Setting | Value | Meaning |
+|---|---|---|
+| Type | Complex → Complex | IQ in, IQ out |
+| Length | 128 | How narrow the removed band is. At 384 kSPS, only the very centre is removed |
+| Long Form | True | A cleaner (two-stage) version of the filter |
+
+**Why it is needed — measured on a real SignalSDR Pro** (gain 40, 26 September 2026). This is
+the power the squelch sees:
+
+| | With the spike | The spike alone | Without the spike |
+|---|---|---|---|
+| BFM 89.9 MHz (a station) | −45.1 dB | −48.6 dB | **−47.8 dB** |
+| 104.0 MHz (empty) | −46.9 dB | −47.6 dB | **−55.4 dB** |
+
+With the spike, a station and an empty channel differ by only **1.8 dB** — the spike is as strong
+as the station itself — so **no** squelch setting can tell them apart. Without it, they differ by
+**7.6 dB**, and the squelch works. The first version of this lab had no DC Blocker; on the real
+radio, its squelch let noise through on an empty channel. With it: **complete silence** on empty
+channels, and the station's audio SNR slightly **better** (63.6 dB against 61.9 dB).
+
+> 💡 Lab 06 avoids the spike another way: it tunes the radio 200 kHz *beside* the station and
+> shifts back in software, so the spike falls outside the channel.
+
+### 3.3 Power Squelch — silence when there is no station
 
 A **squelch** watches the signal's power. If the power is **below the threshold**, it mutes
 the output. If it is **above**, it lets the signal through. Walkie-talkies use a squelch so you
@@ -111,7 +141,7 @@ don't hear hiss between calls.
 > The Audio Sink then runs out of data, and you get `aU` (audio underrun) errors and
 > stuttering. Sending zeros keeps the audio flowing — as silence.
 
-### 3.3 AGC — automatic gain control
+### 3.4 AGC — automatic gain control
 
 Stations arrive at very different strengths. A nearby station might be 1,000 times stronger
 than a distant one. The signal also **fades** up and down as you move, or as buses and
@@ -160,7 +190,7 @@ $$
 $|y| < R$ (too quiet). The gain is kept between 0 and Max Gain.
 </details>
 
-### 3.4 Multiply Const — the volume control
+### 3.5 Multiply Const — the volume control
 
 Multiplies every audio sample by the `volume` slider value. 0 = silent, 1 = unchanged,
 2 = twice as loud.
@@ -192,10 +222,12 @@ where it does:
 3. **Rational Resampler** — reduces 2 MSPS to 384 kSPS. Now the later blocks have 5 times
    fewer samples to process, so the CPU does less work. (The filter already removed everything
    the lower rate cannot hold, so there is no aliasing.)
-4. **Squelch** — **before** the AGC, so it measures the **real** signal strength.
-5. **AGC** — after the squelch, to set a steady level for the decoder.
-6. **WBFM Receive** — decodes the filtered IQ into audio.
-7. **Volume** — last, on the audio only.
+4. **DC Blocker** — removes the radio's centre spike, so the squelch measures the station, not
+   the spike.
+5. **Squelch** — **before** the AGC, so it measures the **real** signal strength.
+6. **AGC** — after the squelch, to set a steady level for the decoder.
+7. **WBFM Receive** — decodes the filtered IQ into audio.
+8. **Volume** — last, on the audio only.
 
 ### Why the squelch must come before the AGC
 
@@ -216,7 +248,8 @@ arrangements, with the squelch set to −50 dB:
 | **Squelch → AGC** | **silence** | **closes correctly** |
 
 > **Rule:** anything that *measures* signal strength (a squelch, a signal meter) must come
-> **before** anything that *changes* signal strength automatically (an AGC).
+> **before** anything that *changes* signal strength automatically (an AGC) — and must not be
+> fooled by the radio's own centre spike.
 
 ---
 
@@ -284,6 +317,7 @@ this:
 | Problem | Try this |
 |---|---|
 | Hiss between stations | Squelch threshold too low. Raise it (Section 5) |
+| Squelch never closes, whatever the threshold | The DC Blocker is missing or disabled: the radio's centre spike keeps the squelch open (Section 3.2) |
 | Weak stations are muted | Squelch threshold too high. Lower it by 5 dB |
 | A neighbouring station can be heard underneath | Make the filter narrower (cutoff 80 kHz) |
 | Audio distorted | Lower **Volume** (try 0.3) and turn up your computer's speakers instead. If still distorted, lower **RF Gain** |
@@ -294,7 +328,9 @@ this:
 ## ✅ Summary
 
 - A good receiver adds a **channel filter**, a **squelch**, an **AGC** and a **volume** control.
-- **Order matters.** Filter first. Squelch **before** AGC. Volume last.
+- **Order matters.** Filter first. Remove the centre spike. Squelch **before** AGC. Volume last.
+- When you tune straight onto a station, the radio's centre spike can be as strong as the
+  station. A **DC Blocker** removes it.
 - The AGC makes noise as loud as a station, so a squelch after it can never mute.
 - **Gain** (before the ADC) affects sound quality. **Volume** (after decoding) does not.
 - AGC attack is fast (avoid clipping); decay is slow (avoid pumping).

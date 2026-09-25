@@ -121,6 +121,12 @@ print(f'{len(x):,} samples, level {10*np.log10(2*np.mean(abs(x)**2)):.1f} dBFS, 
 ✅ **Pass:** a level somewhere around **−50 to −10 dBFS**, and a peak **below 0 dBFS**.
 If the peak is 0 dBFS, the gain is too high (the signal is clipping) — try `-g 25`.
 
+> ⚠️ `uhd_rx_cfile` has **no option to set the analog bandwidth (`bw0`)**, so the radio's filter
+> stays at 56 MHz and the recording has a big centre spike. That is fine for this check. For
+> recordings you want to decode, use [Lab 05](../02_flowgraphs/lab05_iq_record_playback/README.md),
+> which sets it. (Found the hard way: a `uhd_rx_cfile` recording of BFM 89.9 had its stereo pilot
+> buried in the noise, while the same station recorded with `bw0` set was clean.)
+
 ---
 
 ## All four passed?
