@@ -204,7 +204,7 @@ tell you when to use them.
 | [make_diagrams.py](./03_scripts/make_diagrams.py) | Redraws the pictures used in the Introduction. |
 | [test_labs_offline.py](./03_scripts/test_labs_offline.py) | Runs the **real** lab flowgraphs on test signals with known answers, and checks the results (audio rate, squelch, stereo separation). No radio needed. |
 | [run_offline.py](./03_scripts/run_offline.py) | Runs any lab's `.py` with a recorded file instead of the radio, and saves the audio instead of playing it. |
-| [make_fm_test_iq.py](./03_scripts/make_fm_test_iq.py) | Makes a test FM station (mono or stereo, with a different tone in each ear) as an IQ file. |
+| [make_test_iq.py](./03_scripts/make_test_iq.py) | Makes a test FM station (mono or stereo, with a different tone in each ear) as an IQ file. |
 | [check_links.py](./03_scripts/check_links.py) | Checks every link between the pages of this repository. |
 
 To run all the self-tests at once:

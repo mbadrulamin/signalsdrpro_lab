@@ -398,7 +398,7 @@ class lab06_multimode_receiver(gr.top_block, Qt.QWidget):
         	audio_stop=5500,
         )
         self.agc_wide = analog.agc2_cc(0.01, 0.001, 0.5, 1.0, 4096)
-        self.agc_narrow = analog.agc2_cc(0.02, 0.0005, 0.3, 1.0, 4096)
+        self.agc_narrow = analog.agc2_cc(0.02, 0.0005, 1.0, 1.0, 4096)
 
 
         ##################################################

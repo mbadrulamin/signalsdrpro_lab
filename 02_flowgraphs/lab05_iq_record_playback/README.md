@@ -312,7 +312,7 @@ No radio yet? Make a test station and play it through the real player:
 
 ```bash
 cd 03_scripts
-python3 make_fm_test_iq.py /tmp/capture_100M0_2Msps_fc32.iq --mono --seconds 10
+python3 make_test_iq.py /tmp/capture_100M0_2Msps_fc32.iq --mono --seconds 10
 ```
 
 Then open `lab05_iq_playback.grc` and press **F5**. You should hear a steady 1000 Hz + 1700 Hz

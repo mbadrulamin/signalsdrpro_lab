@@ -20,7 +20,7 @@ blocks:
   id: note
   parameters:
     comment: 'Receive only. Check your local regulations.'
-    note: 'Airband 118-137 AM | Marine 156-162 NBFM | NOAA wx 162.4-162.55 NBFM | Broadcast 88-108 WBFM'
+    note: 'Airband 118-137 AM | Marine 156-162 NBFM (ch16 = 156.800) | Amateur 2 m 144-148 NBFM | Broadcast 87.5-108 WBFM'
   states:
     coordinate: [10, 100]
     rotation: 0
@@ -374,9 +374,9 @@ blocks:
 - name: agc_narrow
   id: analog_agc2_xx
   parameters:
-    comment: 'Normalises level so AM and NBFM audio are comparable regardless of signal strength.'
+    comment: 'Holds the AM carrier at exactly 1.0. That matters: AM Demod subtracts a fixed 1.0 after taking the envelope, so any other reference leaves a DC offset on the audio (0.3 gave -0.35, and a pop on every mode change). NBFM ignores the level.'
     type: complex
-    reference: '0.3'
+    reference: '1.0'
     attack_rate: '0.02'
     decay_rate: '0.0005'
     gain: '1.0'

@@ -334,7 +334,7 @@ You can check this lab with **no radio at all**, using two helper scripts:
 cd 03_scripts
 
 # 1. make 3 seconds of stereo FM: 1000 Hz on the left only, 1700 Hz on the right only
-python3 make_fm_test_iq.py /tmp/stereo.cfile
+python3 make_test_iq.py /tmp/stereo.cfile
 
 # 2. run the real Lab 04 flowgraph on it, and save the audio
 python3 run_offline.py ../02_flowgraphs/lab04_stereo_wbfm/lab04_stereo_wbfm.py \

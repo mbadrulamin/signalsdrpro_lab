@@ -5,7 +5,7 @@ run_offline.py — run a lab's real flowgraph with no radio attached.
 It loads the lab's generated .py file exactly as it is, but first swaps two things:
 
   * every USRP Source becomes a file source that reads IQ from a .cfile
-    (complex64, the format Lab 05 records and `make_fm_test_iq` writes), and
+    (complex64, the format Lab 05 records and `make_test_iq` writes), and
   * every Audio Sink becomes a recorder that saves what would have been played.
 
 Everything in between is the lab's own code, untouched. So this tests the real
@@ -18,6 +18,8 @@ Usage:
     --set freq=100e6     call the flowgraph's set_freq(100e6) before starting
     --seconds N          stop after N seconds (for flowgraphs that never end by
                          themselves, e.g. a File Source with repeat on)
+    --after mode=0       like --set, but called just after start(). Needed for
+                         settings that only work on a running flowgraph (Lab 06)
 
 Labs that read a file instead of the radio (the Lab 05 player, the Lab 08 and
 09 "from file" versions) are handled too: every complex File Source is pointed
@@ -108,6 +110,7 @@ def main():
     ap.add_argument('--out', default='.')
     ap.add_argument('--set', action='append', default=[], metavar='name=value')
     ap.add_argument('--seconds', type=float, default=None)
+    ap.add_argument('--after', action='append', default=[], metavar='name=value')
     args = ap.parse_args()
 
     _FakeUSRP.path = os.path.abspath(args.cfile)
@@ -128,6 +131,8 @@ def main():
         getattr(tb, 'set_' + k)(eval(v))
     t0 = time.time()
     tb.start()
+    for k, v in (a.split('=', 1) for a in args.after):
+        getattr(tb, 'set_' + k)(eval(v))
     if args.seconds is None:
         tb.wait()
     else:

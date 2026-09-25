@@ -3,7 +3,7 @@
 test_labs_offline.py — check that the labs' real flowgraphs give the right answer.
 
 No radio is needed. For each lab it:
-  1. makes a test signal whose correct output is known (make_fm_test_iq.py),
+  1. makes a test signal whose correct output is known (make_test_iq.py),
   2. runs the lab's generated .py on it, with the radio swapped for that file
      (run_offline.py), and
   3. measures the audio and compares it with what it should be.
@@ -27,10 +27,10 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABS = os.path.join(HERE, '..', '02_flowgraphs')
 sys.path.insert(0, HERE)
-from make_fm_test_iq import make  # noqa: E402
+from make_test_iq import make  # noqa: E402
 
 
-def run_lab(lab_py, iq, workdir, sets=(), seconds=None):
+def run_lab(lab_py, iq, workdir, sets=(), seconds=None, after=()):
     """Run a lab on IQ samples; return {channel: audio array} and the audio rate."""
     cfile = os.path.join(workdir, 'in.cfile')
     iq.astype(np.complex64).tofile(cfile)
@@ -38,6 +38,8 @@ def run_lab(lab_py, iq, workdir, sets=(), seconds=None):
     cmd = [sys.executable, os.path.join(HERE, 'run_offline.py'), os.path.join(LABS, lab_py), cfile, '--out', out]
     for s in sets:
         cmd += ['--set', s.replace('{cfile}', cfile)]
+    for s in after:
+        cmd += ['--after', s]
     if seconds:
         cmd += ['--seconds', str(seconds)]
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -129,7 +131,40 @@ def lab05_retune(tmp):
                 f'{db(tone_on, tone_off):.0f} dB stronger than at -300 kHz (want > 20)')
 
 
-TESTS = [lab01_tone, lab02_tone, lab03_squelch, lab04_separation, lab05_retune]
+LAB06 = 'lab06_multimode_receiver/lab06_multimode_receiver.py'
+
+
+def _lab06(tmp, mode, iq):
+    # mode can only be set on a running flowgraph (see VERIFICATION.md, Known issue)
+    chans, rate = run_lab(LAB06, iq, tmp, after=[f'mode={mode}'])
+    a = chans[0][len(chans[0]) // 2:]
+    return a, rate
+
+
+def lab06_modes(tmp):
+    # the default tuning puts the channel 200 kHz below the hardware centre
+    results, ok = [], True
+    for name, mode, kind in (('AM', 0, 'am'), ('NBFM', 1, 'nbfm'), ('WBFM', 2, 'wbfm')):
+        a, rate = _lab06(tmp, mode, make(rate=2e6, seconds=3, mode=kind, stereo=False,
+                                         offset=-200e3, snr_db=40))
+        clean = tone_level(a, rate, 1000) > 30 * tone_level(a, rate, 2500)
+        no_dc = abs(a.mean()) < 0.02
+        ok &= rate == 50000 and clean and no_dc and np.std(a) > 0.05
+        results.append(f'{name} rms {np.std(a):.2f} dc {a.mean():+.3f}')
+    return ok, '; '.join(results) + ' (want a clean 1 kHz tone, no DC offset)'
+
+
+def lab06_squelch(tmp):
+    rng = np.random.default_rng(3)
+    n = int(2e6 * 3)
+    noise = 0.001 * (rng.standard_normal(n) + 1j * rng.standard_normal(n)) / np.sqrt(2)
+    a, _ = _lab06(tmp, 1, noise)
+    ok = np.std(a) < 1e-6
+    return ok, f'NBFM on an empty channel: audio rms {np.std(a):.2e} (want silence)'
+
+
+TESTS = [lab01_tone, lab02_tone, lab03_squelch, lab04_separation, lab05_retune,
+         lab06_modes, lab06_squelch]
 
 
 def main():

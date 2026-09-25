@@ -1,455 +1,413 @@
-# 📻 Lab 06 — Multimode Receiver: AM / NBFM / WBFM
+# 📻 Lab 06 — One Radio, Many Modes (AM / NBFM / WBFM)
 
-> **Time:** 2 hours
-> **Difficulty:** Advanced
-> **Theory needed:** [Fund. 05 Sampling & Filters](../../01_fundamentals/05_sampling_and_filters.md) · [Fund. 06 Noise & SNR](../../01_fundamentals/06_noise_snr_and_gain.md) · [Fund. 07 AM & NBFM](../../01_fundamentals/07_am_and_narrowband_fm.md)
-> **New blocks:** Frequency Xlating FIR Filter, AM Demod, NBFM Receive, Selector, Chooser, Moving Average, Log10, Number Sink
-> **Blocks in flowgraph:** 35
+> **What you will build:** one receiver that can decode **three** kinds of signal — AM, narrow
+> FM and wide FM — tune anywhere inside a 2 MHz window **without retuning the hardware**, and
+> show how strong the signal is.
+> **What you will learn:** tuning in software vs. hardware, filtering in two stages, switching
+> between parallel paths with a **Selector**, and building a signal meter (**S-meter**).
+> **Before this:** [Lab 05](../lab05_iq_record_playback/README.md),
+> [Fundamentals 05](../../01_fundamentals/05_sampling_and_filters.md),
+> [06](../../01_fundamentals/06_noise_snr_and_gain.md) and
+> [07 — AM & Narrow FM](../../01_fundamentals/07_am_and_narrowband_fm.md).
+> **Time:** about 2 hours. **Difficulty:** advanced. **Needs the radio:** yes (or a test file).
 
 ---
 
 ## 🎯 Goal
 
-Build one receiver that handles **three modulation schemes**, tunes **anywhere in a 2 MHz
-window without touching the hardware**, and tells you how strong the signal is.
-
-This is the lab where the flowgraph stops being "an FM radio" and becomes a **radio**. Lab 03
-gave you one signal path with knobs on it. Lab 06 gives you a *branching* signal path with a
-runtime switch — which is how every real SDR application is structured.
+Until now, each flowgraph was one straight line: an FM radio. This lab has **branches**. The
+signal splits into three decoders running side by side, and a switch picks which one you hear.
+Most real SDR programs are built this way.
 
 Three new ideas:
 
-1. **Two-stage channelisation** — coarse selection at high rate, fine selection at low rate.
-2. **Parallel demodulator branches with a Selector** — switching modes without restarting.
-3. **Measurement** — an S-meter that reads the *channel*, not the band.
+1. **Two-stage filtering** — a wide filter first, then a narrow one.
+2. **Parallel decoders with a Selector** — change mode instantly, without restarting.
+3. **Measurement** — an S-meter that measures *your channel*, not the whole band.
 
 ---
 
-## 📖 Background: One Tuner, Many Channels
+## 1. Background: one tuner, many channels
 
-Your SignalSDR Pro delivers 2 MHz of spectrum. Inside that 2 MHz there might be ten FM
-stations, or forty marine channels, or a hundred airband channels. A hardware radio would have
-to retune its local oscillator to reach each one. **We don't have to.**
+The radio delivers **2 MHz** of spectrum at once. Inside that 2 MHz there might be ten FM
+stations, or dozens of aircraft or marine channels. A normal radio must retune its hardware to
+reach each one. **We don't have to** — we pick a channel in software, with the Frequency
+Xlating FIR Filter you met in Lab 05.
 
 ```
-        2 MHz captured in one shot from the AD9361
+        2 MHz, received all at once
    ┌──────────────────────────────────────────────────┐
    │   ▲          ▲       ▲            ▲        ▲     │
    │ 99.3       99.7    100.1        100.5    100.9   │
    └────┬─────────┬────────┬────────────┬────────┬────┘
-        │         │        │            │        │
         └─────────┴────────┼────────────┴────────┘
                            │
               Frequency Xlating FIR Filter
-              ( mix by -offset, filter, decimate )
+              (shift by the offset, filter, keep 1 in 5)
                            │
-                           ▼
                   one channel at 400 kSPS
 ```
 
-Moving the `offset_freq` slider changes a complex multiply. It takes effect on the **next
-sample** — no PLL settling, no gap in the stream, no clicks. Moving the `freq` slider retunes
-the AD9361 and interrupts the stream for milliseconds. **They are not the same operation**, and
-knowing which one you are using is the difference between a scanner that works and one that
-misses transmissions.
+### Two ways to tune — and they are not the same
+
+| | **Hardware tuning** (`freq`) | **Software tuning** (`offset_freq`) |
+|---|---|---|
+| What changes | The radio's LO (its internal tuning signal) | A multiplication in the computer |
+| Range | 70 MHz – 6 GHz | Only inside the 2 MHz you are receiving |
+| Speed | The hardware must re-lock: a gap of a few milliseconds | Instant, from the very next sample |
+| Clicks or gaps? | Yes, briefly | No |
+
+Use hardware tuning to choose a **band**. Use software tuning to choose a **channel** inside
+it. A scanner that retunes the hardware for every channel will miss short transmissions during
+the gaps.
 
 ### Why the default offset is −200 kHz
 
-A direct-conversion receiver leaks its own local oscillator into its own input. The result is a
-permanent spike at **exactly** the tuned frequency — the "DC spike" or "LO leakage".
+Every SDR has a small spike exactly at the frequency the hardware is tuned to. It comes from
+the radio's own LO leaking into its input. It is **not** a signal.
 
 ```
-       ┌ LO leakage / DC offset (hardware artifact, NOT a signal)
+       ┌ LO leakage (the radio's own spike, NOT a signal)
        │
    ────┴────  ▁▂▃█▇▃▂▁
        0 Hz     your station
 ```
 
-If you tune the hardware directly onto the station you want, that spike sits right in the
-middle of your channel. The standard cure — used by every serious SDR application — is to tune
-the hardware **beside** the signal and use the xlating filter to come back. That is why `freq`
-defaults to 100.1 MHz and `offset_freq` to −200 kHz, putting the actual reception at 99.9 MHz
-with the DC spike safely 200 kHz away.
+If you tune the hardware exactly onto your station, the spike lands in the middle of it. The
+fix, used by almost every SDR program: tune the hardware **beside** the signal, then use
+software tuning to come back.
 
-> **This is worth 8.8 dB, measured.** Running this exact flowgraph on a live SignalSDR Pro
-> against BFM 89.9 MHz:
+So the defaults are: hardware `freq` = **100.1 MHz**, `offset_freq` = **−200 kHz**. You listen
+to 99.9 MHz, and the spike is 200 kHz away, outside your channel.
+
+> **Measured: this is worth 8.8 dB.** This flowgraph on a real SignalSDR Pro, BFM 89.9 MHz:
 >
-> | Configuration | Audio SNR |
+> | Setup | Audio SNR |
 > |---|---|
-> | hardware at 90.1 MHz, `offset_freq` = −200 kHz | **75.7 dB** |
-> | hardware at 89.9 MHz, `offset_freq` = 0 | **66.9 dB** |
+> | hardware at 90.1 MHz, offset −200 kHz | **75.7 dB** |
+> | hardware at 89.9 MHz, offset 0 | **66.9 dB** |
 >
-> Same station, same gain, same antenna, same 6-second window. The only difference is where the
-> LO sits relative to the signal.
+> Same station, gain, antenna and 6-second window. Only the position of the spike changed.
 
 ---
 
-## 📐 Architecture
+## 2. The flowgraph
 
 ```
-                          ┌──────────────┐
-                          │ USRP Source  │ 2 MSPS complex
-                          └──────┬───────┘
+                           USRP Source  (2 MSPS)
                                  │
               ┌──────────────────┼──────────────────┐
               ▼                  ▼                  ▼
-        Freq Sink          Waterfall      ┌───────────────────────┐
-        (full span)        (full span)    │ Freq Xlating FIR      │
-                                          │ mix -offset_freq      │
-                                          │ LPF 150 kHz, decim 5  │
-                                          └───────────┬───────────┘
-                                                      │  400 kSPS
-                        ┌─────────────────────────────┴───────────┐
-                        │                                         │
-              WIDE PATH ▼                             NARROW PATH ▼
-                  ┌───────────┐                        ┌────────────────┐
-                  │ AGC2 (c)  │                        │ Low Pass Filter│
-                  │ ref 0.5   │                        │ cutoff narrow_bw│
-                  └─────┬─────┘                        │ decim 8        │
-                        │                              └───┬─────┬──────┘
-                  ┌─────▼──────┐                           │     │  50 kSPS
-                  │ WBFM Recv  │                    ┌──────┘     └──────┐
-                  │ /8 → 50 k  │                    │                   │
-                  └─────┬──────┘             ┌──────▼──────┐   ┌────────▼───────┐
-                        │                    │ Pwr Squelch │   │ S-METER        │
-                        │                    │ gate=False  │   │ |x|² → avg     │
-                        │                    └──────┬──────┘   │ → 10log10      │
-                        │                           │          │ → Number Sink  │
-                        │                    ┌──────▼──────┐   └────────────────┘
-                        │                    │ AGC2 (c)    │
-                        │                    │ ref 0.3     │
-                        │                    └──┬───────┬──┘
-                        │                       │       │
-                        │              ┌────────▼──┐ ┌──▼──────────┐
-                        │              │ AM Demod  │ │ NBFM Receive│
-                        │              │ envelope  │ │ dev 5 kHz   │
-                        │              └────┬──────┘ └──────┬──────┘
-                        │                   │ 50k           │ 50k
-                        │        ┌──────────┴───────────────┘
-                        │        │
-                  ┌─────▼────────▼─────────┐
-                  │  Selector (float)      │  in0=AM  in1=NBFM  in2=WBFM
-                  │  input_index = mode    │
-                  └───────────┬────────────┘
-                              ▼
-                    ┌──────────────────┐
-                    │ Multiply (volume)│
-                    └────┬────────┬────┘
-                         ▼        ▼
-                  Audio Sink   Time Sink
-                   50 kHz
+         Spectrum           Waterfall        Freq Xlating FIR Filter
+        (full 2 MHz)       (full 2 MHz)      shift by offset_freq,
+                                             low-pass 150 kHz, ÷5
+                                                    │ 400 kSPS
+                          ┌─────────────────────────┴─────────────┐
+                 WIDE PATH│                              NARROW PATH│
+                          ▼                                         ▼
+                        AGC                              Low Pass Filter
+                          │                              cutoff narrow_bw, ÷8
+                          ▼                                  │ 50 kSPS
+                    WBFM Receive ÷8                ┌─────────┼──────────────┐
+                          │ 50 kSPS                ▼         ▼              ▼
+                          │                    Squelch   Channel        S-METER
+                          │                        │     spectrum   |x|² → average
+                          │                        ▼                → dB → number
+                          │                       AGC
+                          │                     ┌──┴──────┐
+                          │                     ▼         ▼
+                          │                 AM Demod   NBFM Receive
+                          │                     │         │
+                          ▼                     ▼         ▼
+                    ┌──────────────────────────────────────────┐
+                    │ Selector: input 0 = AM, 1 = NBFM, 2 = WBFM │
+                    └───────────────────┬──────────────────────┘
+                                        ▼
+                                     Volume
+                                   ┌────┴────┐
+                                   ▼         ▼
+                              Audio Sink   Audio display
+                               50 kHz
 ```
 
-### The rate table
+### Sample rates
 
-| Wire | Rate | Type | Bandwidth carried |
+| Between | Rate | Type | Width carried |
 |---|---|---|---|
-| USRP → xlating | 2 MSPS | complex | ±1 MHz |
-| xlating → wide path | 400 kSPS | complex | ±150 kHz |
-| xlating → narrow LPF | 400 kSPS | complex | ±150 kHz |
-| narrow LPF → demods | 50 kSPS | complex | ±`narrow_bw` |
-| all demods → selector | 50 kSPS | **float** | 0–5 kHz (AM), 0–15 kHz (FM) |
-| selector → audio | 50 kSPS | float | audio |
+| USRP → xlating filter | 2 MSPS | complex | ±1 MHz |
+| xlating → both paths | 400 kSPS | complex | ±150 kHz |
+| narrow filter → decoders | 50 kSPS | complex | ±`narrow_bw` |
+| all decoders → Selector | 50 kSPS | **float** | audio |
+| Selector → Audio Sink | 50 kSPS | float | audio |
 
-$2\text{M} \div 5 = 400\text{k} \div 8 = 50\text{k}$. Exact integers all the way down, as
-[Fundamentals 05](../../01_fundamentals/05_sampling_and_filters.md) insists.
+2,000,000 ÷ 5 = 400,000 ÷ 8 = 50,000. Whole numbers all the way down, as
+[Fundamentals 05](../../01_fundamentals/05_sampling_and_filters.md) recommends.
+
+### Controls
+
+| Control | Range | Default | What it does |
+|---|---|---|---|
+| **Hardware Centre** | 70 MHz – 6 GHz | 100.1 MHz | Hardware tuning: picks the band |
+| **Channel Offset** | −900 to +900 kHz | −200 kHz | Software tuning: picks the channel |
+| **RF Gain** | 0–76 dB | 40 | Hardware gain |
+| **Demodulator** | AM / NBFM / WBFM | WBFM | Which decoder you hear |
+| **Narrow Channel BW** | 3–18 kHz | 8 kHz | Width of the narrow filter (AM and NBFM only) |
+| **Squelch** | −90 to 0 dBFS | −70 | Mute level (AM and NBFM only) |
+| **Volume** | 0–5 | 1.0 | Loudness |
 
 ---
 
-## 📋 Block-by-Block
+## 3. The blocks
 
-### Stage 1 — Coarse channelisation
+### Stage 1 — the wide filter (both paths)
 
-#### `xlating_wide` — Frequency Xlating FIR Filter (`ccf`)
+**Frequency Xlating FIR Filter** — shift, filter, decimate:
 
-```
-decim       = 5
-taps        = wide_taps   (LPF 150 kHz cutoff, 30 kHz transition)
-center_freq = offset_freq  ← the software tuning knob
-samp_rate   = 2000000
-```
+| Setting | Value |
+|---|---|
+| Decimation | 5 (2 MSPS → 400 kSPS) |
+| Taps | low-pass, cutoff **150 kHz**, transition 30 kHz → **161 taps** |
+| Center frequency | `offset_freq` — the software tuning knob |
 
-Tap count, from the Fundamentals 05 equation:
+**Why 150 kHz and not 100 kHz?** This stage must pass a whole wide-FM station, about 200 kHz
+wide (±100 kHz), with some room to spare. The output rate is 400 kSPS, so the limit is
+±200 kHz. The filter goes from "pass" at 150 kHz to "block" by 180 kHz — still inside 200 kHz,
+so there is no aliasing.
 
-$$
-N = \frac{53 \times 2{,}000{,}000}{22 \times 30{,}000} = 160.6 \rightarrow 161 \text{ taps}
-$$
-
-Because the block is decimating, those 161 taps are only evaluated 400,000 times per second,
-not 2,000,000 — a 5× saving that comes free with `decim`.
-
-Why 150 kHz cutoff and not 100 kHz? Because the wide path must pass a complete WBFM channel,
-which by Carson's rule is 180–256 kHz wide. 150 kHz cutoff gives ±150 kHz = 300 kHz of
-passband. The output Nyquist is 200 kHz, so the transition band (150→180 kHz) finishes with
-20 kHz to spare.
+Because the block decimates, its 161 taps are worked out only 400,000 times per second, not
+2,000,000. That is 5 times less work, for free.
 
 ### Stage 2a — the wide path (WBFM)
 
-#### `agc_wide` — AGC2, complex
-Placed **after** the channel filter, per Fundamentals 06. `reference = 0.5`, fast attack
-(0.01), slow decay (0.001). `max_gain = 4096` stops the AGC from amplifying pure noise by a
-factor of 65536 when you tune to an empty frequency.
+**AGC** — reference 0.5, attack 0.01, decay 0.001, max gain 4096.
+Placed after the channel filter, so a strong neighbour cannot control it. (Remember from
+Lab 03: for FM the AGC does not change the loudness. It keeps the level predictable.)
 
-#### `wbfm_rcv` — WBFM Receive
-`quad_rate = 400000`, `audio_decimation = 8` → 50 kSPS. Same block as Lab 01; it just gets a
-cleaner input now.
+**WBFM Receive** — 400 kSPS in, ÷8, 50 kSPS audio out. The same block as Lab 01.
 
-### Stage 2b — the narrow path (AM, NBFM)
+> 💡 The wide path has **no squelch**. The squelch below only affects AM and NBFM.
 
-#### `narrow_lpf` — Low Pass Filter (`fir_filter_ccf`)
+### Stage 2b — the narrow path (AM and NBFM)
 
-```
-samp_rate   = 400000
-cutoff_freq = narrow_bw   ← slider, 3–18 kHz
-width       = 2000
-decim       = 8           → 50 kSPS out
-```
+**Low Pass Filter** — cutoff = `narrow_bw` slider (3–18 kHz), transition 2 kHz, decimate by 8
+(400 kSPS → 50 kSPS). About **481 taps**, but worked out only 50,000 times per second, so it is
+cheap.
 
-$N = 53 \times 400{,}000 / (22 \times 2000) = 481$ taps — but again running at the 50 kSPS
-output rate, so only ~24 million MACs/second. Cheap.
+**This filter decides how well you reject neighbouring channels.** Suggested settings:
 
-**This is the filter that decides your selectivity.** Set `narrow_bw` to:
-
-| Service | Setting | Why |
+| Signal | `narrow_bw` | Why |
 |---|---|---|
-| Airband AM | 4000 Hz | Voice is 300–3000 Hz; 4 kHz keeps the adjacent 25 kHz channel out |
-| Marine / PMR NBFM | 8000 Hz | Carson: $2(5+3) = 16$ kHz total, i.e. ±8 kHz |
-| NOAA weather | 8000 Hz | Same as marine |
-| Wide NBFM / experimenting | 12000–18000 Hz | More audio bandwidth, less adjacent rejection |
+| Aircraft voice (AM) | 4000 Hz | Voice is 300–3000 Hz. 4 kHz keeps the next channel out |
+| Marine, amateur, walkie-talkie (NBFM) | 8000 Hz | Carson's rule: 2 × (5 + 3) = 16 kHz wide, i.e. ±8 kHz |
+| Experimenting | 12000–18000 Hz | More audio, less rejection of neighbours |
 
-Narrowing this filter is also how you buy SNR — see the processing-gain formula in
-[Fundamentals 06](../../01_fundamentals/06_noise_snr_and_gain.md).
+A narrower filter also lets in **less noise**, so weak signals become clearer. See Exercise 5.
 
-#### `squelch` — Power Squelch, complex
+**Power Squelch** — mutes when the channel is empty.
 
-```
-threshold = squelch_threshold   ← slider, dBFS
-alpha     = 0.01                 running-average constant
-ramp      = 20                   samples of fade-in/out — kills the click
-gate      = False                ← IMPORTANT
-```
+| Setting | Value | Meaning |
+|---|---|---|
+| Threshold | `squelch_threshold` (dBFS) | Mute below this |
+| Alpha | 0.01 | How fast it follows the signal level |
+| Ramp | 20 | Fade in and out over 20 samples, so there is no click |
+| Gate | **False** | When muted, send zeros (silence), not nothing |
 
-> ⚠️ **`gate` must be `False` here.** With `gate = True` the block produces *no samples at all*
-> when the squelch is closed. Downstream, the Audio Sink starves and the flowgraph stalls.
-> `gate = False` emits zeros — which is what "silence" means to a sound card.
+It sits **before** the AGC, so it measures the real signal level (see
+[Lab 03 §4](../lab03_advanced_wbfm/README.md#4-why-this-order-the-most-important-part-of-this-lab)).
 
-#### `am_demod` — AM Demod (`analog_am_demod_cf`)
+**AGC** — reference **1.0**, attack 0.02, decay 0.0005, max gain 4096. For AM, the sound *is*
+the size of the signal, so here the AGC really matters: it keeps strong and weak AM stations at
+a similar loudness.
 
-Envelope detection: $\hat{x} = |I + jQ|$, followed by a 5 kHz audio low-pass (`audio_pass`
-5000, `audio_stop` 5500). `audio_decim = 1` because we are already at 50 kSPS.
+> 🔎 **Why reference 1.0?** GNU Radio's AM Demod block takes the size of the signal, then
+> **subtracts exactly 1.0** to remove the carrier. That only works if the carrier arrives at
+> exactly 1.0. An earlier version of this lab used 0.3, which left a constant **−0.35** offset
+> on the AM audio, and a loud pop every time you switched mode. Found with
+> `test_labs_offline.py`; fixed by setting the reference to 1.0.
 
-Envelope detection's practical superpower: **it does not care about frequency offset.** Get the
-tuning wrong by 2 kHz and AM still works, because $|\cdot|$ is invariant under the rotation
-that a frequency error produces. Try it — mistune `offset_freq` by 5 kHz on an airband signal
-and it stays intelligible until the signal falls outside the channel filter.
+**AM Demod** — takes the **envelope** (the size of each IQ sample, √(I² + Q²)), removes the
+carrier, and low-pass filters to 5 kHz. Audio decimation 1, because we are already at 50 kSPS.
 
-#### `nbfm_rcv` — NBFM Receive
+A useful property: **AM does not care about small tuning errors.** The size of the arrow does
+not change when it rotates. Mistune by 2 kHz and AM still sounds fine — until the signal slides
+out of the channel filter. (Try it in Exercise 4.)
 
-```
-audio_rate = 50000
-quad_rate  = 50000     → internal audio decimation of 1
-tau        = 75e-6     → de-emphasis (use 50e-6 outside the Americas)
-max_dev    = 5e3       → sets the quad demod gain: fs/(2π·Δf)
-```
+**NBFM Receive**
 
-`max_dev` is the parameter people get wrong. It sets the demodulator's output scaling to
-$f_s / (2\pi \Delta f) = 50000/(2\pi \times 5000) = 1.59$. Set it to 75 kHz by accident and
-your NBFM audio comes out 15× too quiet. See
-[Fundamentals 07](../../01_fundamentals/07_am_and_narrowband_fm.md).
+| Setting | Value | Meaning |
+|---|---|---|
+| Audio rate | 50000 | Output rate |
+| Quadrature rate | 50000 | Input rate (so no further decimation) |
+| Tau | 75e-6 | De-emphasis. Many two-way radios use a stronger emphasis; if voices sound thin and sharp, try 750e-6 |
+| Max deviation | **5e3** | Sets the output scale: full deviation (±5 kHz) comes out as ±1 |
+
+> ⚠️ **`max_dev` is the setting people get wrong.** If you set it to 75e3 (the wide-FM value) by
+> mistake, NBFM audio comes out **15 times too quiet** (75 ÷ 5 = 15).
 
 ### Stage 3 — the Selector
 
-#### `mode_selector` — Selector (float, 3 in, 1 out)
+A **Selector** block has several inputs and one output. Its `input_index` setting (here, the
+**Demodulator** buttons) chooses which input goes to the output.
 
-```python
-self.mode_selector.set_input_index(self.mode)   # called by the radio buttons
-```
+**All three decoders run all the time.** The Selector only chooses which one you hear. This
+uses more CPU (three decoders instead of one), but switching modes is **instant** and cannot
+break anything. That is usually a good trade on a modern computer.
 
-**All three demodulator branches run all the time.** The Selector only chooses which one
-reaches the audio sink. This costs CPU — you are demodulating AM, NBFM and WBFM
-simultaneously — and buys **instant, glitch-free mode switching**.
-
-That trade is usually right for a lab and often right in production: modern CPUs have the
-cycles, and the alternative (reconfiguring the graph at runtime with `lock()`/`unlock()`) is
-much harder to get right.
-
-> **Why all three branches must produce the same sample rate:** the Selector is a stream block.
-> It cannot resample. This constraint is why `audio_rate` is fixed at 50 kHz and why every
-> branch was designed backwards from it.
+> ⚠️ **All inputs to a Selector must have the same sample rate and type.** It cannot resample.
+> That is why every decoder was designed to output float audio at exactly 50 kSPS.
 
 ### Stage 4 — the S-meter
 
 ```
-narrow_lpf → Complex to Mag² → Moving Average(5000) → Log10(n=10, k=3.0103) → Number Sink
+narrow filter → Complex to Mag² → Moving Average (5000) → Log10 (n = 10, k = 3.0103) → number
 ```
 
-Tapped **after** the channel filter, so it measures the channel you are listening to and not
-the loudest thing in the 2 MHz span. 5000 samples at 50 kSPS is a 100 ms window — fast enough
-to follow speech syllables, slow enough that the number is readable.
+It measures the power **after** the channel filter, so it shows the strength of the channel you
+are listening to — not the strongest signal somewhere in the 2 MHz. 5000 samples at 50 kSPS is
+a 0.1 s window: fast enough to follow speech, slow enough to read.
 
-The `k = 3.0103` constant is $10\log_{10}2$, converting mean power to dBFS (see Lab 05).
+`k = 3.0103` converts power to dBFS, as in Lab 05.
 
-**This meter is the tool you use to set the squelch.** Tune to an empty channel, read the
-number, set `squelch_threshold` about 5 dB higher.
+**Use the S-meter to set the squelch:** tune to an empty channel, read the number, and set the
+squelch about **5 dB higher**.
 
 ---
 
-## 🧪 Running the Lab
+## 4. Exercises
 
 ```bash
-cd 02_flowgraphs/lab06_multimode_receiver
+cd "02_flowgraphs/lab06_multimode_receiver"
 gnuradio-companion lab06_multimode_receiver.grc
 ```
 
-### Exercise 1 — WBFM, and prove software tuning works
+### Exercise 1 — Wide FM, and software tuning
 
-1. Mode = **WBFM**. `freq` = 100.1 MHz, `offset_freq` = −200 kHz → you are on 99.9 MHz.
-2. Look at the **Full Span** sink. You should see several FM stations as ~200 kHz blocks.
-3. Note the offset of a station you can see, and dial `offset_freq` to it.
-   **Listen to how instantly it switches.** No click, no gap.
-4. Now change `freq` by 200 kHz instead. Notice the momentary interruption — that is the
-   AD9361 PLL relocking. Two different tuning mechanisms, two very different behaviours.
+1. Mode **WBFM**. Hardware Centre 100.1 MHz, offset −200 kHz → you hear 99.9 MHz.
+2. Look at the full-span spectrum. You should see several FM stations, each about 200 kHz wide.
+3. Read the offset of another station on the spectrum, and set **Channel Offset** to it.
+   **Listen: it switches instantly.** No click, no gap.
+4. Now change **Hardware Centre** by 200 kHz instead. You hear a short break while the hardware
+   re-locks. Two ways to tune, two very different behaviours.
 
-### Exercise 2 — NOAA Weather Radio (NBFM)
+### Exercise 2 — Narrow FM: marine or amateur radio
 
-North America only, but it is the easiest NBFM signal to find because it transmits 24/7.
+1. Mode **NBFM**, Narrow Channel BW **8000**.
+2. **Marine VHF:** Hardware Centre **157.0 MHz**, offset **−200 kHz** → **156.800 MHz**,
+   channel 16, the international calling and distress channel. Best near the coast or a port.
+3. **Amateur 2 m:** Hardware Centre around **145.5 MHz**. Watch the waterfall for short
+   transmissions, then set the offset to them. Local repeaters are listed by
+   [MARTS](https://marts.org.my/).
+4. Watch the **S-Meter** jump when someone transmits.
+5. Set the squelch 5 dB above the empty-channel reading. Now you hear silence between
+   transmissions, and speech when someone talks.
 
-1. Mode = **NBFM**, `narrow_bw` = 8000.
-2. `freq` = 162.600 MHz, then sweep `offset_freq` from −200 kHz to +200 kHz in 25 kHz steps.
-   The seven channels are at 162.400, 162.425, 162.450, 162.475, 162.500, 162.525, 162.550.
-3. Watch the **S-Meter** jump when you land on an active channel.
-4. Set `squelch_threshold` 5 dB above the empty-channel reading, then sweep again — silence
-   between channels, audio on them.
+> 🚨 Listening to marine and amateur radio is fine. **Never transmit** on these frequencies
+> without the right licence.
 
-### Exercise 3 — Airband AM
+### Exercise 3 — Aircraft voice (AM)
 
-1. Mode = **AM**, `narrow_bw` = 4000.
-2. `freq` = 120.0 MHz. Watch the **waterfall** rather than the FFT — airband is bursty, and a
-   3-second transmission is invisible on an averaged FFT but obvious on a waterfall.
-3. When you see a burst, note its offset and tune to it.
-4. Squelch is essential here: without it you listen to noise 95 % of the time.
+1. Mode **AM**, Narrow Channel BW **4000**.
+2. Hardware Centre **120.0 MHz**. Watch the **waterfall**, not the spectrum. Aircraft messages
+   are short, and a 3-second call is easy to miss on the spectrum but easy to see on the
+   waterfall.
+3. When you see a burst, read its offset and tune to it.
+4. Use the squelch. Without it, you listen to noise 95 % of the time.
 
-Nothing on airband? You are probably not near an airport, or your antenna is indoors. Airband
-is a good test of your antenna, because 118–137 MHz is close enough to the FM broadcast band
-that the *same* antenna works.
+Nothing heard? You may be too far from an airport (KLIA, Subang, Penang and Kota Kinabalu are
+the busiest), or your antenna is indoors. The aircraft band (118–137 MHz) is close to the FM
+band, so the same antenna works for both.
 
-### Exercise 4 — Prove the AM frequency-offset immunity
+### Exercise 4 — AM ignores small tuning errors; NBFM does not
 
-On an AM signal, deliberately mistune `offset_freq` by ±2 kHz. The audio stays intelligible.
-Now do the same on an NBFM signal: the audio distorts badly, because the quadrature
-demodulator's output is the *frequency* error and a constant tuning offset adds a DC term that
-drives the audio off-centre.
+On an AM signal, move the offset by ±2 kHz. The speech stays clear.
+
+Do the same on an NBFM signal. It sounds much worse. The NBFM decoder measures frequency, so a
+tuning error adds a constant offset to its output, and the signal also moves towards the edge
+of the channel filter.
 
 This is [Fundamentals 07](../../01_fundamentals/07_am_and_narrowband_fm.md) made audible.
 
-### Exercise 5 — Watch the processing gain
+### Exercise 5 — See the processing gain
 
 1. Tune to a weak NBFM signal.
-2. Set `narrow_bw` to 18000 and read the S-meter.
-3. Set it to 4000 and read again.
+2. Set Narrow Channel BW to **18000**. Read the S-meter on an empty channel next to it.
+3. Set it to **4000**. Read again.
 
-The signal level barely changes; the *noise* drops by roughly
-$10\log_{10}(18000/4000) = 6.5$ dB. That is the processing gain equation from Fundamentals 06,
-measured on your own hardware.
-
----
-
-## 🐛 Troubleshooting
-
-### "There is a huge spike in the middle of the Full Span display"
-LO leakage / DC offset — a hardware artifact, not a signal. That is exactly why the default
-`offset_freq` is −200 kHz. If it bothers you visually, add a `Correct IQ` block after the USRP
-Source.
-
-### "NBFM audio is very quiet compared to WBFM"
-Check `max_dev` on the NBFM Receive block. It must be `5e3`, not `75e3`.
-
-### "The audio cuts in and out even on a strong signal"
-Squelch threshold is too high. Read the S-meter while the signal is present and set the
-threshold 5–10 dB below that.
-
-### "The flowgraph stalls a few seconds after starting"
-You set `gate = True` on the squelch. Set it back to `False`.
-
-### "Switching modes produces a loud pop"
-Normal — the three demodulators have different DC levels. A high-pass at 50 Hz after the
-Selector removes it. (Worth adding as an exercise.)
-
-### "`IndexError: input_index must be < ninputs` when I call `set_mode()`"
-You called it **before** `tb.start()`. A Selector's input count is not resolved until the
-flowgraph is flattened, which happens at start. This never bites you in the GUI — you change
-modes while it is running — but it will if you drive the flowgraph from a script. Start first,
-then set the mode.
-
-### "The Selector will not connect / GRC complains about types"
-All three demodulator outputs must be `float` at the same rate. If you change `audio_rate` you
-must re-derive every branch: `wbfm_rcv.audio_decimation`, `nbfm_rcv.audio_rate`, and
-`am_demod.audio_decim`.
-
-### "CPU usage is very high"
-You are running three demodulators plus two FFT sinks plus a waterfall. Reduce `fftsize` to
-1024, raise `update_time` to 0.25, or disable the waterfall (right-click → Disable). The
-waterfall is usually the most expensive block in any flowgraph.
+The **noise** drops by about 10·log₁₀(18000 ÷ 4000) = **6.5 dB**. The signal hardly changes.
+That is the "narrower filter = less noise" rule from
+[Fundamentals 06](../../01_fundamentals/06_noise_snr_and_gain.md), measured on your own radio.
 
 ---
 
-## ❓ Questions to Ponder
+## 5. Test it without a radio
 
-1. **Why two filter stages instead of one 400 kHz-to-50 kHz filter straight from 2 MSPS?**
-   A single-stage filter from 2 MSPS to 50 kSPS with an 8 kHz cutoff and a 2 kHz transition
-   would need $53 \times 2{,}000{,}000/(22 \times 2000) = 2409$ taps. Two stages need
-   $161 + 481 = 642$. Multi-stage decimation is almost always cheaper — the standard result is
-   that cost scales roughly with the *logarithm* of the total decimation when staged well.
+```bash
+cd 03_scripts
+python3 make_test_iq.py /tmp/am.cfile --mode am --offset=-200e3 --snr 40
+python3 run_offline.py ../02_flowgraphs/lab06_multimode_receiver/lab06_multimode_receiver.py \
+        /tmp/am.cfile --out /tmp/lab06 --after mode=0
+```
 
-2. **Could you use one Frequency Xlating FIR Filter per channel and listen to several at once?**
-   Yes, and that is exactly how a real scanner works. Add a second xlating filter fed from the
-   same USRP Source with a different `center_freq`. This is also what a Polyphase Channelizer
-   does, far more efficiently, for many channels at once.
-
-3. **Why does the S-meter tap the channel filter output and not the USRP Source?**
-   Because a meter on the source measures the total power in 2 MHz — dominated by whatever the
-   strongest station in the band happens to be. It would tell you nothing about your channel.
-
-4. **AM Demod ignores frequency offset. Why is that not true for SSB?**
-   Envelope detection discards phase entirely. SSB reconstruction needs the exact carrier
-   phase, so a frequency error shifts every audio component by the same absolute amount —
-   producing the characteristic "Donald Duck" sound.
-
-5. **The Selector runs all three demodulators. What would you do on a Raspberry Pi?**
-   Use `lock()` / `disconnect()` / `connect()` / `unlock()` to rebuild the graph on mode change,
-   or use `blocks.copy` gates on each branch as in Lab 05 to stop the unused branches from
-   consuming CPU. The Selector approach trades CPU for simplicity.
+(`--offset=-200e3` needs the `=` sign because the value starts with a minus.)
+`--after mode=0` selects AM **after** the flowgraph starts — see the Troubleshooting note
+about `IndexError` below. `python3 test_labs_offline.py lab06` checks all three modes and the
+squelch automatically.
 
 ---
 
-## 📚 Key Takeaways
+## 🔧 Troubleshooting
 
-- **Hardware tuning and software tuning are different operations** with different costs. Use
-  the hardware to choose a *band* and the xlating filter to choose a *channel*.
-- **Never tune the hardware directly onto your signal** — offset it to dodge the DC spike.
-- **Filter, then AGC, then demodulate.** Any other order lets a neighbouring signal control
-  your gain.
-- **Multi-stage decimation is dramatically cheaper** than doing it all in one filter.
-- **`gate = False` on squelch feeding audio.** Always.
-- **Measure the channel, not the band.** An S-meter is only meaningful after the channel filter.
+| Problem | Cause and fix |
+|---|---|
+| A big spike in the middle of the full-span display | The radio's own LO leak, not a signal. That is why the default offset is −200 kHz |
+| NBFM much quieter than WBFM | NBFM Receive's `max_dev` must be `5e3`, not `75e3` |
+| Audio cuts in and out on a strong signal | Squelch too high. Read the S-meter during the signal and set the squelch 5–10 dB below |
+| The flowgraph freezes a few seconds after starting | Squelch `gate` was set to True. Set it to False |
+| `IndexError: input_index must be < ninputs` from `set_mode()` | You called it before `start()`. A Selector only counts its inputs when the flowgraph starts. Start first, then set the mode. (The GUI is not affected) |
+| GRC complains about the Selector's types | Every decoder output must be float, at the same rate. If you change `audio_rate`, change `wbfm_rcv` decimation, `nbfm_rcv` audio rate and `am_demod` decimation too |
+| CPU very high | Three decoders plus three displays. Set FFT size to 1024, or disable the waterfall (right-click → Disable) |
 
 ---
 
-## 🚀 What's Next?
+## ✅ Summary
 
-Everything so far has been analog: waveform in, waveform out. Lab 07 crosses into **digital** —
-a complete BPSK link built in simulation, with timing recovery, carrier recovery, and a bit
-error rate you measure and compare against theory. No hardware required.
+- **Hardware tuning** picks the band (slow, with a gap). **Software tuning** picks the channel
+  (instant).
+- Tune the hardware **beside** your signal to avoid the centre spike. Worth 8.8 dB here.
+- **Two-stage filtering** (wide, then narrow) is far cheaper than one big filter.
+- A **Selector** switches between decoders that all run at once. Its inputs must match in
+  rate and type.
+- For AM, the AGC matters, and its level must suit the decoder (here, 1.0).
+- Measure signal strength **after** the channel filter.
 
-**Next:** [Lab 07 — BPSK Link Simulation →](../lab07_bpsk_link_sim/README.md)
+## 🧠 Check yourself
 
-Before you start it, read [Fundamentals 08 — Digital Modulation](../../01_fundamentals/08_digital_modulation.md)
-and [09 — Synchronization](../../01_fundamentals/09_synchronization.md).
+1. You want to scan 20 channels inside 2 MHz quickly. Hardware or software tuning?
+   <details><summary>Answer</summary>Software tuning (the offset). It is instant and has no
+   gaps.</details>
+2. One filter from 2 MSPS straight to 50 kSPS, with an 8 kHz cutoff and 2 kHz transition, needs
+   about 2409 taps. How many do the two stages here need?
+   <details><summary>Answer</summary>161 + 481 = 642 — about a quarter, and the second stage
+   runs at a much lower rate.</details>
+3. Why does the S-meter connect after the narrow filter, not to the USRP Source?
+   <details><summary>Answer</summary>At the source it would measure all 2 MHz — mostly the
+   strongest station in the band — and tell you nothing about your channel.</details>
+4. Why is AM not affected by a small tuning error?
+   <details><summary>Answer</summary>AM is the size (envelope) of the signal. A tuning error
+   only rotates the IQ arrow; it does not change its size.</details>
+5. What goes wrong if the narrow AGC's reference is 0.3 instead of 1.0?
+   <details><summary>Answer</summary>AM Demod subtracts 1.0, so the audio gets a constant
+   −0.35 offset, less headroom, and a pop when you switch mode.</details>
+
+**Next:** [Lab 07 — A Digital Link, Simulated →](../lab07_bpsk_link_sim/README.md). Read
+[Fundamentals 08](../../01_fundamentals/08_digital_modulation.md) and
+[09](../../01_fundamentals/09_synchronization.md) first.
 
 ---
 
 ## 📖 References
 
-1. GNU Radio Wiki: [Frequency Xlating FIR Filter](https://wiki.gnuradio.org/index.php/Frequency_Xlating_FIR_Filter) · [Selector](https://wiki.gnuradio.org/index.php/Selector) · [AM Demod](https://wiki.gnuradio.org/index.php/AM_Demod)
-2. NOAA: [Weather Radio frequencies](https://www.weather.gov/nwr/)
-3. ITU-R: airband channel spacing (25 kHz / 8.33 kHz)
+1. GNU Radio Wiki: [Frequency Xlating FIR Filter](https://wiki.gnuradio.org/index.php/Frequency_Xlating_FIR_Filter) ·
+   [Selector](https://wiki.gnuradio.org/index.php/Selector) · [AM Demod](https://wiki.gnuradio.org/index.php/AM_Demod)
+2. [Malaysia reference](../../05_reference/04_malaysia.md) — local bands and clubs
+3. ITU-R: aircraft band channel spacing (25 kHz and 8.33 kHz)
