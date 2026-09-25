@@ -125,7 +125,7 @@ code**, which says what the rest is:
 
 | Type code | Contains |
 |---|---|
-| 1–4 | Callsign (the flight number, like `KLM1023` or `MAS370`) |
+| 1–4 | Callsign (the flight number, like `KLM1023` or `AXM123`) |
 | 5–8 | Position on the ground |
 | 9–18 | Position in the air, with pressure altitude |
 | 19 | Speed and direction |
