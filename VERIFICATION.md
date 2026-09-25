@@ -28,8 +28,9 @@ Each level catches mistakes the level above it cannot.
 | **Run** | Does the real flowgraph produce the right output from a test signal with a known answer? | `test_labs_offline.py` |
 | **Hardware** | Does it work on a real radio, with real stations? | run it on a live SignalSDR Pro |
 
-**Status:** all 17 flowgraphs pass Structure, Deep and Compile. Labs 01–04 pass Run
-(`test_labs_offline.py`). Labs 01, 03, 04, 05, 06 and 08 were also run on live radio signals.
+**Status:** all 17 flowgraphs pass Structure, Deep and Compile. Labs 01–06, 08 and 09 pass
+Run (`test_labs_offline.py`, 9 checks); Lab 07 and Lab 10 were run headless against theory and
+the standard. Labs 01, 03, 04, 05, 06 and 08 were also run on live radio signals.
 
 ---
 
@@ -76,10 +77,10 @@ Every result below came from the flowgraphs in this repository, not a special te
 
 ---
 
-## 3. Nine lessons
+## 3. Eleven lessons
 
 Simulation is useful, but it only tests what you thought of. Lessons 1–7 were found only by
-using a real radio. Lessons 8 and 9 were found later, by running the real flowgraphs on test
+using a real radio. Lessons 8–11 were found later, by running the real flowgraphs on test
 signals with known answers. Each one is now fixed or documented where it matters.
 
 ### Lesson 1 — One missing setting cost up to 43 dB
@@ -277,6 +278,39 @@ lab's **real** generated code.
 > not a copy of it. Real music is partly different in each ear anyway, so a correlation number
 > cannot tell stereo from mono.
 
+### Lesson 10 — An AGC level must suit the block after it
+
+*Found in the September 2026 review.*
+
+GNU Radio's **AM Demod** block takes the size of the signal and then **subtracts exactly 1.0**, to
+remove the carrier. That assumes the carrier arrives at 1.0. In Lab 06, the AGC before it held the
+signal at **0.3**. The result, measured on an AM test station through the real flowgraph: the AM
+audio sat at a constant **−0.354**, with a pop every time you switched mode.
+
+Setting the AGC's reference to **1.0** removed it: DC **−0.000**, and the AM audio now peaks at
+0.41, as the maths predicts. (The fast AGC attack was also checked: distortion only 0.1 %.)
+
+> **Rule:** when two blocks work together, check what each one assumes about the other.
+
+### Lesson 11 — When you change a mode, change every tool that measures it
+
+*Found in the September 2026 review.*
+
+Lab 10 moved from the 1K test mode to the 32K mode broadcasters use. The transmitter and the file
+generator were updated. Two measuring tools were not:
+
+- `lab10_dvbt2_analyze.grc` still looked for symbols 1024 samples apart. On a real 32K signal it
+  showed **no symbol peaks at all** (only a 4.6× bump from the 1K-sized P1 preamble).
+- `analyze_dvbt2.py` still **defaulted** to 1K, so the command in the README would have failed
+  every check on the lab's own output.
+
+Both now default to 32K. On a freshly generated 32K signal, the analyser flowgraph found **1,105
+peaks spaced exactly 33,024 samples apart**, and `analyze_dvbt2.py` passed **5 of 5** with no
+options.
+
+> **Rule:** a mode change is not finished until the tools that check it have changed too — and
+> have been run on the new output.
+
 ---
 
 ## 4. Known issue
@@ -316,9 +350,9 @@ Being clear about what is **not** proven is as important as what is.
   official Mode S test examples, but real reception is not proven (see Lesson 4).
 - **Lab 06's AM and narrow-FM modes** were not tested on real signals. No aircraft or marine
   voice could be heard with this antenna. Only the wide-FM mode was measured.
-- **The Lab 03 and Lab 04 fixes (Lessons 8 and 9) have not yet been re-run on the radio.**
-  The radio was not available during the review. Both fixes are proven on test signals by
-  `test_labs_offline.py`, which runs the real flowgraphs.
+- **The fixes from the September 2026 review (Lessons 8–11) have not yet been re-run on the
+  radio.** The radio could not connect during the review (its USB link failed to start). All
+  four fixes are proven on test signals by running the real flowgraphs.
 - **Lab 04 on a mono station:** there is no pilot detector, so a little of the mono sound
   leaks into L−R (measured about 10 dB below L+R on a test signal). Real radios switch to mono.
 - **Lab 08's RadioText** (the scrolling song title) was not tested. The only RDS station here
@@ -333,7 +367,8 @@ Being clear about what is **not** proven is as important as what is.
 - Tune a little beside the signal, not exactly on it. It is worth 8.8 dB.
 - Pair detectors that fail in different ways. Trust error checks over your eyes.
 - Test the real code with a signal whose right answer you know. "It works" is not a test.
-- A squelch must come before an AGC.
+- A squelch must come before an AGC. An AGC's level must suit the block after it.
+- When you change a mode, update and re-run every tool that measures it.
 - The antenna is usually the problem when you hear nothing at all.
 - For TV, correct timing matters as much as correct data.
 
