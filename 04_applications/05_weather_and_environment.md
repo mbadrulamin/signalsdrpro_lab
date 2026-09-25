@@ -1,8 +1,8 @@
 # 🌦️ 05 — Weather & Environment
 
-> The natural world transmits too. Lightning, meteors, the ionosphere and the Sun all put energy
-> into the spectrum, and some of the most interesting SDR projects involve receiving things
-> nobody deliberately sent.
+> Nature transmits too. Lightning, meteors, the ionosphere and the Sun all put energy into the
+> radio spectrum. Some of the most interesting SDR projects receive things nobody sent on
+> purpose.
 >
 > [← Satellite & Space](./04_satellite_and_space.md) · [Catalogue index](./README.md) · [Next: Land Mobile →](./06_land_mobile_and_professional.md)
 
@@ -10,10 +10,10 @@
 
 ## Radiosondes — weather balloons you can chase
 
-Twice a day, from roughly 800 sites worldwide, meteorological services launch balloons carrying
-a small transmitter. It climbs to ~30 km, bursts, and falls. The payload transmits its **GPS
-position** the whole way down — which means you can decode it, drive to where it lands, and keep
-it. This is a genuinely popular hobby with an active community.
+Twice a day, from about 800 sites around the world (including the Malaysian Meteorological
+Department), weather services launch balloons carrying a small transmitter. It climbs to about
+30 km, bursts, and falls. All the way down it sends its **GPS position** — so you can decode it,
+go to where it lands, and keep it. Many people do this as a hobby.
 
 | Signal | Frequency | Mode | Diff | Needs | Notes |
 |---|---|---|---|---|---|
@@ -25,9 +25,9 @@ it. This is a genuinely popular hobby with an active community.
 | **Dropsondes** | 400–406 MHz | FSK | ⭐⭐⭐⭐ | ✅ | 🟢 Dropped *from* hurricane-hunter aircraft |
 | **Ozonesondes / special payloads** | 400–406 MHz | varies | ⭐⭐⭐⭐ | ✅ | 🟢 Extra sensor channels in the telemetry |
 
-**Why it is a great project:** the signal is strong (a balloon at 20 km is line-of-sight for
-hundreds of km), the format is documented, the decoder exists, and there is a physical object at
-the end of it. Your ¼-wave for 403 MHz is 186 mm.
+**Why it is a great project:** the signal is strong (a balloon 20 km up can be seen for hundreds
+of km), the format is published, decoders already exist, and there is a real object to find at
+the end. A quarter-wave antenna for 403 MHz is 186 mm.
 
 ---
 
@@ -76,27 +76,27 @@ the end of it. Your ¼-wave for 403 MHz is 186 mm.
 
 ## Try this first: `rtl_433` on 433.92 MHz
 
-Before you build anything, spend an evening capturing 433.92 MHz. In any suburb you will pick
-up neighbours' weather stations, tyre-pressure sensors, doorbells and thermometers — dozens of
-devices, all transmitting simple OOK frames in the clear.
+Before you build anything, spend an evening receiving 433.92 MHz (a licence-free band in
+Malaysia). In most neighbourhoods you will pick up weather stations, tyre-pressure sensors,
+doorbells and thermometers — dozens of devices, all sending simple on-off (OOK) messages without
+encryption.
 
-It is the **cheapest possible introduction to real-world data decoding**: no synchronisation
-loops, no FEC, just amplitude and timing. And when you then read `rtl_433`'s protocol
-definitions, you will find you can understand every one of them after
-[Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md).
+It is the **easiest introduction to decoding real data**: no synchronisation loops, no error
+correction, just "on or off" and timing. After [Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md),
+you will understand every protocol in `rtl_433`'s list.
 
 ---
 
 ## Then: count meteors while you sleep
 
-Point a 2 m antenna away from the GRAVES radar in France (143.050 MHz), run a narrow SSB-style
-receiver, and log the audio overnight. Each meteor trail reflects the radar for a fraction of a
-second, producing a brief ping. Count them per hour and you have a meteor rate — a real
-scientific measurement, from a wire in your garden, with no satellite pass to catch and no
-weather to wait for.
+Choose a strong VHF transmitter that is **just too far away to hear** normally (over the
+horizon). Tune a narrow SSB receiver to it and record the audio overnight. Each meteor leaves a
+short-lived trail in the sky that reflects the signal for a fraction of a second — a brief
+"ping". Count the pings per hour and you have a **meteor rate**: a real scientific measurement,
+from a wire antenna, with no satellite pass to catch.
 
-The same technique works with any strong distant VHF transmitter; European observers use GRAVES,
-others use distant TV or FM carriers just over the horizon.
+In Europe, people use the GRAVES radar in France (143.050 MHz). It is too far to use from
+Malaysia; use a distant FM or TV transmitter instead.
 
 ---
 

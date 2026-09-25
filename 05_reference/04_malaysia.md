@@ -201,7 +201,7 @@ active Malaysian membership.
 | Activity | Status |
 |---|---|
 | Receiving broadcast radio and TV | ✅ Unrestricted |
-| Receiving other services | 🟡 Generally tolerated; acting on, recording or sharing may not be |
+| Receiving other services (two-way radio, data links…) | 🟡 **Take care.** The CMA 1998 (section 234) makes unauthorised interception, and disclosing what you intercepted, an offence. Broadcasts are meant for the public; other traffic is not. Ask MCMC if unsure |
 | Decrypting encrypted traffic | ⛔ Prohibited |
 | Transmitting in Class Assignment bands within limits | ✅ Permitted |
 | Transmitting elsewhere with an amateur licence, within privileges | ✅ Permitted |

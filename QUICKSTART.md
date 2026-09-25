@@ -256,7 +256,9 @@ you may legally transmit in, how to get licensed, and the local clubs.
 
 ## The one rule
 
-> **Receiving is passive and mostly unrestricted. Transmitting is neither.**
+> **Listening to broadcast radio and TV is allowed. Transmitting is not.**
+> (Listening to other traffic, such as two-way radio, can be restricted too — see the
+> [Malaysia reference](./05_reference/04_malaysia.md#8-the-short-legal-summary).)
 >
 > Your SignalSDR Pro can transmit from 70 MHz to 6 GHz. Ten of the twelve labs here only
 > receive. Do not transmit until you have read

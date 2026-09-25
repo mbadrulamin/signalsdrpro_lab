@@ -303,7 +303,10 @@ Each lab folder has:
 
 ## 🚨 The one rule
 
-> **Listening is allowed almost everywhere. Transmitting is not.**
+> **Listening to broadcasts is allowed. Transmitting is not.**
+>
+> (Listening to non-broadcast traffic, such as two-way radio, can also be restricted — in
+> Malaysia, see section 234 of the Communications and Multimedia Act 1998.)
 >
 > The SignalSDR Pro can transmit from 70 MHz to 6 GHz. That includes aircraft, ship-safety and
 > mobile-phone frequencies. Transmitting on them without a licence is against the law (in

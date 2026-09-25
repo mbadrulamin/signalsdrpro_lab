@@ -1,8 +1,8 @@
 # 📟 06 — Land Mobile & Professional
 
-> Everything from a builder's walkie-talkie to a nationwide public-safety network. This is the
-> busiest part of VHF/UHF and the domain where **legal restrictions bite hardest** — read the
-> warning before you scan.
+> From a builder's walkie-talkie to a national emergency-services network. This is the busiest
+> part of VHF/UHF — and the area with the **strictest laws** about listening. Read the warning
+> before you scan.
 >
 > [← Weather](./05_weather_and_environment.md) · [Catalogue index](./README.md) · [Next: Amateur Radio →](./07_amateur_radio.md)
 
@@ -10,7 +10,12 @@
 
 ## ⚖️ Read this first
 
-Land mobile radio is where hobbyists most often cross a legal line without realising it.
+This is where hobbyists most often break the law without realising it.
+
+- **In Malaysia,** the Communications and Multimedia Act 1998 (section 234) makes it an offence
+  to intercept communications without permission, or to disclose what you intercepted. Broadcast
+  radio and TV are meant for everyone; two-way radio traffic is not. Check with MCMC before
+  listening to anything that is not a broadcast.
 
 - **Public safety** (police, fire, ambulance) is **explicitly protected** in many jurisdictions.
   In the UK, receiving it is an offence under the Wireless Telegraphy Act. In parts of the USA
@@ -21,8 +26,8 @@ Land mobile radio is where hobbyists most often cross a legal line without reali
 - **Business and utility traffic** is usually 🟡: technically restricted to the licensee, rarely
   enforced against passive listeners, but you have no right to it.
 
-**The safe subset:** [NOAA Weather Radio](#public-information-and-utility), unlicensed PMR446 /
-FRS, amateur repeaters, and anything explicitly broadcast to the public. Start there.
+**The safe starting point:** amateur radio repeaters (amateurs may not use secret codes, and
+expect to be heard) and anything clearly **broadcast to the public**. Start there.
 
 ---
 
@@ -115,18 +120,18 @@ decode, and still widely used by hospitals and emergency services.
 
 ## Try this first: POCSAG
 
-If [Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md) taught you RDS, POCSAG will take you an
-hour. It is **simpler in every respect**: plain 2-FSK, no biphase coding, no differential
-encoding, a 32-bit sync word instead of a self-synchronising CRC, and messages in readable ASCII.
+After [Lab 08](../02_flowgraphs/lab08_rds_decoder/README.md) (RDS), POCSAG takes about an hour to
+understand. It is **simpler in every way**: plain 2-FSK, no biphase or differential coding, a
+32-bit start pattern (sync word) instead of CRC-based framing, and messages in readable text.
+(Remember the privacy warning above: learn from it, but do not keep or share what you decode.)
 
 ```
 NBFM demodulate → slice at zero → find 0x7CD215D8 sync word
   → 16 codewords per batch → BCH(31,21) check → 7-bit ASCII
 ```
 
-The chain reuses your Lab 06 NBFM receiver verbatim; only the block after the demodulator is new.
-It is the clearest possible demonstration that once you understand *one* framed digital protocol,
-the rest are variations.
+It reuses your Lab 06 narrow-FM receiver exactly; only the block after the demodulator is new.
+Once you understand *one* digital protocol with framing, the others are variations.
 
 ---
 
