@@ -1,8 +1,8 @@
 # 🎙️ 07 — Amateur Radio
 
-> The only domain where you are **encouraged** to transmit — once you are licensed. Amateur radio
-> is also where most SDR innovation happens: FT8, WSPR, SSTV decoders and the whole GNU Radio
-> ecosystem grew out of it.
+> The only area where you are **encouraged** to transmit — once you have a licence. Much SDR
+> innovation also comes from amateurs: FT8, WSPR, SSTV decoders, and much of the GNU Radio world
+> grew from amateur radio.
 >
 > [← Land Mobile](./06_land_mobile_and_professional.md) · [Catalogue index](./README.md) · [Next: IoT & ISM →](./08_iot_ism_and_short_range.md)
 
@@ -10,14 +10,14 @@
 
 ## Why this domain matters even if you never transmit
 
-Amateur signals are **deliberately open**. Protocols are published, decoders are open source,
-operators *want* to be received, and reception reports are welcomed rather than treated with
-suspicion. That makes amateur bands the ideal place to test a new decoder: you can email the
-operator and ask whether you got it right.
+Amateur signals are **open on purpose**. The protocols are published, the decoders are open
+source, and operators *want* to be heard — they welcome reports of reception. So amateur bands are
+the ideal place to test a new decoder: you can ask the operator whether you got it right.
 
-> 🔴 **Transmitting requires a licence** in every country. Exams are inexpensive and mostly
-> straightforward, and the licence is what turns your SignalSDR Pro from a receiver into a
-> transceiver. Receiving amateur traffic needs no licence anywhere.
+> 🔴 **Transmitting needs a licence** in every country. The exams are cheap and not too hard, and
+> the licence is what turns your SignalSDR Pro from a receiver into a transceiver. Listening to
+> amateur radio needs no licence. In Malaysia, see
+> [getting licensed](../05_reference/04_malaysia.md#3-getting-licensed-to-transmit).
 
 ---
 
@@ -41,8 +41,8 @@ operator and ask whether you got it right.
 | 13 cm | 2300–2450 MHz | ✅ | |
 | 9 cm and up | 3.4 GHz+ | ✅/🔺 | Microwave experimentation |
 
-**Everything from 2 m upward is directly within your hardware's reach.** Below 50 MHz you need
-an upconverter — and that is where most of the interesting weak-signal work happens.
+**Everything from the 2 m band (144 MHz) upward is directly within your radio's reach.** Below
+70 MHz you need an upconverter — and that is where most weak-signal work happens.
 
 ---
 
@@ -124,30 +124,35 @@ and [10](../01_fundamentals/10_error_detection_and_framing.md).
 
 ## Try this first: WSPR (even without a licence)
 
-**Receive-only WSPR is the single most instructive weak-signal project available**, and it needs
-no licence.
+**Listening to WSPR is the most instructive weak-signal project there is**, and it needs no
+licence.
 
-- The signal is **1.5 Hz wide**, 4-FSK, sent over 110.6 seconds
-- It decodes reliably at **−28 dB SNR** — the signal is 600× weaker than the noise in its own
-  bandwidth
-- Every decode you upload appears on `wsprnet.org` with a map of who you heard and how far away
+- The signal is only **1.5 Hz wide** (4-FSK), and each message takes 110.6 seconds.
+- It decodes at **−28 dB SNR**, measured in a normal 2.5 kHz voice channel — the signal is about
+  **600 times weaker** than the noise in that channel.
+- Every signal you decode and upload appears on `wsprnet.org`, on a map showing who you heard and
+  how far away.
 
-Run `WSJT-X` fed from your SDR, leave it overnight on 20 m, and in the morning you will have a
-map of the world showing which paths were open while you slept. It makes
-[Fundamentals 06's](../01_fundamentals/06_noise_snr_and_gain.md) processing-gain equation
-viscerally real: the gain comes from spending 110 seconds and 1.5 Hz on six bits per second.
+Feed `WSJT-X` from your SDR and leave it running overnight. In the morning you will have a world
+map of which paths were open while you slept. It makes the processing gain of
+[Fundamentals 06](../01_fundamentals/06_noise_snr_and_gain.md) real: the gain comes from spending
+110 seconds and 1.5 Hz on a few bits.
+
+> ⚠️ Most WSPR activity is on **HF** (e.g. 20 m = 14.0956 MHz), which needs an **upconverter** with
+> the SignalSDR Pro. WSPR also runs on 2 m (144.489 MHz), within range, but with far fewer
+> stations.
 
 ---
 
 ## Then: PSK31, because you already built it
 
-PSK31 is **differentially encoded BPSK at 31.25 baud** — precisely the link you built and
-measured in [Lab 07](../02_flowgraphs/lab07_bpsk_link_sim/README.md), just slower and with
-varicode text instead of a PN pattern. Swap your BER monitor for a varicode decoder and your Lab
-07 flowgraph becomes a real HF receiver.
+PSK31 is **differential BPSK at 31.25 baud** — exactly the link you built and measured in
+[Lab 07](../02_flowgraphs/lab07_bpsk_link_sim/README.md), just slower, and with text ("varicode")
+instead of a test pattern. Replace Lab 07's BER monitor with a varicode decoder and it becomes a
+real receiver. (PSK31 is mostly on HF, so you need an upconverter.)
 
-That substitution — same chain, real signal — is the shortest path from "I simulated a digital
-link" to "I decoded a stranger in another country".
+Same chain, real signal: the shortest path from "I simulated a digital link" to "I decoded a
+stranger in another country".
 
 ---
 

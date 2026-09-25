@@ -1,7 +1,7 @@
 # 📱 09 — Cellular
 
-> The most heavily engineered signals you will ever receive, and the most legally constrained.
-> Read the boundary section before anything else.
+> The most complex signals you will ever receive — and the most restricted by law. Read the
+> legal section before anything else.
 >
 > [← IoT & ISM](./08_iot_ism_and_short_range.md) · [Catalogue index](./README.md) · [Next: Navigation & Timing →](./10_navigation_and_timing.md)
 
@@ -27,9 +27,10 @@ allowed"**, and where the consequences are criminal rather than administrative.
 - ⛔ Operating a base station on live spectrum without a licence, including "just to see".
 - ⛔ Anything resembling an IMSI catcher.
 
-In the USA the ECPA specifically prohibits intercepting cellular communications, with no hobbyist
-exemption. Most other jurisdictions are stricter. **A shielded lab enclosure and your own SIMs is
-the only fully safe way to experiment**, and it is genuinely how professionals do it.
+In the USA the ECPA forbids intercepting mobile-phone communications, with no exception for
+hobbyists. In Malaysia, section 234 of the Communications and Multimedia Act 1998 forbids
+unauthorised interception. **A shielded box and your own SIM cards is the only fully safe way to
+experiment** — and that is how professionals do it.
 
 ---
 
@@ -153,7 +154,7 @@ the same principle as ADS-B's non-uniform preamble in
 elegance.
 
 Map the cell IDs and signal strengths around your neighbourhood and you have built a coverage
-survey tool — a real professional instrument, from a $300 radio.
+survey tool — a real professional instrument, from your SDR.
 
 ---
 

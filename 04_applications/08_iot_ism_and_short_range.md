@@ -1,7 +1,7 @@
 # 📡 08 — IoT, ISM & Short Range
 
-> The densest, noisiest, most varied part of the spectrum — and the easiest place to find a real
-> signal you can fully reverse-engineer in an afternoon. Your own house is transmitting right now.
+> The busiest, noisiest, most varied part of the spectrum — and the easiest place to find a real
+> signal that you can fully work out in an afternoon. Your own home is transmitting right now.
 >
 > [← Amateur Radio](./07_amateur_radio.md) · [Catalogue index](./README.md) · [Next: Cellular →](./09_cellular.md)
 
@@ -9,8 +9,9 @@
 
 ## The ISM bands
 
-**ISM** = Industrial, Scientific and Medical — bands where licence-exempt devices may transmit
-under power and duty-cycle limits. They differ by region, which is the first thing to get right:
+**ISM** = Industrial, Scientific and Medical: bands where small devices may transmit **without a
+licence**, within limits on power and on how often they transmit. The bands **differ by region**
+— get this right first (Malaysia: 433 MHz, 919–923 MHz, 2.4 GHz):
 
 | Band | Region | Typical use |
 |---|---|---|
@@ -145,10 +146,10 @@ Every burst is a device. Zoom into one, look at the pulse widths, and you will u
 **OOK with pulse-width encoding**: a long pulse is a 1, a short pulse is a 0, and there is a
 preamble of alternating bits followed by a device ID and a checksum.
 
-Decoding one from scratch — no library, just your eyes and NumPy — is the single most empowering
-exercise in this catalogue. There is no synchronisation loop, no FEC, nothing hidden. And once
-you have done one, `rtl_433`'s source code stops looking like magic and starts looking like a
-list of the same idea 200 times.
+Decoding one yourself — no library, just your eyes and NumPy — builds more confidence than any
+other exercise in this catalogue. There is no synchronisation loop, no error correction, nothing
+hidden. After one, `rtl_433`'s source code stops looking like magic and starts looking like the
+same idea, 200 times.
 
 ---
 
@@ -159,9 +160,9 @@ spread spectrum**: each symbol is a linear frequency sweep, and the symbol *valu
 where the sweep starts. Demodulation is a dechirp (multiply by a conjugate chirp) followed by an
 FFT — the peak bin *is* the symbol.
 
-It is the first modulation in this catalogue that your Lab 07 toolkit does not directly cover,
-and working out why it achieves such extraordinary range at such low power is a genuine
-education in spread spectrum.
+It is the first modulation here that Lab 07's tools do not directly cover. Working out why it
+reaches so far on so little power is a real lesson in spread spectrum. (In Malaysia, LoRa uses
+AS923: 919–923 MHz — not Europe's 868 MHz.)
 
 ---
 
