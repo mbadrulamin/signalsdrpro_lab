@@ -21,7 +21,7 @@ blocks:
 - name: samp_rate
   id: variable
   parameters:
-    comment: 'Sample rate from USRP (1 MSPS for FM broadcast)'
+    comment: 'Sample rate: 1 million IQ samples per second (1 MSPS). With IQ, that shows 1 MHz of spectrum - room for one FM station and its neighbours.'
     value: '1000000'
   states:
     bus_sink: false
@@ -34,7 +34,7 @@ blocks:
 - name: freq
   id: variable_qtgui_range
   parameters:
-    comment: 'FM broadcast band is 87.5-108 MHz. Stations sit 100 kHz apart (200 kHz in the US).'
+    comment: 'The station to listen to. FM radio is 87.5-108 MHz. Stations sit on a 100 kHz grid (89.9, 90.0 ...) and each one is about 200 kHz wide.'
     label: 'FM Station (Hz)'
     rangeType: float
     start: '87.5e6'
@@ -55,7 +55,7 @@ blocks:
 - name: gain
   id: variable_qtgui_range
   parameters:
-    comment: 'Start at 40 dB. Raise until the noise floor starts rising with it, then back off - see Fundamentals 06.'
+    comment: 'How much the radio amplifies. Start at 40 dB. Gain is NOT volume: too much distorts. See Fundamentals 06.'
     label: 'RF Gain (dB)'
     rangeType: float
     start: '0'
@@ -76,7 +76,7 @@ blocks:
 - name: usrp_source
   id: uhd_usrp_source
   parameters:
-    comment: 'The only hardware block. fc32 = complex float32 IQ, the format every later lab assumes. Also sets the AD9361 analog filter to samp_rate: without that it defaults to 56 MHz and LO/DC leakage dominates (measured 0.84 of total power vs 0.16).'
+    comment: 'The radio itself: gives 1 million IQ samples per second (complex float32). It also sets the radio''s hardware filter (bw0) to the sample rate - leave that empty and the filter opens to 56 MHz, and the centre spike becomes 84% of everything received (16% when set).'
     type: fc32
     dev_addr: '""'
     dev_args: '""'
@@ -103,7 +103,7 @@ blocks:
 - name: wbfm_rcv
   id: analog_wfm_rcv
   parameters:
-    comment: 'Quadrature demod + de-emphasis + audio filter in one block. 1000000/20 = 50000 audio.'
+    comment: 'The FM decoder: turns IQ into sound (FM demodulation + audio filter + de-emphasis, all in one). 1,000,000 / 20 = 50,000 audio samples per second.'
     quad_rate: samp_rate
     audio_decimation: '20'
   states:
@@ -117,7 +117,7 @@ blocks:
 - name: audio_sink
   id: audio_sink
   parameters:
-    comment: 'Must match the WBFM output rate exactly: samp_rate / audio_decimation = 50000.'
+    comment: 'Your speakers. The rate must equal what WBFM Receive outputs: 1,000,000 / 20 = 50,000.'
     samp_rate: '50000'
     device_name: '""'
     num_inputs: '1'

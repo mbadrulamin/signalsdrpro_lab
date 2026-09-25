@@ -252,7 +252,7 @@ blocks:
 - name: audio_sink
   id: audio_sink
   parameters:
-    comment: 'ok_to_block=True lets the sound card provide back-pressure to the whole flowgraph.'
+    comment: 'Your speakers. ok_to_block=True lets the sound card set the speed of the whole flowgraph.'
     samp_rate: audio_rate
     device_name: '""'
     num_inputs: '1'
