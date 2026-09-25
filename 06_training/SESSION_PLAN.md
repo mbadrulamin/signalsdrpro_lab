@@ -523,6 +523,16 @@ of how much they will save you:
    single crash then does not end the session.
 6. **Leave the radio powered from the first break onward.** Re-plugging costs 30 seconds of dead
    air every time.
+7. **Run the offline test suite the day before**, on the presenting laptop:
+
+   ```bash
+   cd 03_scripts && python3 test_labs_offline.py
+   ```
+
+   It runs the real flowgraphs of Labs 01–06, 08 and 09 on test signals with known answers (about
+   a minute, no radio needed) and would have caught both demo-breaking bugs found in September
+   2026: Lab 03's squelch that could never close (S43 leads with squelch) and Lab 04's stereo
+   decoder that was effectively mono (S44). All nine checks should say PASS.
 
 ---
 

@@ -70,6 +70,8 @@ buffer, that is the difference between finishing on time and abandoning the last
    to the recording and keep moving. Never debug in front of a classroom.
 5. **Pre-flight in the actual room**, on the actual power and network, within an hour of
    starting — and **test the audio**, because half the demos are sound.
+6. **Run `python3 03_scripts/test_labs_offline.py` the day before.** It checks the real lab
+   flowgraphs against known answers in about a minute, with no radio. All nine should PASS.
 
 ### Shape of the day
 
