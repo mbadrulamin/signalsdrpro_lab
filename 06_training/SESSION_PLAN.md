@@ -465,7 +465,7 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > indoors. Skipping the fundamentals and then blaming the radio.
 
 **S62 · Resources** *(2 min)*
-> The 202-term glossary — tell them explicitly it is written plain-English-first, because a
+> The 248-term glossary — tell them explicitly it is written plain-English-first, because a
 > beginner's worst hour is the one spent stuck on an acronym. Signal identification guide,
 > antenna reference, applications catalogue, local community. QR code again.
 
@@ -554,7 +554,7 @@ schedule the cable demo and treat the other as a bonus.
 |---|---|
 | **Slide deck** | [`intro_to_sdr.html`](./intro_to_sdr.html) — 63 slides, speaker notes built in. One file, no internet needed. |
 | **Setup checklist card** | One page, double-sided: the four commands, plug-in order, the firmware-image fix, the five mistakes. The thing they keep. |
-| **Glossary card** | The 15 terms actually used today, not all 202: IQ, dBFS, MSPS, bandwidth, sample rate, gain, AGC, squelch, FFT, waterfall, constellation, flowgraph, block, duplex, transport stream. |
+| **Glossary card** | The 15 terms actually used today, not all 248: IQ, dBFS, MSPS, bandwidth, sample rate, gain, AGC, squelch, FFT, waterfall, constellation, flowgraph, block, duplex, transport stream. |
 | **QR code** | To the repository. On S6, on S62, and printed on both cards. |
 | **Fallback recordings** | One per live demo (§6). |
 | **Pre-built artefacts** | IQ recording, transport stream, synthetic ADS-B and RDS captures. |

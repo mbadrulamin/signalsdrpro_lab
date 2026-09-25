@@ -8,7 +8,7 @@
 
 | # | Document | Use it when… |
 |---|---|---|
-| 01 | **[Glossary](./01_glossary.md)** | Any document throws an acronym at you. **202 terms**, plain English first |
+| 01 | **[Glossary](./01_glossary.md)** | Any document throws an acronym at you. **248 terms**, plain English first |
 | 02 | **[Signal Identification](./02_signal_identification.md)** | You see something on the waterfall and have no idea what it is |
 | 03 | **[Antennas](./03_antennas.md)** | Always. This is the highest-value page here for a beginner |
 | 04 | **[Malaysia](./04_malaysia.md)** | You are in Malaysia and need bands, law, licensing or local community |

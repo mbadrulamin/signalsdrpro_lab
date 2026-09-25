@@ -171,7 +171,7 @@ For looking things up, not for reading from start to end.
 
 | Page | Open it when… |
 |---|---|
-| [Glossary](./05_reference/01_glossary.md) | A word or acronym stops you. **202 terms**, explained simply. |
+| [Glossary](./05_reference/01_glossary.md) | A word or acronym stops you. **248 terms**, explained simply. |
 | [Signal identification](./05_reference/02_signal_identification.md) | You see something on the screen and want to know what it is. |
 | [Antennas](./05_reference/03_antennas.md) | Always. The antenna matters more than anything else you can buy. |
 | [Malaysia](./05_reference/04_malaysia.md) | You want local frequencies, the law, licences and clubs. |
