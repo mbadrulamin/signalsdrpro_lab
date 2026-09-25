@@ -1,7 +1,8 @@
 # 🕰️ 16 — Oddities & Historical
 
-> The strange, the obsolete, and the unexplained. Some of these are the most memorable signals
-> you will ever hear, and several are disappearing — hear them while you still can.
+> The strange, the old, and the unexplained. Some of these are the most memorable signals you
+> will ever hear — and several are disappearing, so hear them while you can. (Most are on HF or
+> below, so they need an upconverter.)
 >
 > [← Transmit Projects](./15_transmit_projects.md) · [Catalogue index](./README.md) · [Back to catalogue index](./README.md)
 
@@ -117,8 +118,9 @@ decommissioned worldwide as GNSS replaces them. Each is a plain carrier with a t
 three-letter Morse identifier repeating forever, at powers from 25 W to a few kW, somewhere
 between 190 and 535 kHz.
 
-Tune with a **narrow CW filter**, listen for the ident, and look it up. NDB DXers routinely log
-beacons over 2000 km away at night, using nothing but a loop of wire and patience.
+With an **upconverter** (190–535 kHz is far below the SignalSDR Pro's range), tune with a
+**narrow CW filter**, listen for the Morse ident, and look it up. Enthusiasts regularly hear
+beacons more than 2000 km away at night, using only a wire loop and patience.
 
 In ten years most of them will be silent. It is a small, quiet corner of the spectrum, and it is
 closing.

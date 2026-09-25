@@ -1,8 +1,8 @@
 # 🛠️ 14 — Test, Measurement & Infrastructure
 
-> Using the SDR as an **instrument** rather than a receiver. These are the least glamorous
-> projects in the catalogue and by far the most professionally useful — this is what SDR is
-> actually employed to do.
+> Using the SDR as a **measuring instrument**, not a radio. These are the least exciting projects
+> in the catalogue — and by far the most useful at work. This is what companies actually use SDRs
+> for.
 >
 > [← Security Research](./13_security_research.md) · [Catalogue index](./README.md) · [Next: Transmit Projects →](./15_transmit_projects.md)
 
@@ -10,10 +10,10 @@
 
 ## Why this domain repays effort
 
-A $300 SDR plus good software replaces several pieces of laboratory equipment that used to cost
-tens of thousands. Not perfectly — a real spectrum analyser has better dynamic range, calibrated
-absolute levels and a much cleaner front end — but well enough that measurement stops being a
-budget question.
+An SDR and good software can replace several pieces of lab equipment that used to cost tens of
+thousands of dollars. Not perfectly — a real spectrum analyser handles strong and weak signals
+together better, is calibrated in real units, and adds less distortion — but well enough for most
+work.
 
 The catch is **calibration**. Your SDR reports dBFS, not dBm, and it has no idea what your
 antenna, cable or LNA did to the signal. Everything in this file is *relative* until you
@@ -123,10 +123,14 @@ for f in np.arange(80e6, 1000e6, 2e6):
     print(f"{f/1e6:7.1f} MHz  {floor(f):7.1f} dB")
 ```
 
-The result is a map of **where you can actually hear anything**. Most people discover a broadband
-noise floor 20 dB above thermal across the whole VHF range, caused by a switch-mode power supply,
-an LED driver or a solar inverter in their own house. Finding and unplugging it is usually worth
-more than any amount of antenna work.
+> ⏱️ This simple version restarts the radio for every 2 MHz step — about 460 steps — so the full
+> sweep is slow. Try `np.arange(80e6, 200e6, 2e6)` first. (Making it retune without restarting is
+> a good exercise.)
+
+The result is a map of **where you can actually hear anything**. Many people find a noise floor
+20 dB above the natural level across all of VHF — caused by a phone charger, an LED light driver
+or a solar inverter in their own home. Finding and unplugging it often helps more than any
+antenna work.
 
 > Note the `set_bandwidth()` call. Leaving it out lets the analog filter default to 56 MHz and
 > your measurements become meaningless — as this repository discovered the hard way and

@@ -1,7 +1,7 @@
 # 📤 15 — Transmit Projects
 
-> Your SignalSDR Pro **can transmit**, from 70 MHz to 6 GHz. That makes it a fundamentally
-> different instrument from a receive-only dongle — and a fundamentally more dangerous one.
+> Your SignalSDR Pro **can transmit**, from 70 MHz to 6 GHz. That makes it very different from a
+> receive-only dongle — and much more dangerous.
 >
 > [← Test & Measurement](./14_test_measurement_and_infrastructure.md) · [Catalogue index](./README.md) · [Next: Oddities →](./16_oddities_and_historical.md)
 
@@ -11,9 +11,9 @@
 
 ### The four rules
 
-1. **Get licensed.** An amateur radio licence is inexpensive, the exam is passable in a few
-   weeks of study, and it makes almost everything on this page legal. Without one, almost nothing
-   is.
+1. **Get licensed.** An amateur radio licence is cheap, a few weeks of study is enough for the
+   exam, and it makes almost everything on this page legal. Without one, almost nothing is. (In
+   Malaysia: [how to get licensed](../05_reference/04_malaysia.md#3-getting-licensed-to-transmit).)
 2. **Use a dummy load while developing.** A 50 Ω terminator plus a 30 dB attenuator lets you
    build and debug a transmitter that radiates essentially nothing. Switch to an antenna only
    when you are certain what is coming out.

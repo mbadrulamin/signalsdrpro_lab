@@ -1,8 +1,7 @@
 # 🔐 13 — Security Research
 
-> Radio security is a legitimate and valuable discipline. It is also the fastest way in this
-> catalogue to commit a serious offence by accident. **Read the boundary first — it is not
-> boilerplate.**
+> Radio security is real, valuable work. It is also the quickest way in this catalogue to break
+> the law by accident. **Read the rules first — they are not a formality.**
 >
 > [← Science](./12_science_and_radio_astronomy.md) · [Catalogue index](./README.md) · [Next: Test & Measurement →](./14_test_measurement_and_infrastructure.md)
 
@@ -15,8 +14,8 @@
 > **You may test only systems you own, or systems whose owner has given you written permission
 > to test.**
 
-That is not a formality. In practice it is the entire difference between security research and a
-criminal offence, and it is the line prosecutors actually use.
+This is not a formality. It is the whole difference between security research and a crime, and
+it is the line prosecutors use.
 
 ### Legal, useful, and where you should spend your time
 
@@ -40,9 +39,10 @@ criminal offence, and it is the line prosecutors actually use.
 
 ### The uncomfortable middle
 
-Passively **recording** your neighbour's sensors, or logging TPMS identifiers from passing cars,
-is often technically legal and ethically indefensible. The test that has never failed anyone:
-**would you be comfortable explaining this to the person whose device it is?**
+Quietly **recording** your neighbour's sensors, or logging the tyre-sensor IDs of passing cars, may
+be technically legal in some places — but it is not right. (In Malaysia, interception without
+permission can be an offence under CMA 1998 section 234.) A simple test: **would you be happy to
+explain what you are doing to the person whose device it is?**
 
 ---
 
