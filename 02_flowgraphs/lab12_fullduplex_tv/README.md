@@ -1,186 +1,216 @@
-# 📡📺 Lab 12 — Full-Duplex Video Link: Transmit and Receive at the Same Time
+# 📡📺 Lab 12 — Send and Receive Video at the Same Time (Full Duplex)
 
-> **Time:** 4 hours
-> **Difficulty:** Expert
-> **Theory needed:** **[Fund. 11 OFDM](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)** · **[Fund. 12 Video Over The Air](../../01_fundamentals/12_video_over_the_air.md)**
-> **New blocks:** the full DVB-T transmit chain *and* receive chain in one flowgraph, USRP Sink and Source simultaneously
-> **Files:** `lab12_fullduplex_tv.grc`
-> **Hardware:** one SignalSDR Pro. **A cable and attenuator, or a Faraday cage.**
->
-> ### 🚨 This lab transmits.
+> **What you will build:** one flowgraph that **transmits** a real video as digital TV and
+> **receives it back** on the same radio, **at the same time** — with the picture on screen.
+> **What you will learn:** full-duplex operation; making a video stream at the exact rate the
+> modulator needs; a **link budget** that explains a failed first attempt; and how to prove a link
+> is perfect, byte for byte.
+> **Before this:** **[Fundamentals 11](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)**,
+> **[12](../../01_fundamentals/12_video_over_the_air.md)**, and [Lab 11](../lab11_tv_receiver/README.md).
+> **Time:** about 4 hours. **Difficulty:** expert.
+> **Hardware:** one SignalSDR Pro, and **a cable with attenuators, or a Faraday cage**.
+> **File:** `lab12_fullduplex_tv.grc`
 
 ---
 
-## 🚨 Before You Transmit Anything
+## 🚨 Before you transmit anything
 
-DVB-T occupies **8 MHz of licensed broadcast spectrum**, and a DVB-T signal looks exactly like
-a real broadcast — which is why interference from one is indistinguishable from a
-broadcaster's own fault, and why regulators treat it harshly.
+**This lab transmits.** DVB-T uses **8 MHz of spectrum licensed to TV broadcasters**, and a DVB-T
+signal looks exactly like a real broadcast. In Malaysia, 470–694 MHz is live MYTV digital TV.
 
-### The only acceptable setups
+### The only safe ways to do this lab
 
 | | Setup | Notes |
 |---|---|---|
-| ✅ | **Cable: TX/RX → attenuator → RX2** | Best. No radiation at all, and it gives a *better* link than antennas |
-| ✅ | **Faraday cage / shielded enclosure** | The whole radio inside |
-| ✅ | **File only** — record with `verify_tv_link.py`, decode offline | Everything except the final demonstration |
-| ❌ | "Low power should be fine" | It is not. A few mW at UHF carries for hundreds of metres |
-| ❌ | "I scanned and the channel was empty" | **Empty to your antenna is not empty.** Scanning here found nothing at all across 470–694 MHz — because the antenna was cut for 100 MHz |
+| ✅ | **A cable: `TX/RX` → attenuators → `RX2`** | **The best choice.** Nothing is radiated — and the link works *better* than with antennas (see Section 4) |
+| ✅ | **Faraday cage** (a shielded box) | the whole radio inside |
+| ✅ | **Files only** — record with `verify_tv_link.py`, decode afterwards | everything except the live demonstration |
+| ❌ | "Low power should be fine" | It is not. A few milliwatts at UHF can travel hundreds of metres |
+| ❌ | "I scanned and the channel was empty" | **Empty to your antenna is not empty.** A scan here found nothing across 470–694 MHz — because the antenna was cut for 100 MHz |
 
-### The defaults are inert
+### The transmitter starts switched off
 
-`lab12_fullduplex_tv.grc` ships with **`tx_amplitude = 0.0` and `tx_gain = 0 dB`**. It radiates
-nothing until you deliberately raise both. **Check what is on the TX/RX port before you touch
-either slider** — the port is bidirectional and an antenna from an earlier lab is still
-attached now.
+`lab12_fullduplex_tv.grc` starts with **`tx_amplitude = 0.0`** and **`tx_gain = 0 dB`**. It sends
+nothing until you raise **both**. **Look at the `TX/RX` port before you touch either slider** — it
+is used for transmitting, and an antenna from an earlier lab may still be on it.
 
-Scan first, every time:
+Before every session, scan the channels you might use:
 
 ```bash
 ../../03_scripts/scan_tv_band.py --first 21 --last 48
 ```
 
+And after every session, check nothing is still transmitting:
+
+```bash
+ps -eo pid,args | grep -E "[l]ab12|[v]erify_tv_link"
+```
+
+Stop anything you find by its PID (`kill 12345`) — not with `pkill -f`.
+
 ---
 
 ## 🎯 Goal
 
-Put a real video file on the air as digital television, and receive it back on the same radio,
-at the same time, in one flowgraph — with the picture on screen.
+Put a real video on the air as digital TV, and receive it back on the same radio, at the same
+time, in one flowgraph — with the picture on screen.
 
 ```
-  Bintang.mp4 → ffmpeg → MPEG-2 TS @ 16.086 Mbit/s
-       → DVB-T modulator → TX/RX  ))))  RX2 → DVB-T demodulator
+  Bintang.mp4 → ffmpeg → MPEG-2 TS at exactly 16.086 Mbit/s
+       → DVB-T transmitter → TX/RX  ═══cable═══  RX2 → DVB-T receiver
               → MPEG-2 TS → ffplay → picture
 ```
 
-> **Verified on real hardware.** 25 seconds of continuous full duplex at 474 MHz:
-> **267,104 packets decoded against 267,380 expected — 99.9 % of real time**, MER 17.7 dB,
-> zero sync errors, continuity error rate 1.2 × 10⁻⁴, **99.9566 % byte-exact** against the
-> transmitted file, and the service name read back off the air.
+> ✅ **Tested on real hardware.** 40 seconds of full-duplex 1080p video at 474 MHz:
+> **79,357,996 bytes received, 0 wrong — 100.000000 %**; 422,304 packets, **0 sync errors, 0
+> continuity errors**; MER 15.7 dB; decoded into **975 video frames and 39.45 s of audio**; and
+> the channel name `SDR LAB TV` read back from the signal. See [Verification](#-verification).
 
 ---
 
-## 🔁 What "full duplex" actually buys, and what it hides
+## 1. What "full duplex" gives you — and what it hides
 
-The B210 has independent transmit and receive chains. Channel A's **TX/RX** port transmits
-while its **RX2** port receives, both at 9.142857 MSPS. Over USB 3.0 that is
-2 × 9.14 M × 8 bytes = **146 MB/s**, sustained. (USB 2.0 cannot do this.)
+The SignalSDR Pro (as a B210) has **separate** transmit and receive chains. Here, channel A's
+**`TX/RX`** port transmits while its **`RX2`** port receives, both at 9.142857 MSPS. Over USB 3.0
+that is 2 × 9.14 million × 8 bytes = **146 MB per second**, non-stop. (USB 2.0 cannot do this.)
 
-**The catch, and it is a big one: there is no frequency offset.** Transmitter and receiver
-share one reference oscillator, so the carrier the receiver hunts for is *exactly* where it
-expects. A real receiver faces tens of kHz of offset from two independent crystals and must
-search for it.
-
-So this lab gives the synchroniser an unrealistically easy problem. That is fine — it isolates
-everything else — but do not conclude from a working loopback that your receiver would lock to
-a broadcaster. To make it honest, put a deliberate offset in: insert a
-`Frequency Xlating FIR Filter` or a rotator between the modulator and the sink and give it a
-few kHz. Watching where it stops locking is a better lesson than watching it work.
+> ⚠️ **The catch: there is no frequency error.** The transmitter and receiver share **one** clock,
+> so the signal arrives at **exactly** the expected frequency. A real receiver faces an error of
+> tens of kHz between two separate crystals, and must search for it.
+>
+> So this lab gives the receiver an unrealistically easy job. That is useful — it tests everything
+> else — but **a working loopback does not prove the receiver would lock to a real broadcaster**.
+>
+> **Make it honest:** add a deliberate frequency error. Put a **Frequency Xlating FIR Filter** (or
+> a rotator) between the modulator and the USRP Sink, and set it to a few kHz. Find where it stops
+> locking. That teaches more than watching it work.
 
 ---
 
-## 🎬 Making the video stream
+## 2. Making the video stream
 
 ```bash
-sudo apt install ffmpeg          # the only external dependency in this repository
+sudo apt install ffmpeg          # the only extra software this course needs
 
 ../../03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang.ts \
     --mode 16qam-2/3-1/32 --width 1280 --duration 300 --loop
 ```
 
-Then point `ts_in` at `/tmp/bintang.ts` and run the flowgraph.
+The flowgraph's `ts_in` already points at `/tmp/bintang.ts`. Run it.
 
-### For more than one pass of the file, use playout
+**No ffmpeg?** You can still test every part of the radio:
 
-`ts_in` pointing at a finished `.ts` with `repeat = True` is right for the byte-exact
-verification below — you need something to compare against. It is **wrong for watching**. At
-every lap the transport stream's PCR jumps backwards by the file's whole length (measured
-−208.86 s in [Lab 10](../lab10_dvbt2_tx_rx/README.md#step-0--make-a-transport-stream-the-tv-programme)),
-and a receiver's clock recovery never settles again. The picture stays perfect and goes
-sluggish.
+```bash
+../../03_scripts/make_test_ts.py --out /tmp/bintang.ts --seconds 10 --rate 16085561
+```
+
+That stream has the tables (PAT, PMT, SDT, NIT) and a channel name, but no video. A TV lists the
+channel by name; there is just no picture.
+
+### For watching, use playout — not a looping file
+
+`ts_in` reading a finished `.ts` in a loop is right for the **byte-for-byte test** below (you need
+the original to compare with). It is **wrong for watching**: at each loop, the stream's clock
+(PCR) jumps backwards by the file's length, and the receiver's clock never settles again. The
+picture stays perfect but goes **sluggish**
+([Lab 10](../lab10_dvbt2_tx_rx/README.md#step-0--make-a-transport-stream-the-tv-programme) found
+this on a real TV).
+
+For watching, loop the **video** instead, with playout:
 
 ```bash
 ../../03_scripts/tv_playout.py ~/Downloads/Bintang.mp4 \
     --standard dvbt --mode 16qam-2/3-1/32 --fifo /tmp/tv.fifo
 ```
 
-Then set `ts_in` to `/tmp/tv.fifo`. Playout loops the *video* inside ffmpeg, so the stream clock
-counts upwards forever.
+Then set `ts_in` to `/tmp/tv.fifo`. The stream's clock now counts upwards forever.
 
-Without ffmpeg you can still exercise every part of the radio:
+### Why the bit rate is calculated
 
-```bash
-../../03_scripts/make_test_ts.py --out /tmp/lab.ts --seconds 10 --rate 16085561
-```
-
-That is a standards-valid multiplex with PAT/PMT/SDT/NIT and no video. A television will find
-the service and list it by name; there is simply no picture.
-
-### Why the bit rate is computed and not chosen
-
-A DVB-T modulator is a **clock**, not a queue. Choose FFT size, constellation, code rate and
-guard interval and the chain swallows transport bytes at one fixed rate forever:
-
-$$T_u = N_{\text{FFT}} \cdot T, \qquad T_s = T_u\left(1 + \tfrac{1}{G}\right), \qquad
-R = \frac{K_{\text{data}} \cdot b}{T_s} \cdot \frac{n}{d} \cdot \frac{188}{204}$$
-
-with $T = 7/64$ µs for an 8 MHz channel. For 8K, 16QAM, CR 2/3, GI 1/32:
+A DVB-T modulator is a **clock**, not a queue. Once you choose the FFT size, constellation, code
+rate and guard interval, it eats transport-stream bytes at **one fixed rate**
+([Fundamentals 12 §3](../../01_fundamentals/12_video_over_the_air.md#3-why-the-rate-is-calculated-not-chosen)).
+For 8K, 16QAM, rate 2/3, guard 1/32:
 
 $$\frac{6048 \times 4}{924\,\mu s} \times \frac{2}{3} \times \frac{188}{204} = 16.086\ \text{Mbit/s}$$
 
-Mux at a different rate and the picture drifts against its own clock until the receiver's
-buffer gives up. `make_video_ts.py` computes the figure, passes it to ffmpeg as `-muxrate` so
-null packets stuff the remainder exactly, and `--verify` checks the result by recovering the
-rate from the PCR timestamps in the finished file.
+Use a different rate, and the picture drifts against its own clock until the receiver gives up.
+`make_video_ts.py` calculates the rate, tells ffmpeg to pad exactly to it with null packets, and
+`--verify` checks the result from the stream's own clock.
 
-`make_video_ts.py --list-modes` prints the whole table. It is derived from the equation above,
-not copied, and it reproduces the published DVB-T figures exactly — 6.032, 16.086, 24.128,
-31.668 Mbit/s.
+`make_video_ts.py --list-modes` prints every mode, calculated from the formula. It matches the
+published DVB-T figures: 6.032, 16.086, 24.128, 31.668 Mbit/s.
 
 ---
 
-## 📐 The link budget, and why the first attempt failed
+## 3. Running it
 
-The first over-the-air attempt decoded **nothing**. Working out why is the most useful hour in
-this lab, because the answer is not a bug.
+1. Connect **`TX/RX` → 20–30 dB attenuator → `RX2`** with a short coax cable. No antennas.
+2. Make the stream (Section 2).
+3. Open and run the flowgraph:
 
-**Step 1 — is anything being transmitted?** A CW tone at the same settings rose **42 dB** above
-the noise floor in its FFT bin. The transmitter works and an RF path exists.
+   ```bash
+   gnuradio-companion lab12_fullduplex_tv.grc
+   ```
 
-**Step 2 — then why does DVB-T not arrive?** Because a tone and a television signal with the
-same total power are not equally detectable. The tone puts everything into one 2.2 kHz bin.
-DVB-T spreads it across 7.6 MHz — about 3,400 bins:
+4. Raise **`tx_gain`** and **`tx_amplitude`** slowly. Watch the receive side's **level**, **MER**
+   and **constellation**.
+5. When MER is above about **15 dB**, the receiver locks, the continuity-error count stays at
+   zero, and the picture appears.
+
+> 💡 **Too much signal is the usual problem on a cable.** If the constellation is a smeared blob at
+> high gain, lower `rx_gain` first, then `tx_gain`.
+
+---
+
+## 4. The link budget: why the first attempt failed
+
+The first over-the-air attempt decoded **nothing**. Working out why is the most useful hour of
+this lab — because it was not a bug.
+
+**Step 1 — is anything being sent?** A plain test tone (CW) at the same settings stood **42 dB**
+above the noise. So the transmitter works, and a radio path exists.
+
+**Step 2 — then why does the TV signal not arrive?** Because a tone and a TV signal **with the same
+total power** are not equally easy to see. The tone puts all its power into one narrow 2.2 kHz
+slot. DVB-T spreads the same power over 7.6 MHz — about 3,400 slots:
 
 $$10\log_{10}(3400) \approx 35\ \text{dB}$$
 
-Subtract that, and the 8.4 dB by which the test tone's total power exceeded the modulated
-signal's, and 42 dB of tone becomes **−1.4 dB** of television. Measured in-band rise:
-**+0.92 dB**. The prediction and the measurement agree.
+```
+   42    dB   how strong the tone looked
+ − 35    dB   spreading over 7.6 MHz
+ −  8.4  dB   the tone's total power was higher than the TV signal's
+ ────────
+ ≈ −1.4  dB   how strong the TV signal should look
+```
 
-**Step 3 — how much is needed?** 13 dB, measured in Lab 11's SNR sweep. The link was roughly
-15 dB short.
+Measured: **+0.92 dB**. Prediction and measurement agree.
 
-**Step 4 — the fix.** Not more receive gain: raising RX gain lifts signal and noise together,
-so C/N does not move. The answer was 19 dB more transmit gain, and then:
+**Step 3 — how much is needed?** About **13 dB** (Lab 11's cliff). The link was about **15 dB
+short**.
 
-| TX gain | In-band rise | Shoulder | Result |
+**Step 4 — the fix.** **Not** more receive gain: that lifts the signal and the noise together, so
+the signal-to-noise ratio does not change. The answer was **19 dB more transmit gain**:
+
+| TX gain | Rise above noise, in band | Shoulder | Result |
 |---|---|---|---|
 | 0 dB | 0.0 dB | 0.2 dB | nothing |
 | 70 dB | 0.9 dB | 5.2 dB | still nothing |
 | **89 dB** | **16.5 dB** | **21.3 dB** | **locks, decodes, picture** |
 
-> **This is the whole reason to use a cable.** A short coax with a 20–30 dB attenuator gives a
-> far better C/N than two antennas across a room, at a fraction of the transmit power, and
-> radiates nothing at all. The setup that is safest is also the one that works best.
+> **This is the whole reason to use a cable.** A short coax with a 20–30 dB attenuator gives a far
+> cleaner signal than two antennas across a room, with much less transmit power, and radiates
+> nothing. **The safest setup is also the one that works best.**
 
 ---
 
 ## 🔬 Verification
 
-### Your own video, transmitted and received
+### Your own video, sent and received
 
-40 seconds of `Bintang.mp4` — 1920×1080 H.264 at 15.1 Mbit/s with MP2 audio — through the
-transmitter, over the air, and back through the demodulator:
+40 seconds of `Bintang.mp4` (1920×1080 H.264 at 15.1 Mbit/s, with MP2 audio), through the
+transmitter, over the air, and back through the receiver:
 
 ```
 $ 03_scripts/verify_tv_link.py --ts /tmp/bintang_dvbt.ts --seconds 40 \
@@ -196,6 +226,8 @@ $ 03_scripts/verify_tv_link.py --ts /tmp/bintang_dvbt.ts --seconds 40 \
   VERDICT: PASS - clean
 ```
 
+(`verify_tv_link.py` **transmits**. It asks you to confirm first; its transmit gain starts at 0.)
+
 **79 MB of video, byte-identical.** Then decoded:
 
 ```
@@ -205,12 +237,10 @@ $ ffmpeg -i /tmp/verify_rx.ts -map 0:v -f null -
   frame= 975      <- 39.4 s of video at 25 fps
 ```
 
-975 video frames and 39.45 s of audio came out of the radio.
-
-> **The control that makes this airtight.** The decoder still prints a few warnings, because the
-> capture begins mid-GOP — a receiver tuning in has to wait for the next keyframe. To prove the
-> radio was not responsible, the *identical byte range* was cut out of the source file and
-> decoded alongside:
+> **The control test.** The decoder printed a few warnings, because the recording starts in the
+> middle of a group of pictures (a receiver tuning in must wait for the next keyframe). To prove
+> the radio did not cause them, the **same byte range** was cut from the original file and decoded
+> too:
 >
 > ```
 > $ cmp /tmp/rx_slice.ts /tmp/src_slice.ts
@@ -219,61 +249,91 @@ $ ffmpeg -i /tmp/verify_rx.ts -map 0:v -f null -
 > warnings decoding the SOURCE  slice : 31
 > ```
 >
-> Same bytes, same warnings. Every complaint the decoder makes is inherent to joining a stream
-> in the middle, and none of them came from the channel.
+> Same bytes, same warnings. Every warning comes from joining a stream in the middle; none came
+> from the radio.
 
-### An earlier measurement, corrected
+### An earlier result, corrected
 
-A first run reported 32 continuity errors and 2,400 byte mismatches at MER 17.7 dB, which was
-blamed on phase noise. It was mostly **the test's own fault**: that run looped a 3-second
-transport stream, and every wrap is a discontinuity in both the continuity counters and the PCR
-— a fault the receiver reports honestly, in a stream that really is broken at the seam. Running
-a 209-second file end to end gives **zero** of either.
+A first run (25 s) reported **32 continuity errors** and 99.96 % byte accuracy, at MER 17.7 dB. It
+was blamed on phase noise. It was mostly **the test's own fault**: that run looped a 3-second test
+stream, and every loop is a real break in the continuity counters and the clock. The receiver
+reported it honestly. Playing a 209-second file straight through gave **zero** errors.
 
-If you loop a short stream, expect one burst of errors per lap and do not read it as a radio
-problem.
+**If you loop a short stream, expect a burst of errors at every loop — it is not the radio.**
 
-The robust mode was measured too, and behaved in an instructive way:
+### Three modes compared
 
 | Mode | Bit rate | MER | Byte error rate | Locks live? |
 |---|---|---|---|---|
-| **16QAM 2/3 GI 1/32** | 16.09 Mbit/s | 15.7 dB | **0** (79 MB) | ✅ ← default |
-| QPSK 1/2 GI 1/32 | 6.03 Mbit/s | 14.7 dB | 9.3 × 10⁻⁴ * | ✅ |
-| QPSK 1/2 **GI 1/4** | 4.98 Mbit/s | — | — | ❌ **never locks** |
+| **16QAM 2/3, GI 1/32** | 16.09 Mbit/s | 15.7 dB | **0** (79 MB) | ✅ ← default |
+| QPSK 1/2, GI 1/32 | 6.03 Mbit/s | 14.7 dB | 9.3 × 10⁻⁴ * | ✅ |
+| QPSK 1/2, **GI 1/4** | 4.98 Mbit/s | — | — | ❌ **never locks** |
 
-\* measured with a looping 3-second stream — see [the correction above](#an-earlier-measurement-corrected).
+\* measured with the looping 3-second stream — see the correction above.
 
-The last row is not a link problem — that mode decodes perfectly from a file. The acquisition
-search window *is* the cyclic prefix, so GI 1/4 is 2048 samples of correlation per symbol
-against GI 1/32's 256. Eight times the work, and real-time acquisition cannot keep up.
-
-**The more robust mode was the one that failed.** Robustness against multipath and robustness
-against your own CPU are different axes.
+The last row is not a radio problem: that mode decodes perfectly from a file. The receiver's
+timing search covers the guard interval — 2048 samples at GI 1/4, against 256 at GI 1/32, eight
+times the work — and in real time the CPU cannot keep up. **The "more robust" mode was the one
+that failed.** Robustness against echoes and robustness against your own CPU are different things.
 
 ---
 
-## 🧰 Troubleshooting
+## 🔧 Troubleshooting
 
-| Symptom | Cause | Fix |
+| Problem | Cause | Fix |
 |---|---|---|
-| **`RuntimeError: No devices found`** | A previous run still owns the radio. | Find it by PID and kill it. `pkill -f` is treacherous here — the pattern matches `pkill`'s own command line and kills the shell that launched it. |
-| **Nothing decodes, RX level does not move with `tx_gain`** | No RF path, or the signal is spread below the noise floor. | Transmit a CW tone instead — a tone survives ~35 dB more path loss than an 8 MHz signal. If the tone appears and DVB-T does not, it is link budget, not wiring. |
-| **`U` from `usrp_sink`** | Transmit chain starved. Usually the receive chain hogging the CPU while unlocked. | Make sure a signal is present; an unlocked receiver runs at 1.55 MSPS and starves everything else. |
-| **`O` from `usrp_source`** | Receive chain not keeping up. | Expected while unlocked. If it persists after lock, drop to QPSK or 2K. |
-| **Locks, then picture drifts or freezes** | Transport rate ≠ modulation rate. | `make_video_ts.py --verify` — it recovers the true rate from the PCR and compares. |
-| **Constellation is a smeared blob at high gain** | Overload, not weakness. Over a short cable the usual failure is too much signal. | Lower `rx_gain` first, then `tx_gain`. |
-| **Picture perfect, then suddenly gone** | You were on the cliff edge. | MER is the warning the picture cannot give you. Below ~15 dB you have no margin left. |
+| `RuntimeError: No devices found` | An earlier run still has the radio | Find it by PID and stop it. Avoid `pkill -f` (it kills the terminal that runs it) |
+| Nothing decodes, and the receive level does not change with `tx_gain` | No radio path, or the signal is spread below the noise | Send a test tone instead: a tone survives about 35 dB more loss than an 8 MHz signal. If the tone shows and DVB-T does not, it is the link budget, not the wiring |
+| `U` from the USRP Sink | The transmit side is not getting samples fast enough — usually because the unlocked receiver is using the CPU | Make sure a signal is present; an unlocked receiver runs at 1.55 MSPS and starves everything |
+| `O` from the USRP Source | The receive side is not keeping up | Expected while unlocked. If it continues after lock, use QPSK or 2K |
+| Locks, then the picture drifts or freezes | The stream's rate is not the mode's rate | `make_video_ts.py --verify` reads the real rate from the stream's clock and compares |
+| The constellation is a smeared blob at high gain | Overload — too **much** signal, the usual problem on a cable | Lower `rx_gain` first, then `tx_gain` |
+| Perfect picture, then suddenly nothing | You were at the cliff edge | Watch MER: below about 15 dB there is no margin |
 
 ---
 
-## ❓ What was not tested
+## ❓ Not yet tested
 
-- **No human has watched the picture live.** The stream was decoded frame by frame and stills
-  were extracted from it, but `ffplay` was never left running in front of someone. Everything
-  the decoder can check, checks out.
-- **Two-radio operation** (one transmitting, one receiving, as Lab 10 describes) was not tried;
-  everything here is one B210 talking to itself.
-- **No deliberate frequency offset was introduced**, so the synchroniser has never been tested
-  against the problem a real receiver faces. See [above](#-what-full-duplex-actually-buys-and-what-it-hides).
-- **No real television was pointed at this transmitter.** For that, use Lab 10's DVB-T2
-  transmitter — consumer sets do not decode DVB-T2-era muxes and DVB-T interchangeably.
+- **Nobody has watched the picture live.** The stream was decoded frame by frame, and still images
+  were taken from it, but no person sat in front of `ffplay`.
+- **Two radios** (one sending, one receiving) were not tried. Everything here is one radio talking
+  to itself.
+- **No deliberate frequency error was added**, so the receiver has never faced the problem a real
+  receiver faces (Section 1).
+- **No TV was pointed at this transmitter.** Lab 12 sends **DVB-T**. Every Malaysian TV receives
+  DVB-T2, and many also receive DVB-T — but this was not tested. For a TV test, use
+  [Lab 10](../lab10_dvbt2_tx_rx/README.md)'s DVB-T2 transmitter.
+
+---
+
+## ✅ Summary
+
+- Full duplex: one radio transmits on `TX/RX` and receives on `RX2` at the same time — 146 MB/s
+  over USB 3.0.
+- Sharing one clock hides the frequency-error problem. Add an offset to make the test honest.
+- The stream's **rate** is calculated from the mode, and must be exact. Loop the **video**, not the
+  finished file.
+- A narrow test tone looks ~35 dB stronger than an 8 MHz signal of the same power.
+- More **receive** gain cannot fix a weak link; more **transmit** gain (or a cable) can.
+- **A cable with attenuators is the safest and the best-performing setup.**
+- Result: **79,357,996 bytes, 0 wrong.**
+
+## 🧠 Check yourself
+
+1. Why is a full-duplex loopback on one radio an unrealistically easy test for the receiver?
+   <details><summary>Answer</summary>Transmitter and receiver share one clock, so there is no
+   frequency error to find. A real receiver must search for tens of kHz of error.</details>
+2. A test tone stands 42 dB above the noise, but the DVB-T signal cannot be decoded. How can both
+   be true?
+   <details><summary>Answer</summary>The tone's power is in one narrow slot; DVB-T spreads the
+   same power over ~3,400 slots (35 dB), and the tone also had 8.4 dB more total power. So the TV
+   signal was only about −1.4 dB above the noise.</details>
+3. Why doesn't raising the receive gain fix a weak link?
+   <details><summary>Answer</summary>It raises the signal and the noise together, so the
+   signal-to-noise ratio stays the same.</details>
+4. You loop a 3-second test stream and see errors every 3 seconds. Is the radio faulty?
+   <details><summary>Answer</summary>No. Every loop breaks the continuity counters and the clock.
+   The receiver is correctly reporting a real break in the stream.</details>
+
+**Congratulations — you have finished the labs.** For what to do next, see
+[the Applications Catalogue](../../04_applications/README.md): 589 more signals and projects.
