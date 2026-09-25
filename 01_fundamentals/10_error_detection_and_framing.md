@@ -1,100 +1,100 @@
-# 🧩 Fundamentals 10 — Error Detection, Framing & CRC
+# 🧩 Fundamentals 10 — Error Detection, Framing and CRC
 
-> **Prerequisite:** Digital Modulation (08), Synchronization (09)
-> **Time to read:** 45 minutes
-> **Used by:** Lab 07 (RDS), Lab 09 (ADS-B)
-
----
-
-## Why This Chapter Exists
-
-Labs 07 and 09 both decode real data off the air. In both, the last step before you can
-believe a byte is the same question:
-
-> *"Is this actually a valid message, or did I just slice noise into 88 bits?"*
-
-The answer in both cases is a **cyclic redundancy check**, and in both cases the CRC does
-something subtler than "pass/fail" — RDS uses it to find the block boundaries in the first
-place, and ADS-B uses it to recover the aircraft address. Neither trick makes sense without
-understanding what a CRC *is*.
+> **What you will learn:** how a receiver knows data arrived **correctly** (the **CRC**), how it
+> finds **where a message starts** (framing), the two CRCs used in Labs 08 and 09, and how
+> error-**correcting** codes go further.
+> **Before this:** [Fundamentals 08](./08_digital_modulation.md) and
+> [09](./09_synchronization.md).
+> **Time:** about 45 minutes. **Used by:** Lab 08 (RDS), Lab 09 (ADS-B).
 
 ---
 
-## Part 1 — Arithmetic in GF(2)
+## Why this chapter exists
 
-A CRC is polynomial division over the finite field with two elements, GF(2). The rules are
-simpler than ordinary arithmetic, not harder:
+Labs 08 and 09 decode real data from the air. In both, before you can trust the result, you must
+answer one question:
 
-| Operation | GF(2) rule | In code |
+> *"Is this a real message — or did I just turn random noise into bits?"*
+
+In both labs, the answer is a **CRC** (cyclic redundancy check). And in both, the CRC does
+something clever beyond "pass / fail": RDS uses it to **find where blocks start**, and Mode S can
+use it to **check which aircraft** sent the message. To understand those tricks, you first need
+to know what a CRC is.
+
+---
+
+## Part 1 — Arithmetic with only 0 and 1
+
+A CRC is a kind of **division**, done with a very simple arithmetic that has only two numbers,
+0 and 1. (Mathematicians call it GF(2).)
+
+| Operation | Rule | In code |
 |---|---|---|
-| Addition | $1 + 1 = 0$ | `XOR` |
-| Subtraction | Same as addition | `XOR` |
-| Multiplication | $1 \times 1 = 1$ | `AND` |
+| Add | 0+0 = 0, 0+1 = 1, **1+1 = 0** | XOR |
+| Subtract | the same as adding | XOR |
+| Multiply | 1×1 = 1, anything else = 0 | AND |
 
-**There are no carries.** Addition and subtraction are the same operation. That is the whole
-reason CRCs are cheap enough to put in a $0.20 chip.
+**There is never a "carry".** Adding and subtracting are the same thing: XOR. That is why a CRC is
+cheap enough for the smallest chips.
 
-### Bit strings as polynomials
+### Bits as polynomials
 
-The bit string $1011$ represents
+A string of bits can be written as a polynomial. `1011` means:
 
 $$
-x^3 + x + 1
+1\cdot x^3 + 0\cdot x^2 + 1\cdot x + 1 = x^3 + x + 1
 $$
 
-Bit $i$ (counting from the right) is the coefficient of $x^i$. Multiplying by $x$ is a left
-shift. Adding two polynomials is XOR.
+Shifting left by one is the same as multiplying by *x*. Adding two of them is XOR.
 
 ---
 
-## Part 2 — How a CRC Works
+## Part 2 — How a CRC works
 
-### The construction
+### The recipe
 
-Choose a **generator polynomial** $g(x)$ of degree $r$. To protect a message $m(x)$:
+Choose a fixed bit pattern called the **generator** — *r* + 1 bits long (degree *r*). Then:
 
-1. Shift the message left by $r$ bits: $m(x)\cdot x^r$.
-2. Divide by $g(x)$ in GF(2); keep the remainder $c(x)$ — that is the CRC.
-3. Transmit $t(x) = m(x)\cdot x^r + c(x)$.
+1. Add *r* zeros to the end of the message.
+2. **Divide** by the generator (using XOR instead of subtraction). Keep the **remainder** — *r*
+   bits. That is the CRC.
+3. Send the message with the CRC in place of the zeros.
 
-Because we subtracted the remainder (and subtraction is XOR), the transmitted word is exactly
-divisible:
+The sent word is now **exactly divisible** by the generator. So the receiver divides everything it
+received by the generator:
 
-$$
-\boxed{t(x) \bmod g(x) = 0}
-$$
+- remainder **zero** → no error found ✅
+- remainder **not zero** → something was damaged ❌
 
-The receiver divides the whole received word by $g(x)$. **Zero remainder means no detected
-error.** If there is an error $e(x)$, the received word is $t(x) + e(x)$ and the remainder is
-$e(x) \bmod g(x)$ — which is zero only if the error pattern happens to be a multiple of the
-generator. Choosing $g(x)$ well makes that vanishingly unlikely.
+An error can only slip through if the damage happens to be an exact multiple of the generator.
+With a well-chosen generator, that is very unlikely.
 
-### A worked example, by hand
+### A worked example
 
-Message $1101$, generator $g(x) = x^3 + x + 1 = 1011$ ($r = 3$).
+Message `1101`, generator `1011` (*r* = 3):
 
 ```
-Append 3 zeros:   1101000
-Divide by 1011 (XOR wherever the leading bit is 1):
+Add 3 zeros:      1101000
+Divide by 1011 — XOR it in wherever the leftmost remaining bit is 1:
 
   1101000
-  1011·····   ← XOR at position 0
+  1011···      ← XOR at position 0
   -------
   0110000
-  ·1011····   ← XOR at position 1
+   1011··      ← XOR at position 1
   -------
   0011100
-  ··1011···   ← XOR at position 2
+    1011·      ← XOR at position 2
   -------
   0001010
-  ···1011··   ← XOR at position 3
+     1011      ← XOR at position 3
   -------
   0000001
-        ↑↑↑
-     remainder = 001
+       ↑↑↑
+    remainder = 001
 ```
 
-CRC = `001`. Transmit `1101001`. The receiver divides `1101001` by `1011` and gets 0.
+CRC = `001`. Send `1101001`. The receiver divides `1101001` by `1011` and gets **000**.
 
 Check it:
 
@@ -108,32 +108,34 @@ def crc(msg, gen):
             for j in range(len(gen)): d[i+j] ^= gen[j]
     return d[-r:]
 print('crc  :', crc([1,1,0,1], [1,0,1,1]))
-print('check:', crc([1,1,0,1,0,0,1], [1,0,1,1]))   # all zeros = valid
-"
+print('check:', crc([1,1,0,1,0,0,1], [1,0,1,1]))   # all zeros = valid"
 ```
 
-### What a CRC guarantees
+✅ `crc  : [0, 0, 1]` and `check: [0, 0, 0]`.
 
-For a well-chosen degree-$r$ generator:
+### What a CRC always catches
 
-| Error type | Detected? |
+For a good *r*-bit CRC:
+
+| Damage | Caught? |
 |---|---|
-| Any single-bit error | ✅ Always |
-| Any odd number of bit errors | ✅ Always, if $g(x)$ has $(x+1)$ as a factor |
-| Any burst of $\le r$ consecutive bits | ✅ Always |
-| Any two bits within the generator's period | ✅ Always |
-| Random error pattern | ✅ with probability $1 - 2^{-r}$ |
+| any single wrong bit | ✅ always |
+| any odd number of wrong bits | ✅ always (for most standard generators) |
+| any run of up to *r* wrong bits in a row | ✅ always |
+| random damage | ✅ except with a chance of 1 in 2^*r* |
 
-A 24-bit CRC (ADS-B) lets a corrupted frame slip through with probability $2^{-24} \approx
-6 \times 10^{-8}$. With ~100 frames/second of noise-triggered false preambles, that is one bad
-frame every few months. Good enough to trust.
+For ADS-B's **24-bit** CRC, a random bad message passes with a chance of 1 in 2²⁴ — about 1 in
+17 million. If noise causes 100 false starts every second, one bad message gets through about
+**every two days**. That is rare enough for a hobby receiver — and it is why real ADS-B systems
+also check that a new aircraft's messages make sense over time.
 
-### Reference implementation
+<details>
+<summary><b>Going deeper:</b> a CRC in Python, the fast way</summary>
 
 ```python
 def crc_remainder(bits, poly, r):
-    """bits: list of 0/1 (message already zero-extended by r).
-       poly: generator as an int, WITHOUT the leading x^r term.
+    """bits: list of 0/1 (message already followed by r zeros).
+       poly: generator as an int, WITHOUT its top x^r bit.
        Returns the r-bit remainder as an int."""
     reg = 0
     for b in bits:
@@ -143,160 +145,148 @@ def crc_remainder(bits, poly, r):
             reg ^= poly
     return reg
 ```
+</details>
 
 ---
 
-## Part 3 — Framing: Finding the Start of a Message
+## Part 3 — Framing: where does a message start?
 
-A CRC tells you whether a block is intact. It does not tell you **where the block begins**.
-There are three families of solution, and this repo's two data labs use two different ones.
+A CRC tells you if a block is intact. It does **not** tell you where the block **begins**. There
+are three common solutions. Labs 08 and 09 use two different ones.
 
-### Method 1 — Preamble correlation (ADS-B, Lab 09)
+### Method 1 — a known start pattern (ADS-B, Lab 09)
 
-Prefix every frame with a fixed, known pattern with excellent autocorrelation. The receiver
-slides a correlator along the stream:
+Put a fixed, known pattern — a **preamble** — at the start of every message. The receiver slides
+along the signal looking for it.
 
-$$
-R[n] = \sum_{k=0}^{L-1} r[n+k]\, p^*[k]
-$$
-
-A peak in $|R[n]|$ marks the frame start.
-
-Mode S / ADS-B uses a **4-pulse preamble** occupying 8 μs:
+ADS-B uses **4 pulses** in the first 8 µs:
 
 ```
-  µs: 0   0.5  1.0  1.5  2.0  2.5  3.0  3.5  4.0 ...
+  µs: 0   0.5  1.0  1.5  2.0  2.5  3.0  3.5  4.0  4.5
       ██   __   ██   __   __   __   __   ██   __   ██
       ↑         ↑                        ↑         ↑
-    pulses at 0, 1.0, 3.5, 4.5 µs
+    pulses at 0, 1.0, 3.5 and 4.5 µs
 ```
 
-The pattern is deliberately non-uniform so that a shifted copy correlates poorly with itself —
-this is exactly what "good autocorrelation" means, and it is why sync words are not just
-`11111111`.
+The spacing is deliberately **uneven**. Shift it by one step and it no longer matches itself. That
+is what makes a good start pattern — and why start patterns are never just `11111111`.
 
-### Method 2 — Self-synchronising CRC (RDS, Lab 07)
+### Method 2 — let the CRC find the start (RDS, Lab 08)
 
-RDS has **no preamble at all**. Instead, each 26-bit block's checkword is the CRC **plus a
-block-specific offset word**:
+RDS has **no start pattern at all**. Instead, each 26-bit block's check bits are the CRC **XOR a
+special "offset word"**, a different one for each of the four blocks (A, B, C, D).
 
-$$
-c_{\text{transmitted}} = \bigl(m(x)\cdot x^{10} \bmod g(x)\bigr) \oplus \text{offset}_{A/B/C/D}
-$$
+The receiver tries every bit position. At the **right** position, removing one of the known
+offset words gives a valid CRC — and **which** offset word worked tells it **which** block it is
+looking at. Finding the start and naming the block, with **no extra bits**. A beautiful design
+from the 1980s.
 
-The receiver tries every bit position. At the correct alignment, subtracting one of the four
-known offsets yields a valid CRC — and *which* offset worked tells you which block of the
-group you are looking at. **Synchronisation and block identification for free, with zero
-overhead bits.** It is a genuinely beautiful piece of 1970s engineering.
+### Method 3 — fixed time slots
 
-### Method 3 — Fixed slots / TDMA
-
-Used by GSM, DAB, and satellite links: a rigid frame structure where a receiver, once locked,
-knows exactly when everything arrives. Highest efficiency, but it needs a strong initial
-acquisition burst.
+Used by GSM, digital radio (DAB) and satellites. Everything arrives at exact, known times. Once a
+receiver has locked on, it knows when every part comes. Very efficient, but it needs a strong
+signal to lock on first.
 
 ---
 
-## Part 4 — The Two CRCs You Will Actually Implement
+## Part 4 — The two CRCs in this course
 
-### RDS: CRC-10 with offset words
+### RDS: a 10-bit CRC with offset words (Lab 08)
 
 | Property | Value |
 |---|---|
-| Generator | $x^{10}+x^8+x^7+x^5+x^4+x^3+1$ = `0b10110111001` = `0x5B9` |
-| Message | 16 bits |
-| Check | 10 bits |
+| Generator | $x^{10}+x^8+x^7+x^5+x^4+x^3+1$ = `0x5B9` |
+| Data per block | 16 bits |
+| Check bits | 10 bits |
 | Block | 26 bits |
 | Group | 4 blocks = 104 bits |
-| Bit rate | 1187.5 bit/s (= 57000 / 48) |
+| Bit rate | 1187.5 bits/s (= 57,000 ÷ 48) |
 
-Offset words (added modulo 2 to the checkword):
+The offset words:
 
-| Block | Offset name | Value (binary) |
-|---|---|---|
-| A | offset A | `0011111100` |
-| B | offset B | `0110011000` |
-| C | offset C | `0101101000` |
-| C′ | offset C′ | `1101010000` |
-| D | offset D | `0110110100` |
+| Block | Offset word |
+|---|---|
+| A | `0011111100` |
+| B | `0110011000` |
+| C | `0101101000` |
+| C′ | `1101010000` |
+| D | `0110110100` |
 
-> **Where does 1187.5 come from?** The RDS subcarrier is at 57 kHz — the third harmonic of the
-> 19 kHz stereo pilot, so it can be regenerated from the pilot. The bit rate is
-> $57000/48 = 1187.5$ bit/s, a clean integer division that keeps the data clock coherent with
-> the subcarrier. Everything in the FM MPX spectrum is locked to that one 19 kHz reference.
+> 💡 **Why 1187.5 bits/s?** RDS sits at 57 kHz = 3 × the 19 kHz stereo pilot. The bit rate is
+> 57,000 ÷ 48. Everything in the FM signal is locked to that one 19 kHz reference.
 
-### ADS-B / Mode S: CRC-24
+### ADS-B / Mode S: a 24-bit CRC (Lab 09)
 
 | Property | Value |
 |---|---|
-| Generator | $\texttt{0xFFF409}$ (degree 24) |
-| Short frame (DF 0/4/5/11) | 56 bits |
-| Long frame (DF 17/18/20/21) | 112 bits |
+| Generator | `0xFFF409` (degree 24) |
+| Short messages (DF 0, 4, 5, 11) | 56 bits |
+| Long messages (DF 17, 18, 20, 21) | 112 bits |
 | Modulation | PPM, 1 Mbit/s |
 | Frequency | 1090 MHz |
 
-Mode S plays a trick: for some downlink formats the CRC is **XORed with the aircraft's
-24-bit ICAO address**. A ground station that knows which aircraft it interrogated can
-therefore verify the frame *and* confirm the sender. For ADS-B (DF 17) the address is sent in
-the clear and the CRC is plain — so a zero remainder is a genuine pass.
+**A trick in Mode S:** for some message types, the CRC is **XORed with the aircraft's 24-bit
+address**. A ground radar that asked a particular aircraft a question can then check both that
+the answer is intact **and** who sent it — with no extra bits. For **ADS-B** (DF 17), the address
+is sent openly and the CRC is plain, so a correct message gives **remainder zero**.
 
 ---
 
-## Part 5 — Beyond Detection: Forward Error Correction
+## Part 5 — Going further: correcting errors (FEC)
 
-A CRC detects but does not repair. When retransmission is impossible (a broadcast, a deep
-space probe), you need **FEC** — deliberately adding redundancy that lets the decoder *fix*
-errors.
+A CRC **finds** errors, but cannot **fix** them. When you cannot ask for the data again (a
+broadcast, or a space probe), you need **FEC** — forward error correction. The transmitter adds
+extra, carefully designed bits, so the receiver can **repair** some damage.
 
-| Code | Overhead | Corrects | Where you have met it |
+| Code | Extra bits | Can fix | Where you meet it |
 |---|---|---|---|
-| Hamming(7,4) | 75 % | 1 bit per 7 | Teaching, ECC RAM |
-| Reed–Solomon(255,223) | 14 % | 16 bytes per block | CDs, DVB, Voyager |
-| Convolutional $r=1/2$, $K=7$ | 100 % | Soft-decision Viterbi | GSM, satellite, Meteor LRPT |
-| LDPC / Turbo | 10–100 % | Near Shannon limit | 5G, DVB-S2, Wi-Fi 6 |
+| Hamming (7,4) | 75 % | 1 bit in every 7 | teaching, computer memory |
+| Reed–Solomon (255,223) | 14 % | 16 bytes per block | CDs, DVB-T, Voyager |
+| Convolutional, rate ½ | 100 % | many, with Viterbi decoding | GSM, satellites, Meteor LRPT |
+| LDPC / Turbo | 10–100 % | almost the theoretical limit | 5G, Wi-Fi 6, **DVB-T2 (Lab 10)** |
 
-### Coding gain
+**Coding gain:** a rate-½ convolutional code with good ("soft-decision") Viterbi decoding gives
+about **5 dB** at a BER of 10⁻⁵ — the same results with about **one third** of the power. The
+price is bandwidth (twice the bits) and delay.
 
-FEC buys you $E_b/N_0$. A rate-1/2, $K=7$ convolutional code with soft-decision Viterbi
-decoding gives roughly **5 dB** of coding gain at BER $10^{-5}$ — meaning you can transmit
-with about one third the power. It costs bandwidth (twice as many channel bits) and latency.
-
-$$
-\text{Effective } \frac{E_b}{N_0} = \frac{E_b}{N_0}\Big|_{\text{channel}} + G_{\text{coding}} - 10\log_{10}\frac{1}{r}
-$$
-
-Neither RDS nor ADS-B uses FEC — both rely on **repetition** instead. RDS retransmits the
-station name continuously; ADS-B retransmits position twice a second. When a message repeats
-forever, "discard and wait" is a perfectly good error-correction strategy, and it costs
-nothing to implement.
+**RDS and ADS-B use no FEC at all.** They use **repetition**: RDS sends the station name again and
+again; aircraft send their position twice every second. When a message repeats forever,
+"throw away bad ones and wait for the next" is a perfectly good strategy, and costs nothing.
 
 ---
 
-## 🧠 Self-Check
+## ✅ Summary
 
-1. Why is GF(2) subtraction the same as addition?
-   **Answer:** The field has two elements and $1+1=0$, so every element is its own additive
-   inverse. Both operations are XOR.
+- In 0/1 arithmetic, adding and subtracting are both **XOR**, with no carries.
+- A **CRC** is the remainder of dividing by a generator. Remainder **zero** at the receiver = no
+  error found.
+- An *r*-bit CRC lets random damage through with a chance of 1 in 2^*r*.
+- **Framing** finds the start of a message: a start pattern (ADS-B), the CRC itself with offset
+  words (RDS), or fixed time slots.
+- **FEC** repairs errors, at the cost of extra bits. Lab 10's DVB-T2 uses LDPC and BCH.
 
-2. What burst length does a 10-bit CRC always detect?
-   **Answer:** Any burst of 10 or fewer consecutive erroneous bits.
+## 🧠 Check yourself
 
-3. Compute the CRC-3 of `1010` with $g = 1011$.
-   **Answer:** `1010000` ÷ `1011` → remainder `011`. (Work it out by hand, then check it with
-   the snippet above.)
+1. Why is subtracting the same as adding in 0/1 arithmetic?
+   <details><summary>Answer</summary>Because 1 + 1 = 0, every number is its own opposite. Both
+   are XOR.</details>
+2. What is the longest run of wrong bits a 10-bit CRC always catches?
+   <details><summary>Answer</summary>10 bits in a row.</details>
+3. Work out the 3-bit CRC of `1010` with generator `1011`.
+   <details><summary>Answer</summary><code>1010000</code> ÷ <code>1011</code> → remainder
+   <code>011</code>. (Check it with the snippet above.)</details>
+4. How does an RDS receiver find where blocks start, with no start pattern?
+   <details><summary>Answer</summary>It tries every position. Only at the right one does
+   removing a known offset word leave a valid CRC — which also tells it which block it
+   is.</details>
+5. Why does Mode S XOR the CRC with the aircraft's address?
+   <details><summary>Answer</summary>So the radar that asked can check both that the reply is
+   intact and that it came from the aircraft it asked — with no extra bits.</details>
+6. Your ADS-B decoder finds 5000 possible messages per second, and almost all fail the CRC. What
+   is wrong?
+   <details><summary>Answer</summary>Probably nothing. The CRC is rejecting noise, as designed.
+   A generous detector finds more real aircraft (Lab 09). Only raise the threshold if the CPU
+   cannot keep up.</details>
 
-4. How does an RDS receiver find block boundaries without a preamble?
-   **Answer:** It tests every bit offset; at the true alignment, removing one of the five known
-   offset words leaves a valid CRC — which simultaneously identifies the block type.
-
-5. Why does Mode S XOR the CRC with the aircraft address?
-   **Answer:** It authenticates the reply to the interrogator that expected it — a valid CRC
-   after XORing the expected address proves both integrity and identity, at zero extra bits.
-
-6. Your ADS-B decoder reports 5000 frames/s, almost all failing CRC. What is wrong?
-   **Answer:** The preamble detector threshold is too low, so noise is triggering it. Raise
-   the threshold — the CRC is doing its job by rejecting them.
-
----
-
-**Next:** [Lab 08 — RDS Decoder →](../02_flowgraphs/lab08_rds_decoder/README.md) · then [Fundamentals 11 — OFDM →](./11_ofdm_and_broadcast_systems.md)
+**Next:** [Lab 08 — RDS Decoder →](../02_flowgraphs/lab08_rds_decoder/README.md), then
+[Fundamentals 11 — OFDM →](./11_ofdm_and_broadcast_systems.md)

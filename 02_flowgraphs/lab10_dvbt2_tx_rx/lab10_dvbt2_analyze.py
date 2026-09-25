@@ -62,10 +62,10 @@ class lab10_dvbt2_analyze(gr.top_block, Qt.QWidget):
         ##################################################
         # Variables
         ##################################################
-        self.fft_len = fft_len = 1024
+        self.fft_len = fft_len = 32768
         self.samp_rate = samp_rate = (8000000.0 * 8) / 7
         self.iq_file = iq_file = '/tmp/dvbt2_signal_9M14_fc32.iq'
-        self.cp_len = cp_len = fft_len // 8
+        self.cp_len = cp_len = fft_len // 128
         self.center_freq = center_freq = 474e6
 
         ##################################################
@@ -117,7 +117,7 @@ class lab10_dvbt2_analyze(gr.top_block, Qt.QWidget):
             window.WIN_BLACKMAN_hARRIS, #wintype
             center_freq, #fc
             samp_rate, #bw
-            'DVB-T2 spectrum - a flat-topped 7.6 MHz block, not a hump', #name
+            'DVB-T2 spectrum - a flat-topped 7.8 MHz block, not a hump', #name
             1,
             None # parent
         )
@@ -212,9 +212,9 @@ class lab10_dvbt2_analyze(gr.top_block, Qt.QWidget):
         self.delay_fft = blocks.delay(gr.sizeof_gr_complex*1, fft_len)
         self.correlate = blocks.multiply_vcc(1)
         self.corr_plot = qtgui.time_sink_f(
-            4096, #size
+            132096, #size
             samp_rate, #samp_rate
-            'Cyclic-prefix correlation - one peak per OFDM symbol (every 1152 samples)', #name
+            'Cyclic-prefix correlation - one peak per OFDM symbol (every 33,024 samples = 3.6 ms)', #name
             1, #number of inputs
             None # parent
         )
@@ -297,7 +297,7 @@ class lab10_dvbt2_analyze(gr.top_block, Qt.QWidget):
 
     def set_fft_len(self, fft_len):
         self.fft_len = fft_len
-        self.set_cp_len(self.fft_len // 8)
+        self.set_cp_len(self.fft_len // 128)
         self.delay_fft.set_dly(int(self.fft_len))
 
     def get_samp_rate(self):

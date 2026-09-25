@@ -18,7 +18,7 @@ real DVB-T2 signal and a real receiver should be able to lock to it.
 
 Usage:
     python3 analyze_dvbt2.py /tmp/dvbt2_signal_9M14_fc32.iq
-    python3 analyze_dvbt2.py signal.iq --fft 1024 --gi 8 --datasyms 1966
+    python3 analyze_dvbt2.py signal.iq --fft 1024 --gi 8 --datasyms 1966 --p2syms 16 --normal   # 1K test mode
 
 Requires: numpy.  No GNU Radio, no hardware.
 """
@@ -107,11 +107,16 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('iqfile')
     ap.add_argument('--rate', type=float, default=ELEMENTARY_RATE)
-    ap.add_argument('--fft', type=int, default=1024)
-    ap.add_argument('--gi', type=int, default=8, help='guard interval denominator (1/N)')
-    ap.add_argument('--datasyms', type=int, default=1966)
-    ap.add_argument('--p2syms', type=int, default=16, help='P2 symbols per T2 frame')
-    ap.add_argument('--extended', action='store_true')
+    # Defaults = the mode Lab 10 transmits: 32K extended, GI 1/128, PP7, 59 data symbols.
+    # For the old 1K test mode use: --fft 1024 --gi 8 --datasyms 1966 --p2syms 16 --normal
+    ap.add_argument('--fft', type=int, default=32768)
+    ap.add_argument('--gi', type=int, default=128, help='guard interval denominator (1/N)')
+    ap.add_argument('--datasyms', type=int, default=59)
+    ap.add_argument('--p2syms', type=int, default=1, help='P2 symbols per T2 frame')
+    ap.add_argument('--extended', dest='extended', action='store_true', default=True,
+                    help='extended carrier mode (the default)')
+    ap.add_argument('--normal', dest='extended', action='store_false',
+                    help='normal carrier mode')
     ap.add_argument('--max-samples', type=int, default=6_000_000)
     a = ap.parse_args()
 
@@ -190,7 +195,7 @@ def main():
     p = np.abs(x) ** 2
     papr = 10 * np.log10(np.percentile(p, 99.99) / p.mean())
     print(f"\n   PAPR (99.99th percentile / mean): {papr:.1f} dB")
-    print("   OFDM is a sum of ~1000 independent carriers, so it is Gaussian and")
+    print("   OFDM is a sum of thousands of independent carriers, so it is Gaussian and")
     print("   peaky. This is why the amplifier must be backed off.")
 
     print("\n" + "=" * 62)

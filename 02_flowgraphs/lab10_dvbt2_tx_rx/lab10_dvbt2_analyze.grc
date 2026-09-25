@@ -43,8 +43,8 @@ blocks:
 - name: fft_len
   id: variable
   parameters:
-    value: '1024'
-    comment: Useful OFDM symbol length. The cyclic-prefix correlator below uses this as its delay.
+    value: '32768'
+    comment: Useful OFDM symbol length - 32K, the mode Lab 10 transmits (FFTSIZE_32K_T2GI). The cyclic-prefix correlator below uses this as its delay. For a 1K test signal, set 1024.
   states:
     coordinate:
     - 520
@@ -54,8 +54,8 @@ blocks:
 - name: cp_len
   id: variable
   parameters:
-    value: fft_len // 8
-    comment: Guard interval length. The correlator averages over exactly this many samples.
+    value: fft_len // 128
+    comment: Guard interval length - GI 1/128, as transmitted, so 256 samples. The correlator averages over exactly this many samples. For GI 1/8 use fft_len // 8.
   states:
     coordinate:
     - 660
@@ -144,7 +144,7 @@ blocks:
   id: qtgui_freq_sink_x
   parameters:
     type: complex
-    name: '''DVB-T2 spectrum - a flat-topped 7.6 MHz block, not a hump'''
+    name: '''DVB-T2 spectrum - a flat-topped 7.8 MHz block, not a hump'''
     nconnections: '1'
     fftsize: '4096'
     fc: center_freq
@@ -155,7 +155,7 @@ blocks:
     average: '0.2'
     grid: 'True'
     gui_hint: 0,0,1,1
-    comment: The flat top IS the 853 OFDM carriers. Steep skirts are the sign of a well-formed OFDM signal.
+    comment: The flat top IS the 27,841 OFDM carriers (32K extended mode). Steep skirts are the sign of a well-formed OFDM signal.
   states:
     coordinate:
     - 560
@@ -212,7 +212,7 @@ blocks:
     type: complex
     num_inputs: '2'
     vlen: '1'
-    comment: 'Part 3: x[n] * conj(x[n-1024]). Inside the guard interval these are the SAME samples, so
+    comment: 'Part 3: x[n] * conj(x[n-32768]). Inside the guard interval these are the SAME samples, so
       the product is a positive real number.'
   states:
     coordinate:
@@ -250,9 +250,9 @@ blocks:
   id: qtgui_time_sink_x
   parameters:
     type: float
-    name: '''Cyclic-prefix correlation - one peak per OFDM symbol (every 1152 samples)'''
+    name: '''Cyclic-prefix correlation - one peak per OFDM symbol (every 33,024 samples = 3.6 ms)'''
     ylabel: Correlation
-    size: '4096'
+    size: '132096'
     srate: samp_rate
     nconnections: '1'
     ymin: '0'
@@ -261,7 +261,7 @@ blocks:
     autoscale: 'True'
     update_time: '0.10'
     gui_hint: 1,0,1,2
-    comment: THE MONEY SHOT. 4096 samples spans 3.5 symbols, so you should see 3-4 evenly spaced peaks.
+    comment: THE MONEY SHOT. 132,096 samples spans 4 symbols of 33,024, so you should see 4 evenly spaced peaks.
   states:
     coordinate:
     - 1560
@@ -294,7 +294,7 @@ blocks:
     nconnections: '1'
     update_time: '0.10'
     gui_hint: 2,0,1,2
-    comment: A sum of ~1000 random carriers is Gaussian, so |x| is Rayleigh. The long tail is the PAPR
+    comment: A sum of ~28,000 random carriers is Gaussian, so |x| is Rayleigh. The long tail is the PAPR
       problem, visible.
   states:
     coordinate:
