@@ -452,8 +452,10 @@ the current edition**, because it is updated from time to time.
 - **Transmitting** needs permission (an "assignment"), except inside the Class Assignment
   limits above.
 - The practical way to transmit legally is to get an **amateur radio licence**. MCMC runs the
-  exam and gives callsigns. Malaysian amateur callsigns start with **9M2**, **9M4**, **9W2** or
-  **9W6**, depending on the licence class and region. Start with the
+  exam (the RAE, in Classes A, B and C) and gives callsigns — for example **9W3**… for Class C,
+  **9W2**… for Class B and **9M2**… for Class A in Peninsular Malaysia. The
+  [Malaysia reference](../05_reference/04_malaysia.md#3-getting-licensed-to-transmit) explains the
+  steps. Start with MCMC's
   [Amateur Radio Service guide](https://www.mcmc.gov.my/skmmgovmy/media/General/pdf2/Amateur-Radio-Service-in-Malaysia-3rd-Edition_v1.pdf),
   and look up the clubs **MARTS** (Malaysian Amateur Radio Transmitters' Society) and **MARES**
   for classes and local activities.

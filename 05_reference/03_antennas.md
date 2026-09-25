@@ -3,7 +3,7 @@
 > **A $40 receiver with the right antenna outdoors beats a $1500 receiver with the wrong
 > antenna indoors. Every time.**
 >
-> This is the highest-value page in the repository for a beginner. Everything here can be built
+> For a beginner, this is the most useful page in the repository. Everything here can be built
 > from wire, an SMA connector and half an hour.
 
 ---
@@ -20,13 +20,13 @@ receive ADS-B aircraft at **1090 MHz** using the FM-band whip left over from the
 | RX2 | 70 dB | 0.0669 | **0** |
 | RX2 | 76 dB | 0.1205 | **0** |
 
-Raising the gain by 6 dB raised the noise floor by **exactly 6.0 dB** — a perfect 1:1 track.
-That is the signature of a receiver hearing nothing but its own noise. **More gain could not
-help, because no signal was arriving.**
+Raising the gain by 6 dB raised the noise floor by **exactly 6.0 dB**. When noise rises one-for-one
+with gain, the receiver is hearing only its own noise. **More gain could not help, because no
+signal was arriving.**
 
-The decoder was fine. The software was fine. The antenna was the entire problem: an FM whip is
-roughly **ten wavelengths long** at 1090 MHz, with a radiation pattern shredded into narrow
-lobes and a badly mismatched feedpoint.
+The decoder was fine. The software was fine. The antenna was the whole problem: an FM whip is
+about **ten times too long** for 1090 MHz. It picks up in many narrow, scattered directions, and
+it is badly matched to the radio.
 
 The fix costs **69 mm of wire**.
 
@@ -56,7 +56,7 @@ each other.
 | **Weather satellites** | 137.5 MHz | 2.18 m | **546 mm** | 1091 mm | 1364 mm |
 | 2 m amateur | 146 MHz | 2.05 m | **514 mm** | 1027 mm | 1284 mm |
 | Marine VHF | 157 MHz | 1.91 m | **478 mm** | 955 mm | 1194 mm |
-| NOAA weather radio | 162.45 MHz | 1.85 m | **462 mm** | 923 mm | 1154 mm |
+| AIS (ships) | 162.0 MHz | 1.85 m | **463 mm** | 926 mm | 1157 mm |
 | Radiosondes | 403 MHz | 744 mm | **186 mm** | 372 mm | 465 mm |
 | ISM 433 | 433.9 MHz | 691 mm | **173 mm** | 346 mm | 432 mm |
 | 70 cm amateur | 435 MHz | 690 mm | **172 mm** | 345 mm | 431 mm |
@@ -87,7 +87,7 @@ print(f'half wave    {150/f*1000:8.1f} mm')"
 
 ### 3.1 Quarter-wave ground plane — *the default choice*
 
-**Best for:** ADS-B, radiosondes, NOAA weather radio, marine, PMR, any single VHF/UHF band.
+**Best for:** ADS-B, radiosondes, marine, walkie-talkies, any single VHF/UHF band.
 **Pattern:** omnidirectional — hears equally in all horizontal directions.
 
 **Parts:** a female SMA panel connector, ~5 × stiff wire (a coat hanger, a brass rod, or the
@@ -246,10 +246,10 @@ when a strong local station starts transmitting.
 
 Before blaming your software:
 
-1. **Continuity check.** A multimeter across the SMA should read *open* for a dipole, or
-   *short* for a ground plane (the element is DC-connected to the radials through nothing —
-   actually open; a short means you have a solder bridge). Either way, **a short circuit is
-   always a fault.**
+1. **Continuity check.** For the simple antennas on this page (dipole, V-dipole, ground plane),
+   the centre pin and the outside of the SMA connector are **not** connected, so a multimeter
+   between them should read **open**. A **short** usually means a solder bridge or a crushed
+   cable. (A few designs, such as the folded dipole, are shorted on purpose.)
 2. **Compare.** Note the signal strength of one strong station, swap antennas, note it again. A
    real A/B test beats any amount of theory.
 3. **The sweep test.** Point at a known signal and move the antenna around. If nothing changes,

@@ -1,6 +1,7 @@
 # 📚 Part 5 — Reference
 
-> Lookup material. Not meant to be read front to back — come here when you need something.
+> Pages for looking things up. You don't need to read them from start to end — come here when
+> you need something.
 >
 > [← Repository home](../README.md)
 
@@ -48,12 +49,14 @@ Then go to [Introduction to SDR](../01_fundamentals/00_introduction_to_sdr.md).
 ```
   QUICKSTART.md       ← 30 minutes: plug in and hear something
   01_fundamentals/00  ← Introduction: what SDR is, the hardware, the tools
-  00_setup/           ← install and verify
-  01_fundamentals/    ← theory, 01-11
-  02_flowgraphs/      ← Labs 01-10
-  03_scripts/         ← validators and simulators
+  00_setup/           ← install and check
+  01_fundamentals/    ← theory, 01-12
+  02_flowgraphs/      ← Labs 01-12
+  03_scripts/         ← test signals, checkers and helper tools
   04_applications/    ← 589 things to point it at
   05_reference/       ← you are here
+  06_training/        ← slides and a plan for teaching a class
+  VERIFICATION.md     ← what was tested, and what we learned
 ```
 
 ---

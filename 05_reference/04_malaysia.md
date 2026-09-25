@@ -90,8 +90,8 @@ location** — run the survey yourself; it is a good first project.
 
 ## 3. Getting licensed to transmit
 
-**Receiving is largely unrestricted. Transmitting is not.** The realistic and legitimate route
-to transmitting is an **amateur radio licence**, and in Malaysia it is genuinely accessible.
+**Listening is mostly allowed. Transmitting is not.** The practical, legal way to transmit is an
+**amateur radio licence**, and in Malaysia it is quite easy to get.
 
 ### 3.1 The three classes
 
@@ -210,9 +210,10 @@ active Malaysian membership.
 | Jamming or interfering | ⛔ **A criminal offence** |
 
 > Your SignalSDR Pro can transmit from 70 MHz to 6 GHz. That includes aviation, maritime
-> distress and cellular bands. **Nine of this repository's ten labs are receive-only for exactly
-> this reason**, and [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md) ships with its
-> amplitude and gain both set to zero.
+> distress and cellular bands. **Ten of this repository's twelve labs only receive, for exactly
+> this reason.** The two that transmit — [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md)
+> and [Lab 12](../02_flowgraphs/lab12_fullduplex_tv/README.md) — start with their amplitude and
+> gain both set to zero, and must only be used into a cable or a Faraday cage.
 
 ---
 
@@ -224,7 +225,7 @@ active Malaysian membership.
 | **ADS-B** | KL is a major hub; KLIA and Subang traffic is constant |
 | **Survey the FM band for RDS** | Extend the table in §2.2 — very few Malaysian stations appear to run RDS, and a proper survey would be genuinely new information |
 | **Radiosondes** | MMD launches balloons on a schedule; decode and go and find one |
-| **Monitor the DTT multiplexes** | Measure MYTV's signal quality across your area with [Lab 10's analyser](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md) |
+| **Monitor the DTT multiplexes** | Find and measure MYTV's channels across your area with [Lab 11's scanner](../02_flowgraphs/lab11_tv_receiver/README.md) (receive only) |
 | **LoRa / AS923 survey** | Map what is actually using 919–923 MHz near you |
 | **Tropospheric ducting across the Straits** | Watch Indonesian and Singaporean signals appear when conditions are right |
 
