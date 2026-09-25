@@ -1,322 +1,334 @@
-# 12 — Video Over The Air: Transport Streams, Timing, and Receivers
+# 📼 Fundamentals 12 — Video Over the Air: Transport Streams, Timing and Receivers
 
-> **Read before:** [Lab 11](../02_flowgraphs/lab11_tv_receiver/) and [Lab 12](../02_flowgraphs/lab12_fullduplex_tv/)
-> **Assumes:** [Fund. 10 Error Detection & Framing](./10_error_detection_and_framing.md) and [Fund. 11 OFDM](./11_ofdm_and_broadcast_systems.md)
+> **What you will learn:** what is **inside** a digital TV signal (the MPEG-2 **transport
+> stream**); why its bit rate is calculated, not chosen; how a TV rebuilds the transmitter's
+> **clock**; why video frames depend on each other; why a TV **receiver** is much harder to build
+> than a transmitter; and why digital TV fails over a **one-decibel cliff**.
+> **Before this:** [Fundamentals 10](./10_error_detection_and_framing.md) and
+> [11 — OFDM](./11_ofdm_and_broadcast_systems.md). Read it before
+> [Lab 11](../02_flowgraphs/lab11_tv_receiver/README.md) and
+> [Lab 12](../02_flowgraphs/lab12_fullduplex_tv/README.md).
+> **Time:** about 45 minutes.
 
-[Fundamentals 11](./11_ofdm_and_broadcast_systems.md) got a digital television signal onto a
-carrier. This document is about what is *inside* it, why the bit rate is not negotiable, and
-why building the receiver is so much harder than building the transmitter.
-
----
-
-## 1. The problem television has that a data link does not
-
-A file transfer can pause. A television cannot. The picture must appear at 25 frames a second
-whatever happens, on a receiver whose clock is not the transmitter's, over a link with no
-return path — so the receiver can never say "please repeat that".
-
-Three consequences run through everything below:
-
-1. **The stream is constant bit rate**, padded if necessary, because the modulator is a clock.
-2. **Timing is carried in the stream itself**, because the receiver must reconstruct the
-   transmitter's clock from nothing but the bits.
-3. **Errors are corrected forward or not at all**, because there is nobody to ask.
+[Fundamentals 11](./11_ofdm_and_broadcast_systems.md) explained how a digital TV signal is put
+on the air. This chapter is about **what it carries**, and about the receiving end.
 
 ---
 
-## 2. The MPEG-2 Transport Stream
+## 1. TV has a problem that file transfers do not
 
-Everything — video, audio, subtitles, the channel list, the clock — travels as a stream of
-**188-byte packets**. That number comes from ATM: 4 ATM cells of 47 bytes, chosen when it
-looked as though broadcasting would ride on telecoms networks. It didn't, and 188 stayed.
+A file download can pause. Television cannot. The picture must appear 25 times a second,
+whatever happens — on a TV whose clock is **not** the transmitter's clock, over a link with **no
+way back**. The TV can never say "please send that again".
+
+Three rules follow from that, and you will see them everywhere below:
+
+1. **The bit rate is constant.** Empty "padding" is added if needed, because the transmitter runs
+   like a clock.
+2. **The timing travels inside the stream**, so the TV can rebuild the transmitter's clock from
+   the data alone.
+3. **Errors are corrected on arrival, or not at all** (forward error correction), because there
+   is nobody to ask.
+
+---
+
+## 2. The MPEG-2 transport stream
+
+Everything — video, sound, subtitles, the channel list, the clock — travels as a stream of
+**packets of exactly 188 bytes**. (Why 188? It fitted neatly into 4 cells of the ATM telephone
+network, back when TV was expected to travel over telephone networks. It didn't, but 188
+stayed.)
 
 ```
  ┌──────┬───┬───┬───┬────────────┬──────────────────────────────────┐
  │ 0x47 │TEI│PUS│Pri│  PID (13)  │ scr │AF│CC│  payload (184 bytes) │
  └──────┴───┴───┴───┴────────────┴──────────────────────────────────┘
-   byte0        byte1-2            byte3        bytes 4..187
+   byte 0       bytes 1–2          byte 3       bytes 4–187
 ```
 
-| Field | Bits | Job |
+| Field | Bits | What it does |
 |---|---|---|
-| Sync byte | 8 | Always `0x47`. Framing, nothing more |
-| Transport Error Indicator | 1 | The demodulator sets it when FEC gave up |
-| Payload Unit Start | 1 | A new PES packet or table section begins here |
-| **PID** | 13 | Which stream this packet belongs to |
-| Scrambling | 2 | Conditional access |
-| Adaptation field ctrl | 2 | Is there an adaptation field, a payload, or both |
-| **Continuity counter** | 4 | Increments per PID. **The only in-band way to notice loss** |
+| **Sync byte** | 8 | always `0x47`. Marks the start of a packet, nothing more |
+| Transport error indicator | 1 | the demodulator sets it when error correction failed |
+| Payload unit start | 1 | a new video/audio piece or table starts in this packet |
+| **PID** | 13 | **which stream** this packet belongs to (video, audio, a table…) |
+| Scrambling | 2 | for pay-TV encryption |
+| Adaptation field | 2 | whether there is extra information (like the clock) as well as data |
+| **Continuity counter** | 4 | counts up by 1 for each packet of the same PID. **The only way to notice a lost packet** |
 
-### The continuity counter is the number that matters
+### The continuity counter tells the truth
 
-Four bits, incrementing modulo 16 on every packet carrying payload for that PID. If the
-receiver sees 7 followed by 9, a packet is gone.
+It counts 0, 1, 2 … 15, 0, 1 … for each PID. If the receiver sees 7 followed by 9, packet 8 was
+lost.
 
-This is the honest measure of link health, and the reason is worth stating plainly:
+> ⚠️ **The sync byte proves nothing.** Every packet coming out of a DVB-T demodulator starts with
+> `0x47` **whether or not decoding worked**, because the last stage (the energy descrambler)
+> writes that byte every time. Leave out one of the eleven receiver stages (the symbol
+> de-interleaver) and you get 100 % perfect `0x47` bytes — followed by pure noise.
 
-> **A sync byte proves nothing.** Every packet leaving a DVB-T demodulator starts with `0x47`
-> whether or not the decode worked, because the energy descrambler writes that byte
-> unconditionally. Omit the symbol deinterleaver from a receiver — one block out of eleven —
-> and you get a stream with a perfect `0x47` on all 100 % of packets and pure noise in every
-> payload byte.
+**Judge a receiver by its PIDs and continuity counters, not by its sync bytes.**
 
-Judge a receiver by its PIDs and its continuity counters. In a real multiplex roughly 99.6 % of
-packets are PID 8191, the null packet.
+### PIDs, and the tables that explain them
 
-### PIDs and the tables that explain them
+A TV that tunes in half-way through knows nothing. It works it out in steps:
 
-A receiver arriving mid-stream knows nothing. It bootstraps:
-
-| PID | Table | Says |
+| PID | Table | What it says |
 |---|---|---|
-| 0 | **PAT** Program Association | "Programme 1's map is on PID 4096" |
-| 4096 | **PMT** Program Map | "Video on PID 256, audio on 257, clock on 256" |
-| 17 | **SDT** Service Description | "Programme 1 is called *BFM 89.9 TV*" |
-| 16 | **NIT** Network Information | "This network also uses channels 22, 25, 31" |
-| 8191 | null | Padding. Discard |
+| 0 | **PAT** (Program Association Table) | "programme 1's map is on PID 4096" |
+| 4096 | **PMT** (Program Map Table) | "video on PID 256, audio on 257, the clock on 256" |
+| 17 | **SDT** (Service Description Table) | "programme 1 is called *SDR LAB TV*" |
+| 16 | **NIT** (Network Information Table) | "this network also uses channels 22, 25 and 31" |
+| 8191 | null packets | padding — throw away |
 
-That is what "scanning for channels" on a television actually is: tune, lock, read the PAT,
-follow it to the PMT, read the SDT for a name, store it. Lab 11's receiver does exactly this —
-the name `SELFTEST` in its verification output was read off the air from the SDT.
+**This is what "scanning for channels" means on a TV:** tune, lock, read the PAT, follow it to the
+PMT, read the name from the SDT, save it. Lab 11's receiver does exactly this.
 
-Every one of these tables carries a **CRC-32**, so a receiver never acts on a corrupted channel
-list. Same idea as RDS's CRC in [Fundamentals 10](./10_error_detection_and_framing.md), on a
-larger scale.
+Each table carries a **32-bit CRC**, so a TV never acts on a damaged channel list — the same idea
+as RDS's CRC ([Fundamentals 10](./10_error_detection_and_framing.md)), bigger.
+
+**How much is padding?** In Lab 10's real video stream, **74.6 %** of packets are null (12 Mbit/s
+of video in a 40 Mbit/s multiplex). In a test stream with no video at all, it is over 99 %.
 
 ---
 
-## 3. Why the rate is computed, not chosen
+## 3. Why the rate is calculated, not chosen
 
-A DVB-T modulator consumes transport bytes at a rate fixed entirely by the modulation
-parameters. From the elementary period $T$ (7/64 µs for an 8 MHz channel):
+A DVB-T transmitter eats transport-stream bytes at a speed set completely by its modulation
+settings:
 
-$$T_u = N_{\text{FFT}} \cdot T \qquad\qquad T_s = T_u\left(1 + \frac{1}{G}\right)$$
+$$\boxed{R = \frac{K_{\text{data}} \times b}{T_s} \times \frac{n}{d} \times \frac{188}{204}}$$
 
-$$\boxed{R = \frac{K_{\text{data}} \cdot b}{T_s} \times \frac{n}{d} \times \frac{188}{204}}$$
+| Symbol | Meaning |
+|---|---|
+| $K_{\text{data}}$ | data carriers per symbol: 1512 (2K mode) or 6048 (8K mode) |
+| $b$ | bits per carrier: 2 (QPSK), 4 (16QAM), 6 (64QAM) |
+| $T_s$ | symbol length, including the guard interval |
+| $n/d$ | the inner code rate (e.g. 2/3) |
+| $188/204$ | the Reed–Solomon outer code's overhead |
 
-- $K_{\text{data}}$ — data cells per symbol: 1512 (2K) or 6048 (8K)
-- $b$ — bits per cell: 2 (QPSK), 4 (16QAM), 6 (64QAM)
-- $n/d$ — inner convolutional code rate
-- $188/204$ — the outer Reed-Solomon overhead
-
-**Worked example**, 8K / 16QAM / CR 2/3 / GI 1/32:
-
-$$T_u = 8192 \times \tfrac{7}{64}\,\mu s = 896\,\mu s, \qquad T_s = 896 \times \tfrac{33}{32} = 924\,\mu s$$
+**Example: 8K, 16QAM, code rate 2/3, guard 1/32.** The useful symbol is 8192 × 7/64 µs = 896 µs;
+with the guard, 896 × 33/32 = 924 µs:
 
 $$R = \frac{6048 \times 4}{924\,\mu s} \times \frac{2}{3} \times \frac{188}{204}
     = 26.182 \times 0.6667 \times 0.9216 = \mathbf{16.086\ \text{Mbit/s}}$$
 
-Feed that modulator 15 Mbit/s and it starves. Feed it 17 and the buffer overruns. So the
-multiplex is **stuffed with null packets** up to exactly $R$ — which is why a real broadcaster
-quotes its multiplex capacity to the bit per second, and why 99.6 % of a lightly-loaded
-multiplex is padding.
+Feed it 15 Mbit/s and it runs dry. Feed it 17 and it overflows. So the multiplex is **padded with
+null packets** to exactly *R*. That is why broadcasters state their multiplex capacity to the
+last bit per second.
 
-> `03_scripts/make_video_ts.py --list-modes` prints this table from the equation above. It
-> reproduces the published DVB-T figures exactly: 6.032, 16.086, 24.128, 31.668 Mbit/s.
+> 💡 `03_scripts/make_video_ts.py --list-modes` prints this table from the formula. It matches the
+> published DVB-T figures exactly: 6.032, 16.086, 24.128, 31.668 Mbit/s.
 
 ---
 
-## 4. Timing: how the receiver rebuilds a clock it never had
+## 4. Timing: how the TV rebuilds a clock it never had
 
-The receiver's crystal is not the transmitter's. Left alone it will drift — a few parts per
-million is several frames an hour — and the picture will either run dry or pile up.
+The TV's crystal is not the transmitter's. Left alone, it drifts — a few parts per million is
+several frames an hour — and the TV would either run out of pictures or pile them up.
 
-So the transmitter samples its own 27 MHz clock and writes the value into the stream as the
-**Programme Clock Reference**, in an adaptation field, at least every 100 ms:
+So the transmitter reads its own 27 MHz clock and writes the value into the stream, at least every
+100 ms. This is the **PCR** (Program Clock Reference).
 
-$$\text{PCR} = 300 \times \text{PCR}_{\text{base}} + \text{PCR}_{\text{ext}}$$
+The TV runs a **PLL** — the same idea as Lab 04's stereo pilot PLL, but at 27 MHz instead of
+19 kHz. It compares each PCR that arrives with its own counter, and adjusts its oscillator. Once
+locked, the TV's clock **is** the transmitter's clock.
 
-The receiver runs a phase-locked loop — the same idea as Lab 08's PLL, at 27 MHz instead of
-19 kHz — comparing each arriving PCR against its own counter and steering its oscillator.
-Once locked, its clock *is* the transmitter's.
+A useful trick (used by `make_video_ts.py --verify`): two PCRs, and the number of bytes between
+them, give the multiplex rate directly — so you can check a file really has the rate it claims.
 
-This also gives a neat trick used in `make_video_ts.py --verify`: two PCRs and the number of
-bytes between them recover the mux rate directly,
+<details>
+<summary><b>Going deeper:</b> PCR, PTS and DTS formulas</summary>
+
+$$\text{PCR} = 300 \times \text{PCR}_{\text{base}} + \text{PCR}_{\text{ext}} \quad (\text{in 27 MHz ticks})$$
 
 $$R = \frac{(i_1 - i_0) \times 188 \times 8}{(\text{PCR}_1 - \text{PCR}_0)/27\times10^6}$$
 
-so you can check a file really is muxed at the rate it claims, without trusting the muxer.
-
-Presentation timing rides on top: each **PES** packet carries a **PTS** (when to show it) and,
-for out-of-order frames, a **DTS** (when to decode it), both in 90 kHz units derived from the
-same clock.
+where $i$ is the packet number. On top of the PCR, each piece of video or audio (a **PES**
+packet) carries a **PTS** — *when to show it* — and, for frames sent out of order, a **DTS** —
+*when to decode it*. Both are in 90 kHz units of the same clock.
+</details>
 
 ### What happens when the clock goes backwards
 
-This is worth dwelling on, because it produces a failure that looks like nothing else and was
-found the hard way in [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/).
+This was found the hard way, on a real TV, in [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md).
 
-The obvious way to transmit a video continuously is to encode it once and replay the file on a
-loop. Every byte is then perfect. But at the wrap the PCR jumps *backwards* by the whole length
-of the file — measured on Lab 10's own 209-second stream, **−208.86 s** — and the PTS values go
-with it.
+The obvious way to broadcast a video non-stop is to encode it once and play the file in a loop.
+Every byte is perfect. But at each loop, the PCR jumps **backwards** by the length of the file —
+on Lab 10's 209-second stream, **−208.86 s** — and the show-times (PTS) jump with it.
 
-The receiver is not told this is intentional. There is a `discontinuity_indicator` bit in the
-adaptation field for exactly this purpose, and a file source replaying a file does not set it.
-So the television's PLL, which has spent three minutes carefully locking to a 27 MHz reference,
-is handed a reference that has moved three minutes into the past, and the decoder is handed
-frames stamped for a time long gone.
+The TV is not told. (There is a warning flag for this, `discontinuity_indicator`, but a file
+simply looping does not set it.) So the TV's clock, carefully locked for three minutes, is
+suddenly handed a time three minutes in the past, and frames stamped long ago.
 
-What you see is not breakup. The forward error correction is still working perfectly and every
-packet arrives intact. What you see is a picture that is **sluggish** — slightly wrong cadence,
-never settling — and stays that way, because the clock recovery never gets a stable reference
-again. After 26 minutes of a 209-second loop it had happened 7.5 times.
+What you see is **not** break-up. Error correction still works; every packet arrives intact. The
+picture is **sluggish** — slightly wrong rhythm, never settling — and stays that way, because the
+clock never gets a steady reference again. In 26 minutes of a 209-second loop, this happened
+7.5 times.
 
-The fix is structural, not a parameter: **loop the input, not the output.** Let the muxer keep
-counting upwards forever and the problem cannot arise. That is what real playout does, and what
-`03_scripts/tv_playout.py` exists to do.
+**The fix: loop the input, not the output.** Let the encoder keep counting upwards forever. That
+is what real TV playout does, and what `03_scripts/tv_playout.py` does.
 
-> **The general lesson.** A perfect bit pipe is not the same as a working television service.
-> Lab 12 proves its link delivers 79 MB byte-identical with zero errors; that is necessary and
-> nowhere near sufficient. Broadcasting is a *timing* system that happens to carry bits.
+> **The lesson.** Correct bytes are not the same as a working TV service. Lab 12 delivers 79 MB
+> with zero byte errors; that is necessary, and nowhere near enough. **Broadcasting is a timing
+> system that happens to carry data.**
 
 ---
 
-## 5. What is inside: why frames are not independent
+## 5. Why video frames depend on each other
 
-Video compression exploits the fact that consecutive frames are nearly identical.
+Video compression uses the fact that one frame is almost the same as the next.
 
-| Frame | Encodes | Size | Decodable alone? |
+| Frame type | Stores | Size (relative) | Can be shown on its own? |
 |---|---|---|---|
-| **I** | A whole picture | ~10× | ✅ |
-| **P** | Difference from the previous | ~3× | ❌ |
-| **B** | Difference from previous *and next* | 1× | ❌ |
+| **I** (intra) | a whole picture | about 10× | ✅ yes |
+| **P** (predicted) | the difference from an earlier frame | about 3× | ❌ no |
+| **B** (bi-directional) | the difference from an earlier *and* a later frame | 1× | ❌ no |
 
-A **GOP** — say `I B B P B B P B B P` — repeats every 12 to 50 frames. Three consequences:
+A **GOP** (group of pictures), such as `I B B P B B P B B P`, repeats every 12–50 frames. Three
+results:
 
-1. **Channel change is slow.** The receiver must wait for the next I-frame. A 2-second GOP
-   means up to 2 seconds of black. Broadcasters shorten GOPs to feel responsive, and pay for it
-   in bit rate.
-2. **Errors persist.** Corrupt an I-frame and every frame referencing it is wrong until the
-   next one. This is why digital breakup smears and freezes rather than flickering.
-3. **B-frames arrive out of order**, which is exactly why DTS exists alongside PTS.
+1. **Changing channel is slow.** The TV must wait for the next I-frame. A 2-second GOP means up
+   to 2 seconds of black. (Lab 10 uses a 1-second GOP of 25 frames.)
+2. **Errors spread.** Damage an I-frame, and every frame built from it is wrong until the next
+   I-frame. That is why digital TV break-up smears and freezes instead of flickering.
+3. **B-frames are sent out of order** (a later frame must arrive first). That is why DTS exists
+   as well as PTS.
 
 ---
 
-## 6. The receiver's problem, which is not the transmitter's
+## 6. Why the receiver is the hard part
 
-A transmitter knows everything. A receiver arrives mid-stream knowing nothing and must
-establish, in order:
+A transmitter knows everything. A receiver arrives half-way through, knowing nothing, and must
+find out, in this order:
 
 | # | Unknown | How it is found | Cost |
 |---|---|---|---|
-| 1 | Where symbols start | Correlate the cyclic prefix against the symbol tail | **Expensive while searching** |
-| 2 | Fractional frequency offset | Phase of that same correlation peak | Free once (1) works |
-| 3 | Integer carrier offset | Correlate against the continual pilot pattern | Moderate |
-| 4 | Channel response | Divide by the scattered pilots | Cheap |
-| 5 | Mode, if unknown | Read the TPS carriers | Cheap |
-| 6 | Frame boundary | TPS again | Cheap |
+| 1 | where each symbol starts | compare the cyclic prefix with the end of the symbol | **high while searching** |
+| 2 | the small frequency error | the angle of that same comparison | free once 1 works |
+| 3 | the whole-carrier frequency error | match the fixed pilot pattern | moderate |
+| 4 | what the channel did | divide by the scattered pilots | low |
+| 5 | the mode, if unknown | read the TPS signalling carriers | low |
+| 6 | the frame boundary | TPS again | low |
 
-Step 1 is the expensive one, and it produces a result measured in Lab 11 that is worth
-remembering:
+Step 1 is the expensive one. Measured in Lab 11:
 
-> **An unlocked DVB-T receiver ran at 1.55 MSPS; the same receiver, locked, ran at 16.4 MSPS.
-> Searching costs six times what tracking costs.**
+> **Searching, the DVB-T receiver ran at 1.55 million samples/s. Locked, the same receiver ran at
+> 16.4 million samples/s. Searching costs about ten times more than tracking.**
 
-The search window is the cyclic prefix, so the cost scales with the guard interval — which
-produces a genuinely counter-intuitive result. GI 1/4 is 2048 samples of correlation per
-symbol against GI 1/32's 256: eight times the work. Measured live, **the receiver locked
-reliably in GI 1/32 and never locked at all in GI 1/4**, even though GI 1/4 is the *more robust*
-mode against multipath and decodes perfectly from a recorded file.
+The search compares across the guard interval, so its cost grows with the guard. That leads to a
+surprising result: guard 1/4 is 2048 samples of comparison per symbol, eight times guard 1/32's
+256. Measured live, **the receiver locked reliably at guard 1/32, and never locked at guard 1/4**
+— even though 1/4 copes better with echoes, and decodes perfectly from a recorded file.
 
-Robustness against the channel and robustness against your own processor are different axes,
-and they can point in opposite directions.
+**Coping with the channel and coping with your own processor are different things — and they can
+pull in opposite directions.**
 
 ---
 
-## 7. Why forward error correction is layered
+## 7. Why two error-correcting codes
 
-DVB-T uses two codes in series, which looks redundant until you ask what each is for.
+DVB-T uses two codes one after the other. That looks wasteful until you see what each one does:
 
 ```
-   TS packet 188 B
-        │  Reed-Solomon (204,188)     ← corrects up to 8 wrong BYTES
-   204 B│  Convolutional interleaver  ← spreads a burst over 12 RS blocks
-        │  Convolutional code n/d     ← corrects scattered BIT errors
-        ▼  (Viterbi-decoded)
+   TS packet, 188 bytes
+        │  Reed–Solomon (204,188)        ← fixes up to 8 wrong BYTES per packet
+   204 B│  interleaver                   ← spreads a burst over 12 packets
+        │  convolutional code            ← fixes scattered wrong BITS
+        ▼  (Viterbi decoder)
 ```
 
-The **inner** convolutional code runs against the raw channel and fixes the dense, random bit
-errors that thermal noise produces. It fails in *bursts*: when a Viterbi decoder loses the
-path, it emits a run of wrong bits, not isolated ones.
+- The **inner** convolutional code faces the raw channel and fixes scattered bit errors from noise.
+  When it fails, it fails in **bursts**: a run of wrong bits together.
+- The **outer** Reed–Solomon code works on **bytes**, which is the right tool for bursts: 8 wrong
+  bytes can be fixed whether they are spread out or all together.
+- The **interleaver between them** makes the pair work. Without it, one burst lands in one packet
+  and overwhelms it. Spread over 12 packets, each gets only a few fixable bytes.
 
-The **outer** Reed-Solomon code is a byte-oriented block code, which is exactly the right shape
-for burst errors — eight wrong bytes are correctable whether they are scattered or adjacent.
-
-The **interleaver between them** is what makes the pairing work. Without it, one Viterbi burst
-lands inside one RS block and overwhelms it. Spread across 12 blocks, the same burst puts a few
-correctable bytes into each.
-
-DVB-T2 keeps the structure and swaps the codes for LDPC + BCH, buying roughly 30 % more
-capacity in the same 8 MHz — see [Fundamentals 11](./11_ofdm_and_broadcast_systems.md).
+DVB-T2 keeps this design but swaps in LDPC and BCH, giving about 30 % more capacity in the same
+8 MHz ([Fundamentals 11 §7](./11_ofdm_and_broadcast_systems.md#part-7--two-error-correcting-codes-one-inside-the-other)).
 
 ---
 
 ## 8. The cliff
 
-The defining property of digital television, measured on this repository's own chain
-(8K, 16QAM, CR 2/3, in AWGN):
+The most important property of digital TV, measured on this course's own DVB-T chain (8K,
+16QAM, rate 2/3, with added noise):
 
 | SNR | Result |
 |---|---|
 | 14 dB | 0 byte errors |
-| **13 dB** | **0 byte errors — flawless** |
+| **13 dB** | **0 byte errors — perfect** |
 | **12 dB** | 1,274 continuity errors — **broken** |
 | 10 dB | 75 % of packets lost |
 
-**One decibel.** The published DVB-T threshold for this mode is 13.5 dB C/N, so the measurement
-sits within a decibel of the standard.
+**One decibel** separates perfect from broken. The published DVB-T threshold for this mode is
+13.5 dB, so the measurement agrees with the standard to within a decibel.
 
-Why so sharp? Concatenated FEC has a threshold. Below it the inner decoder's burst rate exceeds
-what Reed-Solomon can absorb, RS fails too, and the failure is total. Above it, essentially
-every error is corrected and the output is *bit-identical* to the input. There is no useful
-region in between — which is precisely the point. All the margin that analogue spent on a
-visibly degraded picture, digital spends on more programmes.
+Why so sharp? Above the threshold, the two codes fix essentially every error, and the output is
+**bit-for-bit identical** to the input. Below it, the inner decoder's bursts are too many for
+Reed–Solomon, which then fails too — completely. There is almost nothing in between. Analog TV
+spent its margin on a picture that got gradually worse; digital TV spends it on more channels.
 
-The practical consequence for anyone operating a link:
-
-> **Watch MER, never the picture.** MER falls smoothly and predictably as conditions worsen.
-> The picture is perfect right up until it is gone. By the time you can see a problem you have
-> already lost all your margin.
+> **Watch MER, never the picture.** MER (modulation error ratio) falls smoothly as conditions get
+> worse. The picture stays perfect until it suddenly disappears. By the time you *see* a problem,
+> you have no margin left.
 
 ---
 
-## 9. DVB-T against DVB-T2
+## 9. DVB-T versus DVB-T2
 
 | | DVB-T (1997) | DVB-T2 (2009) |
 |---|---|---|
-| Inner FEC | Convolutional, Viterbi | **LDPC** |
-| Outer FEC | Reed-Solomon (204,188) | **BCH** |
+| Inner code | convolutional (Viterbi) | **LDPC** |
+| Outer code | Reed–Solomon (204,188) | **BCH** |
 | FFT sizes | 2K, 8K | 1K … **32K** |
 | Constellations | QPSK, 16QAM, 64QAM | … **256QAM**, rotated |
-| Pilots | one pattern | **8 patterns**, chosen to fit |
-| Preamble | none | **P1** — carries the mode itself |
-| 8 MHz capacity | ~24 Mbit/s | **~36–40 Mbit/s** |
-| In GNU Radio | **TX and RX** | **TX only** |
+| Pilots | one pattern | **8 patterns** |
+| Preamble | none | **P1** — announces the mode |
+| Capacity in 8 MHz | ~24 Mbit/s | **~36–40 Mbit/s** |
+| In GNU Radio | **transmit and receive** | **transmit only** |
 
-The last row is the one that shapes these labs. DVB-T2's P1 preamble is a gift to a
-*scanner* — it announces "DVB-T2 here, and here is the mode" before any demodulation — which is
-why Lab 11's scanner can find and measure DVB-T2 broadcasts it has no hope of decoding.
-
----
-
-## 10. What to take away
-
-1. **188 bytes, and a 4-bit counter that tells you the truth.** Sync bytes lie; continuity
-   counters do not.
-2. **The bit rate is arithmetic, not a preference.** Derive it, stuff nulls up to it, verify it
-   from the PCR.
-3. **Timing travels in the stream.** PCR rebuilds the clock; PTS/DTS place the pictures. Send
-   that clock backwards — by looping a finished file — and the picture goes sluggish while every
-   byte stays perfect.
-4. **Frames depend on each other**, so channel change is slow and errors smear.
-5. **Acquisition is the expensive part of a receiver**, and its cost scales with the guard
-   interval — sometimes in the opposite direction to robustness.
-6. **Two codes and an interleaver**, because burst errors and random errors need different
-   medicine.
-7. **The cliff is one decibel wide.** Measure MER.
+The last row shapes Labs 10–12. DVB-T2's P1 preamble shouts "DVB-T2 here, in this mode" before
+any decoding — so Lab 11's scanner can **find and measure** DVB-T2 broadcasts that it cannot
+decode.
 
 ---
 
-**Next:** [Lab 11 — Television Receiver](../02_flowgraphs/lab11_tv_receiver/) ·
-[Lab 12 — Full-Duplex Video Link](../02_flowgraphs/lab12_fullduplex_tv/)
+## ✅ Summary
+
+1. **188-byte packets, and a 4-bit counter that tells the truth.** Sync bytes can lie; continuity
+   counters don't.
+2. **The bit rate is arithmetic.** Calculate it, pad with nulls up to it, check it from the PCR.
+3. **The clock travels in the stream.** PCR rebuilds it; PTS and DTS place the pictures. Make it
+   jump backwards (by looping a finished file) and the picture goes sluggish while every byte is
+   perfect.
+4. **Frames depend on each other**, so channel changes are slow and errors spread.
+5. **Finding the signal is the expensive part** of a receiver, and its cost grows with the guard
+   interval.
+6. **Two codes and an interleaver**, because bursts and scattered errors need different fixes.
+7. **The cliff is one decibel wide. Watch MER.**
+
+## 🧠 Check yourself
+
+1. A receiver outputs 100 % perfect `0x47` sync bytes. Does that prove it works?
+   <details><summary>Answer</summary>No. The descrambler writes <code>0x47</code> every time.
+   Check the PIDs and continuity counters instead.</details>
+2. What does a TV do when it "scans for channels"?
+   <details><summary>Answer</summary>For each frequency: tune, lock, read the PAT, follow it to
+   the PMT, read the service name from the SDT, and save it.</details>
+3. Why must the transport stream rate exactly match the modulator?
+   <details><summary>Answer</summary>The modulator consumes bytes at a fixed speed set by its
+   settings. Too slow and it runs dry; too fast and it overflows. Pad with null packets to the
+   exact rate.</details>
+4. Why does looping a finished `.ts` file make the picture sluggish?
+   <details><summary>Answer</summary>At each loop the PCR clock jumps backwards, and the TV's
+   clock recovery never settles again.</details>
+5. Why can a longer guard interval make a software receiver fail to lock?
+   <details><summary>Answer</summary>The timing search compares across the guard, so a longer
+   guard means much more work. The CPU may not keep up.</details>
+6. Why watch MER instead of the picture?
+   <details><summary>Answer</summary>MER falls gradually; the picture is perfect until it
+   suddenly fails. MER warns you while you still have margin.</details>
+
+**Next:** [Lab 11 — Build a TV Receiver →](../02_flowgraphs/lab11_tv_receiver/README.md) ·
+[Lab 12 — Send and Receive Video at Once →](../02_flowgraphs/lab12_fullduplex_tv/README.md)
