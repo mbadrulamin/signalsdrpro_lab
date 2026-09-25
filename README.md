@@ -264,13 +264,17 @@ Yes. Every flowgraph is checked automatically, and most labs were run on a real
 SignalSDR Pro receiving real stations.
 
 - **All 17 flowgraphs** pass the automatic checks against the installed GNU Radio.
+- **The real flowgraphs of Labs 01–06, 08 and 09 are tested** on signals with known answers
+  (`03_scripts/test_labs_offline.py`, 9 checks, no radio needed). These tests found and fixed
+  real bugs: a squelch that could never close (Lab 03), a "stereo" decoder that was really mono
+  (Lab 04), and an AM audio offset (Lab 06).
 - **Labs 01, 03, 04, 05, 06 and 08** were run on real hardware, receiving BFM 89.9 MHz in
   Kuala Lumpur.
 - **Labs 10, 11 and 12** sent and received digital TV. A real TV found the station and played
   the video. Lab 12 sent **79 million bytes** of video and received every single byte correctly.
 
-We also wrote down what is **not** tested yet, and the lessons we learned from real hardware
-that simulation could not show us. Read them in **[VERIFICATION.md](./VERIFICATION.md)**.
+We also wrote down what is **not** tested yet, and the lessons we learned from real hardware and
+careful testing. Read them in **[VERIFICATION.md](./VERIFICATION.md)**.
 
 ---
 
