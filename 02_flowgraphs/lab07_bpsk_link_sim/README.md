@@ -79,7 +79,8 @@ Watch the **terminal**. After a few seconds you should see:
 [BER Monitor] bits= 3,815,700  errors=   1,486  BER=3.894e-04
 ```
 
-**The printed BER is the real result.** The shift number will be different each run.
+**The printed BER is the real result.** You should get these exact numbers: the simulation is
+repeatable, so the same settings give the same result every time.
 
 ---
 
@@ -152,8 +153,9 @@ $$
 d[n] = d[n-1] \oplus b[n] \qquad (\oplus = \text{XOR})
 $$
 
-**Why?** The Costas loop in the receiver cannot tell +1 from −1 on its own. Half the time it
-locks "upside down" (180° wrong), and every bit comes out inverted. With differential encoding,
+**Why?** The Costas loop in the receiver cannot tell +1 from −1 on its own. On a real radio
+the signal's phase is random, so it can lock "upside down" (180° wrong), and then every bit
+comes out inverted. With differential encoding,
 only *changes* matter, and an upside-down signal has the same changes. The cost: one wrong
 symbol spoils two bits, so the BER roughly **doubles** (exactly $2p(1-p)$ instead of $p$).
 
