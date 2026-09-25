@@ -99,13 +99,13 @@ blocks:
 - name: volume
   id: variable_qtgui_range
   parameters:
-    comment: 'Post-demodulation scalar gain. Purely software; nothing here can clip the front end.'
+    comment: 'Post-demodulation scalar gain. Purely software; nothing here can clip the front end. Starts at 0.5 because a strong station was measured peaking at 1.86 out of the WBFM decoder, and the Audio Sink clips at 1.0.'
     label: 'Volume'
     rangeType: float
     start: '0'
     stop: '5'
     step: '0.1'
-    value: '1.0'
+    value: '0.5'
     widget: counter_slider
   states:
     coordinate: [500, 180]
@@ -200,7 +200,7 @@ blocks:
 - name: agc
   id: analog_agc2_xx
   parameters:
-    comment: 'AFTER the channel filter, so a strong neighbouring station cannot turn ours down. Attack fast, decay slow.'
+    comment: 'AFTER the channel filter (so a strong neighbour cannot turn our station down) and AFTER the squelch (it lifts noise to the same level as a station, so a squelch placed after it could never close). Attack fast, decay slow.'
     type: complex
     reference: '0.5'
     attack_rate: '0.01'
@@ -208,21 +208,21 @@ blocks:
     gain: '1.0'
     max_gain: '65536'
   states:
-    coordinate: [740, 320]
+    coordinate: [960, 320]
     rotation: 0
     state: enabled
 
 - name: squelch
   id: analog_pwr_squelch_xx
   parameters:
-    comment: 'gate=False emits zeros when closed; gate=True would emit nothing and starve the audio sink.'
+    comment: 'BEFORE the AGC, so it measures the real signal level. gate=False emits zeros when closed; gate=True would emit nothing and starve the audio sink.'
     type: complex
     threshold: squelch_threshold
     alpha: '0.01'
     ramp: '0'
     gate: 'False'
   states:
-    coordinate: [960, 320]
+    coordinate: [740, 320]
     rotation: 0
     state: enabled
 
@@ -267,9 +267,9 @@ connections:
 - [pre_filter, '0', freq_sink, '0']
 - [pre_filter, '0', waterfall_sink, '0']
 - [pre_filter, '0', rational_resampler, '0']
-- [rational_resampler, '0', agc, '0']
-- [agc, '0', squelch, '0']
-- [squelch, '0', wbfm_rcv, '0']
+- [rational_resampler, '0', squelch, '0']
+- [squelch, '0', agc, '0']
+- [agc, '0', wbfm_rcv, '0']
 - [wbfm_rcv, '0', volume_control, '0']
 - [volume_control, '0', audio_sink, '0']
 

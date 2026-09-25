@@ -67,7 +67,7 @@ class lab03_advanced_wbfm(gr.top_block, Qt.QWidget):
         ##################################################
         # Variables
         ##################################################
-        self.volume = volume = 1.0
+        self.volume = volume = 0.5
         self.squelch_threshold = squelch_threshold = -50
         self.samp_rate = samp_rate = 2000000
         self.rf_gain = rf_gain = 40
@@ -79,7 +79,7 @@ class lab03_advanced_wbfm(gr.top_block, Qt.QWidget):
         # Blocks
         ##################################################
 
-        self._volume_range = qtgui.Range(0, 5, 0.1, 1.0, 200)
+        self._volume_range = qtgui.Range(0, 5, 0.1, 0.5, 200)
         self._volume_win = qtgui.RangeWidget(self._volume_range, self.set_volume, "Volume", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_layout.addWidget(self._volume_win)
         self._rf_gain_range = qtgui.Range(0, 76, 1, 40, 200)
@@ -210,12 +210,12 @@ class lab03_advanced_wbfm(gr.top_block, Qt.QWidget):
         ##################################################
         # Connections
         ##################################################
-        self.connect((self.agc, 0), (self.squelch, 0))
+        self.connect((self.agc, 0), (self.wbfm_rcv, 0))
         self.connect((self.pre_filter, 0), (self.freq_sink, 0))
         self.connect((self.pre_filter, 0), (self.rational_resampler, 0))
         self.connect((self.pre_filter, 0), (self.waterfall_sink, 0))
-        self.connect((self.rational_resampler, 0), (self.agc, 0))
-        self.connect((self.squelch, 0), (self.wbfm_rcv, 0))
+        self.connect((self.rational_resampler, 0), (self.squelch, 0))
+        self.connect((self.squelch, 0), (self.agc, 0))
         self.connect((self.usrp_source, 0), (self.pre_filter, 0))
         self.connect((self.volume_control, 0), (self.audio_sink, 0))
         self.connect((self.wbfm_rcv, 0), (self.volume_control, 0))
