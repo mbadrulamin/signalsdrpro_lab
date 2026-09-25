@@ -1,398 +1,398 @@
-# 🌐 Fundamentals 11 — OFDM & Modern Broadcast Systems
+# 🌐 Fundamentals 11 — OFDM and Modern Broadcast Systems
 
-> **Prerequisite:** Digital Modulation (08), Synchronization (09), Error Detection (10)
-> **Time to read:** 55 minutes
-> **Used by:** Lab 10
-
----
-
-## Why This Chapter Exists
-
-Every digital signal in this repository so far has been **single-carrier**: one constellation,
-one symbol at a time, at one frequency. RDS sends 1187.5 symbols per second on one subcarrier.
-ADS-B sends a million pulses per second on one carrier. Lab 07's BPSK link sends 100,000.
-
-Every modern broadcast and cellular system does something completely different. Wi-Fi, LTE, 5G,
-DAB, DVB-T/T2, and Meteor's successors all use **OFDM** — thousands of carriers at once, each
-one crawling along at a few hundred symbols per second.
-
-This chapter explains why that inversion is not just an option but a necessity, and it is the
-theory behind [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md).
+> **What you will learn:** why digital TV, Wi-Fi, 4G and 5G all send **thousands of slow
+> carriers** instead of one fast one (**OFDM**); how an FFT makes that possible; the **cyclic
+> prefix**; pilots; why OFDM is "peaky" (PAPR); how a receiver locks on; and why DVB-T2 uses
+> two error-correcting codes.
+> **Before this:** [Fundamentals 08](./08_digital_modulation.md), [09](./09_synchronization.md)
+> and [10](./10_error_detection_and_framing.md).
+> **Time:** about 55 minutes. **Used by:** Labs 10, 11 and 12.
 
 ---
 
-## Part 1 — The Problem OFDM Solves
+## Why this chapter exists
 
-### Multipath, and why speed makes it worse
+Every digital signal so far used **one carrier**, sending one symbol at a time:
 
-A transmitted signal reaches you by several paths: direct, plus reflections off buildings, hills
-and aircraft. Each has a different delay.
+- RDS (Lab 08): 1187.5 bits per second on one subcarrier.
+- ADS-B (Lab 09): a million pulses per second on one carrier.
+- Lab 07's BPSK link: 100,000 symbols per second.
+
+Modern broadcast and mobile systems do something completely different. Wi-Fi, 4G, 5G, digital
+radio (DAB) and digital TV (DVB-T and DVB-T2) all use **OFDM**: **thousands of carriers at once**,
+each one sending only a few hundred symbols per second.
+
+This chapter explains why — and it is the theory behind
+[Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md).
+
+---
+
+## Part 1 — The problem: echoes
+
+### Echoes smear fast symbols
+
+A signal reaches your antenna by several paths: directly, and bounced off buildings and hills.
+Each path is a little longer, so each copy arrives a little later:
 
 ```
     TX ─────────────────────────▶ RX      direct,       0 µs
        ╲                        ╱
-        ╲──── building ────────╱          reflected,   +3 µs
+        ╲──── building ────────╱          echo,        +3 µs
          ╲                    ╱
-          ╲──── hillside ────╱             reflected,  +12 µs
+          ╲──── hillside ────╱             echo,       +12 µs
 ```
 
-The channel is therefore a filter with an impulse response several microseconds long:
+This is called **multipath**. What does a 12 µs echo do to a single-carrier link?
 
-$$
-y(t) = \sum_i a_i \, x(t - \tau_i)
-$$
-
-Now consider what that does to a single-carrier link at symbol period $T_s$:
-
-| Symbol rate | $T_s$ | 12 µs echo spans |
+| Symbol rate | Each symbol lasts | A 12 µs echo covers |
 |---|---|---|
-| 1 kBaud | 1000 µs | 1.2 % of a symbol — harmless |
-| 100 kBaud | 10 µs | **1.2 symbols** — serious ISI |
-| 10 MBaud | 0.1 µs | **120 symbols** — catastrophic |
+| 1,000 per second | 1000 µs | 1.2 % of one symbol — no problem |
+| 100,000 per second | 10 µs | **1.2 symbols** — serious blurring |
+| 10 million per second | 0.1 µs | **120 symbols** — hopeless |
 
-**The faster you send, the more symbols an echo smears across.** A 20 Mbit/s single-carrier
-terrestrial TV signal would need an equaliser spanning hundreds of taps, adapting continuously,
-and it would still fail whenever the channel changed.
+**The faster you send, the more symbols each echo smears together.** A single-carrier digital
+TV signal would need a huge, constantly adjusting **equaliser** to undo it — and would still fail
+when the echoes changed.
 
-### The inversion
+### The answer: many slow carriers
 
-OFDM's answer is to refuse the premise. Instead of one carrier at 10 MBaud, use **1000 carriers
-at 10 kBaud each**. The total throughput is identical, but each symbol is now 100 µs long, and a
-12 µs echo occupies 12 % of it instead of 120 symbols of it.
+Instead of **one** carrier at 10 million symbols per second, use **1000 carriers** at 10,000
+each. The total data is the same. But each symbol now lasts 100 µs, so a 12 µs echo covers only
+12 % of one symbol.
 
 $$
-\boxed{\text{Split the data across } N \text{ carriers} \Rightarrow \text{symbol period} \times N}
+\boxed{\text{Split the data over } N \text{ carriers} \Rightarrow \text{each symbol lasts } N \text{ times longer}}
 $$
 
-That is the whole idea. Everything else is engineering to make it practical.
+That is the whole idea of OFDM. The rest is how to make it practical.
 
 ---
 
-## Part 2 — How OFDM Works
+## Part 2 — How OFDM works
 
-### The orthogonality condition
+### Carriers that overlap but do not interfere
 
-Put $N$ carriers at spacing $\Delta f$ and transmit for a duration $T_u$. The transmitted
-symbol is
+Normally, carriers must be spaced apart with gaps between them, or they interfere. OFDM places
+them **overlapping**, yet they still do not interfere. The rule is:
+
+$$
+\boxed{\text{carrier spacing} = \frac{1}{\text{symbol length}}}
+$$
+
+With that spacing, every carrier completes a **whole number of cycles** during one symbol. Over
+that time, any two different carriers "cancel" when the receiver compares them: each carrier's
+peak falls exactly on every other carrier's zero. **Orthogonal** is the mathematical word for
+this. No gaps are needed, so OFDM wastes no spectrum.
+
+```
+   One carrier                  OFDM: carriers overlap, but each peak
+                                sits on its neighbours' zeros
+        ╱▔▔▔╲                    ╱╲  ╱╲  ╱╲  ╱╲  ╱╲  ╱╲
+       ╱     ╲                  ╱  ╳╱  ╳╱  ╳╱  ╳╱  ╳╱  ╲
+   ───╱───────╲───          ───╱──╱─╲──╱─╲──╱─╲──╱─╲───╲───
+```
+
+<details>
+<summary><b>Going deeper:</b> why the carriers do not interfere</summary>
+
+An OFDM symbol with *N* carriers, spacing Δ*f*, lasting *T*ᵤ:
 
 $$
 s(t) = \sum_{k=0}^{N-1} X_k \, e^{\,j 2\pi k \Delta f\, t}, \qquad 0 \le t < T_u
 $$
 
-The carriers do not interfere with each other **if and only if**
-
-$$
-\boxed{\Delta f = \frac{1}{T_u}}
-$$
-
-Because then, for $k \neq l$:
+If $\Delta f = 1/T_u$, then for two different carriers $k \neq l$:
 
 $$
 \int_0^{T_u} e^{\,j2\pi k \Delta f t}\, e^{-j2\pi l \Delta f t}\, dt
 = \int_0^{T_u} e^{\,j2\pi (k-l) t / T_u}\, dt = 0
 $$
 
-an exact integer number of cycles, integrating to zero. The carriers **overlap in frequency**
-and are still perfectly separable. That is why OFDM is spectrally efficient: no guard bands
-between carriers.
+— a whole number of turns, which adds up to zero.
+</details>
 
-```
-   Single carrier              OFDM: carriers overlap, still orthogonal
-                                each peak sits on its neighbours' nulls
-        ╱▔▔▔╲                    ╱╲  ╱╲  ╱╲  ╱╲  ╱╲  ╱╲
-       ╱     ╲                  ╱  ╳╱  ╳╱  ╳╱  ╳╱  ╳╱  ╲
-   ───╱───────╲───          ───╱──╱─╲──╱─╲──╱─╲──╱─╲───╲───
-```
+### The IFFT makes all the carriers at once
 
-### The IFFT is the modulator
+To send 1000 carriers you might expect 1000 oscillators. Instead, one calculation does it: the
+**inverse FFT** (IFFT). You put one data value (a constellation point) on each carrier, run one
+IFFT, and out comes the time signal containing all the carriers. The receiver runs one **FFT** to
+separate them again.
 
-Sample $s(t)$ at $N$ points and the sum becomes exactly an inverse DFT:
+**This is why OFDM won.** The idea is from the 1960s. It became practical as soon as chips could
+calculate FFTs fast enough.
 
-$$
-x[n] = \frac{1}{N}\sum_{k=0}^{N-1} X_k\, e^{\,j 2\pi k n / N}
-$$
-
-**This is the reason OFDM took over.** Generating a thousand carriers would need a thousand
-oscillators and a thousand mixers. Instead it is *one FFT*, which costs $O(N \log N)$. The
-receiver undoes it with a forward FFT. A 1970s idea became practical the moment DSP hardware
-could run an FFT in real time, and it has dominated ever since.
-
-| | Single carrier | OFDM |
+| | One carrier | OFDM |
 |---|---|---|
-| Modulator | mixer + pulse shaping | **IFFT** |
-| Demodulator | matched filter + equaliser | **FFT** + one complex multiply per carrier |
-| Multipath handling | long adaptive equaliser | cyclic prefix (below) |
-| Cost | $O(\text{taps})$ per symbol | $O(\log N)$ per carrier |
+| Transmitter | mixer + pulse shaping | **IFFT** |
+| Receiver | matched filter + long equaliser | **FFT** + one multiply per carrier |
+| Handling echoes | a long, adapting equaliser | the cyclic prefix (next part) |
 
 ---
 
-## Part 3 — The Cyclic Prefix: the Crucial Trick
+## Part 3 — The cyclic prefix: the key trick
 
-Orthogonality holds only over an exact integer number of cycles. A delayed echo breaks that —
-it drags a fragment of the *previous* symbol into the integration window, and every carrier
+The "no interference" rule needs **whole cycles** of every carrier inside the receiver's window.
+An echo drags in a bit of the **previous** symbol, which breaks that — and then every carrier
 leaks into every other.
 
-The fix is beautiful. **Copy the last $N_{cp}$ samples of the symbol and paste them in front:**
+The fix is simple: **copy the end of each symbol and put the copy in front of it.**
 
 ```
-        ┌──────── useful part, N samples ────────┐
-        │                                        │
-   ┌────┴────┐                              ┌────┴────┐
+        ┌──────── the useful part, N samples ─────┐
+        │                                         │
+   ┌────┴────┐                              ┌─────┴───┐
    │  copy   │                              │  last   │
-   │ of last │   ← this is the guard →      │  N_cp   │
-   │  N_cp   │                              │ samples │
+   │ of the  │   ← the "guard interval" →   │  part   │
+   │  end    │                              │         │
    └─────────┴────────────────────────────────────────┘
-    N_cp                    N
-   ◄─── Tg ──►◄────────── Tu ──────────►
-   ◄──────────── Ts = Tg + Tu ─────────►
+   ◄─ guard ─►◄────────── useful part ────────────►
+   ◄────────────── one whole OFDM symbol ──────────►
 ```
 
-Two things happen at once:
+This **cyclic prefix** (CP) does two things:
 
-1. **Any echo delayed by less than $T_g$ still sees a complete cycle** of every carrier inside
-   the integration window, so orthogonality survives.
-2. Linear convolution with the channel becomes **circular** convolution, and circular
-   convolution in time is plain multiplication in the DFT domain:
-
-$$
-\boxed{Y_k = H_k X_k + N_k}
-$$
-
-That is the payoff. **Equalising a multipath channel becomes one complex division per
-carrier** — $\hat{X}_k = Y_k / H_k$ — instead of an adaptive filter with hundreds of taps.
-
-### The price, and the trade
-
-The cyclic prefix carries no new information. It costs:
+1. Any echo **shorter than the guard** still leaves whole cycles of every carrier inside the
+   window. The carriers stay separate.
+2. It makes the echoes easy to undo. Each carrier is simply changed by one fixed amount (a size
+   and an angle). The receiver undoes it with **one division per carrier** — instead of a huge
+   equaliser.
 
 $$
-\text{efficiency} = \frac{T_u}{T_u + T_g} = \frac{1}{1 + \text{GI}}
+\boxed{Y_k = H_k X_k + \text{noise}} \qquad \Rightarrow \qquad \hat X_k = Y_k / H_k
 $$
 
-| Guard interval | Overhead | Max echo delay ($T_u = 112$ µs) | Path difference |
+(*X*ₖ = what was sent on carrier *k*; *H*ₖ = what the channel did to it; *Y*ₖ = what arrived.)
+
+### The price
+
+The guard carries no new data. A longer guard handles longer echoes, but wastes more time:
+
+| Guard (fraction of useful part) | Wasted | Longest echo, 1K-mode symbol (112 µs) | Extra path length |
 |---|---|---|---|
+| 1/128 | 0.8 % | 0.9 µs | 0.26 km |
 | 1/32 | 3.1 % | 3.5 µs | 1.05 km |
-| 1/16 | 5.9 % | 7.0 µs | 2.1 km |
 | **1/8** | **11.1 %** | **14 µs** | **4.2 km** |
 | 1/4 | 20.0 % | 28 µs | 8.4 km |
 
-Longer guard = more multipath immunity = less throughput. That single slider is the central
-design decision in every OFDM system.
+**Longer symbols need a smaller fraction.** Lab 10 uses the 32K mode, where the useful part lasts
+3.584 ms. There, a guard of only **1/128** is **28 µs** — enough for echoes from 8.4 km of extra
+path — while wasting less than 1 %. That is why broadcasters use 32K.
 
-### Single-frequency networks — the spectacular consequence
+### Single-frequency networks
 
-If the guard interval is longer than the delay spread, the receiver cannot tell a *reflection*
-from a *second transmitter*. So you can run **every transmitter in a country on the same
-frequency**, and a receiver midway between them treats the further one as a harmless echo.
+If the guard is longer than any echo, the receiver **cannot tell** an echo from a **second
+transmitter** sending the same signal. So several transmitters can use the **same frequency**,
+and a receiver between them treats the further one as a harmless echo. This is a
+**single-frequency network (SFN)**.
 
-For DVB-T2 with a 32K FFT at 8 MHz:
+With a 32K symbol and a 1/8 guard, the guard is 448 µs — radio travels **134 km** in that time.
+Transmitters up to 134 km apart can share one channel. Analog TV needed a different frequency in
+every area. **OFDM changed how countries plan their spectrum.**
+
+<details>
+<summary><b>Going deeper:</b> the SFN numbers</summary>
+
+For DVB-T2 32K at 8 MHz (sample rate 64/7 MHz = 9.142857 MSPS):
 
 $$
 T_u = \frac{32768}{9.142857\times10^6} = 3.584\ \text{ms}, \qquad
-T_g = \frac{T_u}{8} = 448\ \mu\text{s}
+T_g = \frac{T_u}{8} = 448\ \mu\text{s}, \qquad
+d_{\max} = c\, T_g = 134\ \text{km}
 $$
 
-$$
-d_{\max} = c\, T_g = 3\times10^8 \times 448\times10^{-6} = \mathbf{134\ km}
-$$
-
-Transmitters 134 km apart, same frequency, constructively adding. That is why European DTT uses
-one channel per multiplex nationwide, where the old analog system needed a different frequency
-in every town. **OFDM did not just improve terrestrial TV; it changed how spectrum is planned.**
+With GI 1/128 (Lab 10's setting): $T_g = 28\ \mu$s, $d = 8.4$ km.
+</details>
 
 ---
 
 ## Part 4 — Pilots
 
-The receiver needs $H_k$ to equalise. It gets it from **pilots**: carriers whose value is known
-in advance, at a boosted amplitude.
+To divide by *H*ₖ, the receiver must **know** *H*ₖ. It measures it using **pilots**: carriers
+whose values are known in advance, sent a little stronger than the data.
 
 | Pilot type | Purpose |
 |---|---|
-| **Scattered** | Move in a pattern across carriers and symbols; interpolate between them to estimate $H_k$ everywhere |
-| **Continual** | Same carriers every symbol; used for fine frequency and phase tracking |
-| **Edge** | At the band edges, so interpolation does not have to extrapolate |
-| **P2 / preamble** | Carry the L1 signalling that says how everything else is configured |
+| **Scattered** | spread in a pattern over carriers and symbols; the receiver fills in between them to estimate *H* everywhere |
+| **Continual** | the same carriers in every symbol; used to track frequency and phase |
+| **Edge** | at the edges of the band, so nothing has to be guessed beyond the last pilot |
+| **P2 / preamble** | carry the signalling that describes how everything else is set up |
 
 ```
    carrier ─────────────────────────────────────▶
  s  ● · · · ● · · · ● · · · ● · · · ● · · ·      ● = scattered pilot
- y  · · ● · · · ● · · · ● · · · ● · · · ● ·      · = data cell
+ y  · · ● · · · ● · · · ● · · · ● · · · ● ·      · = data
  m  · · · · ● · · · ● · · · ● · · · ● · · ·
- b  · · · · · · ● · · · ● · · · ● · · · ● ·      the pattern repeats every
- o  ● · · · ● · · · ● · · · ● · · · ● · · ·      4 symbols here (PP-style)
+ b  · · · · · · ● · · · ● · · · ● · · · ● ·      the pattern repeats
+ o  ● · · · ● · · · ● · · · ● · · · ● · · ·      every few symbols
  l  ▼
 ```
 
-The pattern is a sampling problem in two dimensions: pilots must be dense enough in **frequency**
-to track the channel's delay spread, and dense enough in **time** to track its Doppler. DVB-T2
-defines eight patterns (PP1–PP8) so a broadcaster can trade pilot overhead against how fast the
-channel changes — dense pilots for mobile reception, sparse for rooftop aerials.
+The pilots must be close enough in **frequency** to follow the echoes, and close enough in **time**
+to follow changes (a moving car changes the channel quickly). DVB-T2 has eight patterns, PP1 to
+PP8: dense pilots for moving receivers, sparse ones (like Lab 10's **PP7**) for fixed rooftop
+aerials.
 
 ---
 
-## Part 5 — PAPR: What OFDM Costs
+## Part 5 — PAPR: OFDM's cost
 
-An OFDM symbol is the sum of $N$ independent random carriers. By the central limit theorem the
-time-domain signal is therefore **complex Gaussian** — and its envelope is Rayleigh, with a long
-tail.
+An OFDM signal is the sum of thousands of independent carriers. Added together, they behave like
+**random noise** — most of the time the signal is moderate, but now and then many carriers line up
+and make a tall **peak**.
 
-$$
-\text{PAPR} = \frac{\max |x[n]|^2}{\overline{|x[n]|^2}}
-$$
+**PAPR** (peak-to-average power ratio) measures how tall the peaks are compared with the average.
 
-The theoretical worst case is $N$ (30 dB for $N=1024$) when every carrier peaks together.
-Statistically it is far lower — around **10–12 dB** in practice.
+> **Measured in Lab 10:** the DVB-T2 signal has a PAPR of **9.6 dB** (at the 99.99th
+> percentile). The peaks are about **9 times** the average power. You can see the long tail on the
+> amplitude histogram in `lab10_dvbt2_analyze.grc`.
 
-> **Measured in Lab 10:** the generated DVB-T2 signal has a PAPR of **9.6 dB** at the 99.99th
-> percentile. You can see the Rayleigh tail directly on the amplitude histogram in
-> `lab10_dvbt2_analyze.grc`.
+### Why that is expensive
 
-### Why 10 dB is expensive
+An amplifier must handle the **peaks** without distortion, but you only get the **average** as
+useful power. With 10 dB of PAPR, you need an amplifier able to give 100 W of peak to deliver about
+10 W average. The rest becomes heat. That is why:
 
-A power amplifier must stay linear up to the *peak*, but you only get paid for the *average*. A
-10 dB PAPR means running a 100 W amplifier to deliver 10 W of average power — and burning the
-difference as heat. This is why:
+- broadcast transmitters use large, expensive, cooled amplifiers,
+- DVB-T2 has optional PAPR-reduction tricks,
+- **4G phones** send with a different, less peaky method (SC-FDMA) — a phone battery cannot
+  afford that waste.
 
-- Broadcast transmitters use enormous, expensive, heavily cooled amplifiers
-- DVB-T2 offers optional PAPR reduction (tone reservation, and "ACE")
-- **Uplinks** in LTE use SC-FDMA rather than OFDMA — a handset battery cannot afford 10 dB of
-  backoff, so the standard deliberately uses a different, lower-PAPR scheme in that direction
-
-It is also why, in [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md), the transmitter's
-digital amplitude defaults to 0.25 rather than 1.0: leave headroom, or the peaks clip and the
-spectrum regrows into the neighbouring channel.
+It is also why Lab 10's `tx_amplitude` must stay well below 1.0 (around **0.25**): leave room for
+the peaks, or they get cut off (clipped), and the signal splashes into the next channel.
 
 ---
 
-## Part 6 — Synchronising an OFDM Receiver
+## Part 6 — How an OFDM receiver locks on
 
 Three things must be found, in this order.
 
-### 1. Symbol timing — from the cyclic prefix
+### 1. Where each symbol starts — from the cyclic prefix
 
-The guard interval is a *copy*, so $x[n]$ and $x[n+N]$ are identical inside it. Correlate:
+The guard is a **copy** of the end of the symbol. So the receiver compares the signal with itself
+one useful-part later. Inside the guard they match; everywhere else they do not. Averaging that
+comparison over the guard length gives a **peak at the start of every symbol**. This is the
+**van de Beek** method. It needs no pilots, no preamble, and no knowledge of the data — just the
+structure of the signal.
+
+**Lab 10 builds this from four blocks:** Delay → Conjugate → Multiply → Moving Average. On a real
+32K DVB-T2 signal it finds a peak every **33,024 samples** (32,768 + 256), which you can watch
+live.
+
+### 2. The small frequency error — from the same comparison
+
+A frequency error rotates the copy against the original. So the **angle** of the same comparison
+tells you the frequency error — up to half a carrier spacing.
+
+### 3. The large frequency error and the frame start — from a preamble
+
+A whole-carrier shift cannot be seen that way. DVB-T2 adds a special preamble at the start of
+every frame, the **P1 symbol**. The receiver searches for it; it gives a sharp peak — **23.9 times**
+the average, measured in Lab 10 — marking the frame start and revealing the large frequency
+error.
+
+> ⚠️ **OFDM is very sensitive to frequency error.** In the 32K mode, carriers are only **279 Hz**
+> apart. An error of a few tens of hertz makes every carrier leak into its neighbours.
+> Single-carrier systems cope with much worse. This is OFDM's real weakness, and why OFDM receivers
+> work so hard on frequency tracking.
+
+<details>
+<summary><b>Going deeper:</b> the van de Beek formulas</summary>
 
 $$
-\gamma(d) = \sum_{n=d}^{d+N_{cp}-1} x[n]\, x^*[n+N]
-$$
-
-$|\gamma(d)|$ peaks once per OFDM symbol, at the start of the guard interval. This is the
-**van de Beek estimator**, and it is remarkable for needing no pilots, no preamble and no
-knowledge of the data — just the structure of the signal.
-
-**Lab 10 builds exactly this from four blocks:** Delay → Conjugate → Multiply → Moving Average.
-Measured on a real DVB-T2 waveform, it produces peaks every **1152 samples** (= 1024 + 128), a
-result you can watch live on a Time Sink.
-
-### 2. Fractional frequency offset — free, from the same correlation
-
-$$
+\gamma(d) = \sum_{n=d}^{d+N_{cp}-1} x[n]\, x^*[n+N], \qquad
+\hat{d} = \arg\max_d |\gamma(d)|, \qquad
 \hat{\varepsilon} = \frac{1}{2\pi}\arg \gamma(\hat d)
 $$
 
-A frequency error rotates the two copies relative to each other, so the *phase* of the same
-correlation gives the offset — in units of carrier spacing, over $\pm\frac{1}{2}$ a spacing.
-
-### 3. Integer frequency offset and frame sync — from a preamble
-
-The fractional estimator cannot see a whole-carrier shift. Broadcast systems add a preamble:
-DVB-T2's **P1 symbol** is a 2048-sample structure `C | A | B`, where C and B are
-frequency-shifted copies of parts of A. Correlating C against A with that shift removed gives a
-sharp peak — **24× peak-to-mean, measured in Lab 10** — that marks the frame start and reveals
-the integer offset simultaneously.
-
-> ⚠️ **OFDM is exquisitely sensitive to frequency error.** Carrier spacing for a DVB-T2 32K
-> symbol is only **279 Hz**. An offset of a few tens of Hz destroys orthogonality and every
-> carrier bleeds into its neighbours. Single-carrier systems shrug off far worse. This is OFDM's
-> real weakness, and it is why every OFDM receiver spends so much effort on frequency tracking.
+*N* is the useful length (32768), *N*₍cp₎ the guard (256), and ε the fractional frequency offset
+in carrier spacings.
+</details>
 
 ---
 
-## Part 7 — Concatenated FEC: Why Two Codes
+## Part 7 — Two error-correcting codes, one inside the other
 
-DVB-T2, DVB-S2 and 5G all use the same layered structure:
+DVB-T2, satellite TV (DVB-S2) and 5G all use the same two-layer design:
 
 ```
-   data ──▶ [ BCH outer ] ──▶ [ LDPC inner ] ──▶ modulation
-                  │                  │
-        cleans up the floor    does the heavy lifting
+   data ──▶ [ BCH (outer) ] ──▶ [ LDPC (inner) ] ──▶ modulation
+                  │                    │
+        cleans up what's left     does the heavy work
 ```
 
-**LDPC** (low-density parity check) codes, decoded by iterative belief propagation, get within
-about **1 dB of the Shannon limit**. DVB-T2 uses 64800-bit codewords. But iterative decoders
-have an **error floor**: below a certain BER they stop improving, because of rare structures in
-the code graph that trap the decoder.
+- **LDPC** (low-density parity check) codes come within about **1 dB of the theoretical best**.
+  DVB-T2 uses blocks of 64,800 bits. But LDPC decoders have an **error floor**: below a very low
+  error rate they stop improving, because of rare patterns that trap the decoder.
+- **BCH** is a simpler code with **no** error floor. Placed outside the LDPC, it fixes the few
+  errors that LDPC leaves.
 
-**BCH** is an algebraic block code with no error floor at all. Applied *outside* the LDPC, it
-corrects the handful of residual errors the LDPC leaves. Together:
-
-| Code | Role | Strength | Weakness |
+| Code | Job | Strong point | Weak point |
 |---|---|---|---|
-| LDPC | inner | Near-capacity | Error floor around $10^{-7}$ |
-| BCH | outer | No floor, cheap | Weak on its own |
+| LDPC | inner | close to the theoretical limit | error floor near 10⁻⁷ |
+| BCH | outer | no floor, cheap | weak on its own |
 
-Compare with the previous generation: DVB-T used **convolutional + Reed-Solomon**, the same
-architecture with 1990s codes, and paid about 3 dB more for the same reliability. And with
-[Fundamentals 10's](./10_error_detection_and_framing.md) ADS-B, which uses no FEC at all and
-relies on repetition — a perfectly good choice when messages repeat twice a second.
-
-**There is no universally right amount of coding.** There is only the right amount for your
-channel, your latency budget and your ability to retransmit.
+Older DVB-T used the same design with 1990s codes (convolutional + Reed–Solomon) and needed about
+3 dB more power for the same reliability. ADS-B ([Fundamentals 10](./10_error_detection_and_framing.md))
+uses no correction at all, and just repeats. **There is no single right amount of coding** — only
+the right amount for your channel, your delay budget, and whether you can ask again.
 
 ---
 
-## Part 8 — Where OFDM Is Used
+## Part 8 — Where OFDM is used
 
 | System | Carriers | Spacing | Notes |
 |---|---|---|---|
-| **DVB-T2** | 853 – 27,841 | 279 Hz – 8.9 kHz | 1K to 32K FFT, [Lab 10](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md) |
-| DVB-T | 1705 / 6817 | 1.1 / 4.5 kHz | 2K / 8K, convolutional + RS |
-| **DAB / DAB+** | 1536 | 1 kHz | DQPSK, no channel estimation needed |
+| **DVB-T2** | 853 – 27,841 | 279 Hz – 8.9 kHz | 1K to 32K; Lab 10 uses 32K (27,841 carriers) |
+| DVB-T | 1,705 / 6,817 | 4.5 / 1.1 kHz | 2K / 8K; Lab 11 receives it |
+| **DAB / DAB+** | 1,536 | 1 kHz | digital radio |
 | Wi-Fi 802.11a/g | 52 | 312.5 kHz | 64-point FFT |
-| Wi-Fi 802.11ax | up to 1960 | 78.125 kHz | OFDMA — carriers shared between users |
-| **LTE downlink** | up to 1200 | 15 kHz | OFDMA |
-| LTE uplink | — | 15 kHz | **SC-FDMA**, to save the handset's PAPR |
-| 5G NR | scalable | 15–240 kHz | Spacing scales with the band |
-| ADSL / VDSL | up to 4096 | 4.3 kHz | OFDM down a telephone line — "DMT" |
-| PLC (powerline) | varies | — | OFDM over mains wiring |
+| Wi-Fi 6 (802.11ax) | up to 1,960 | 78.125 kHz | carriers shared between users |
+| **4G LTE (downlink)** | up to 1,200 | 15 kHz | |
+| 4G LTE (uplink) | — | 15 kHz | **SC-FDMA**, to save the phone's battery (PAPR) |
+| 5G NR | many | 15–240 kHz | spacing depends on the band |
+| ADSL / VDSL | up to 4,096 | 4.3 kHz | OFDM on a telephone line |
 
-**If a modern system moves a lot of data through a messy channel, it is almost certainly OFDM.**
-
----
-
-## 🧠 Self-Check
-
-1. Why does OFDM use many slow carriers rather than one fast one?
-   **Answer:** A longer symbol period makes a fixed multipath delay a smaller fraction of a
-   symbol, so inter-symbol interference becomes manageable.
-
-2. What exactly is the orthogonality condition?
-   **Answer:** $\Delta f = 1/T_u$. Each carrier then completes an integer number of cycles in
-   the integration window, so its correlation with every other carrier is exactly zero.
-
-3. Why is the cyclic prefix a *copy* rather than just silence?
-   **Answer:** Silence would prevent inter-symbol interference but would not make the channel
-   convolution circular. The copy does, which is what reduces equalisation to one complex
-   division per carrier.
-
-4. A DVB-T2 system uses a 32K FFT at 8 MHz with GI 1/8. How far apart can SFN transmitters be?
-   **Answer:** $T_u = 3.584$ ms, $T_g = 448$ µs, $d = c T_g = 134$ km.
-
-5. Your OFDM receiver has a 200 Hz frequency error and the carrier spacing is 279 Hz. What
-   happens?
-   **Answer:** Catastrophe — 0.72 of a carrier spacing destroys orthogonality, and every carrier
-   leaks into its neighbours. You need the integer offset from a preamble and the fractional
-   offset from the cyclic prefix.
-
-6. Why does LTE use OFDMA downlink but SC-FDMA uplink?
-   **Answer:** PAPR. A base station can afford a 10 dB backoff; a battery-powered handset's
-   amplifier cannot, so the uplink uses a lower-PAPR scheme.
-
-7. Why concatenate BCH with LDPC instead of just using a stronger LDPC?
-   **Answer:** LDPC's iterative decoder has an error floor caused by trapping sets, which more
-   iterations do not fix. An algebraic outer code has no floor and cleans up the residue cheaply.
+**If a modern system moves a lot of data through a messy channel, it almost certainly uses OFDM.**
 
 ---
 
-**Next:** [Lab 10 — DVB-T2 Transmitter & Receiver →](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md)
+## ✅ Summary
+
+- Echoes smear fast symbols. **OFDM** splits the data over thousands of **slow** carriers.
+- Carriers spaced at 1 ÷ (symbol length) **overlap without interfering**.
+- One **IFFT** makes all carriers; one **FFT** separates them.
+- The **cyclic prefix** (a copy of the symbol's end) makes echoes harmless, and turns equalising
+  into one division per carrier.
+- **Pilots** let the receiver measure the channel. **PAPR** (~10 dB) means amplifiers need
+  headroom.
+- The receiver finds **symbol timing** from the cyclic prefix and the **frame** from the P1
+  preamble. OFDM is very sensitive to **frequency error**.
+- DVB-T2 uses **LDPC inside BCH**.
+
+## 🧠 Check yourself
+
+1. Why does OFDM use many slow carriers instead of one fast one?
+   <details><summary>Answer</summary>A longer symbol makes an echo a small part of one symbol,
+   so echoes no longer smear symbols together.</details>
+2. What spacing makes the carriers not interfere?
+   <details><summary>Answer</summary>Spacing = 1 ÷ (useful symbol length). Then each carrier
+   makes a whole number of cycles per symbol.</details>
+3. Why is the cyclic prefix a *copy*, not just a silent gap?
+   <details><summary>Answer</summary>Silence would stop symbols overlapping, but the copy also
+   keeps whole cycles in the window and turns each channel effect into a single multiplication
+   per carrier — so one division undoes it.</details>
+4. DVB-T2 32K at 8 MHz with a 1/8 guard: how far apart can SFN transmitters be?
+   <details><summary>Answer</summary>Guard = 3.584 ms ÷ 8 = 448 µs; radio travels 134 km in
+   that time.</details>
+5. An OFDM receiver has a 200 Hz frequency error, and the carriers are 279 Hz apart. What happens?
+   <details><summary>Answer</summary>The error is 0.72 of a carrier spacing: the carriers are
+   no longer separate and all leak into each other. It must be corrected first (large part from
+   the P1 preamble, small part from the cyclic prefix).</details>
+6. Why do 4G phones send with SC-FDMA instead of OFDM?
+   <details><summary>Answer</summary>PAPR. OFDM's peaks would waste too much of the phone's
+   battery in its amplifier.</details>
+7. Why put BCH around LDPC instead of just making the LDPC stronger?
+   <details><summary>Answer</summary>LDPC has an error floor that more decoding does not fix.
+   BCH has no floor, and cheaply cleans up the few errors left.</details>
+
+**Next:** [Lab 10 — Build a TV Transmitter →](../02_flowgraphs/lab10_dvbt2_tx_rx/README.md)

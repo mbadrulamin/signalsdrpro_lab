@@ -1,247 +1,252 @@
-# 📺 Lab 10 — DVB-T2: Build a Television Transmitter
+# 📺 Lab 10 — Build a Television Transmitter (DVB-T2)
 
-> **Time:** 4 hours
-> **Difficulty:** Expert
-> **Theory needed:** [Fund. 08 Digital Modulation](../../01_fundamentals/08_digital_modulation.md) · [Fund. 10 Error Detection](../../01_fundamentals/10_error_detection_and_framing.md) · **[Fund. 11 OFDM](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)**
-> **New blocks:** the twelve-stage gr-dtv DVB-T2 chain, OFDM Cyclic Prefixer, USRP **Sink**
-> **Flowgraphs:** three — generate (no RF), transmit (RF), analyse
-> **Hardware:** 1–2 SignalSDR Pro, and a real DVB-T2 TV or USB tuner
->
-> ### 🚨 This is the first lab in this repository that **transmits**.
-> Read [Before You Transmit](#-before-you-transmit-anything) before you open any flowgraph.
+> **What you will build:** a complete **digital TV transmitter** (DVB-T2, the system Malaysia's
+> MYTV uses), from the standard's own building blocks — and a real television will receive it.
+> **What you will learn:** the twelve stages of a modern broadcast transmitter; OFDM in practice;
+> why the transport-stream **rate** and **clock** must be exact; and how to transmit **safely**.
+> **Before this:** [Fundamentals 08](../../01_fundamentals/08_digital_modulation.md),
+> [10](../../01_fundamentals/10_error_detection_and_framing.md) and
+> **[11 — OFDM](../../01_fundamentals/11_ofdm_and_broadcast_systems.md)**.
+> **Time:** about 4 hours. **Difficulty:** expert.
+> **Hardware:** 1–2 SignalSDR Pro, and a DVB-T2 TV or USB TV tuner.
+
+**Three flowgraphs:**
+
+| File | Transmits? | Use it to |
+|---|---|---|
+| **`lab10_dvbt2_generate.grc`** | **No** | make the TV signal and save it to a file. **Start here** |
+| `lab10_dvbt2_analyze.grc` | No (optional radio input) | measure a TV signal: spectrum, symbol timing, peaks |
+| `lab10_dvbt2_tx.grc` | 🚨 **Yes** | transmit. **Faraday cage or cable only** |
 
 ---
 
-## 🚨 Before You Transmit Anything
+## 🚨 Before you transmit anything
 
-DVB-T2 occupies **8 MHz of licensed broadcast spectrum**. Radiating it is not a grey area — in
-every country it is a serious offence, and it can knock out television reception for your
-neighbours across a wide area. A DVB-T2 signal looks exactly like a real broadcast, so
-interference from it is indistinguishable from a broadcaster's own fault, which is precisely why
-regulators treat it harshly.
+**This is the first lab that transmits.** Read this whole section first.
 
-### The only acceptable setups
+DVB-T2 uses **8 MHz of spectrum licensed to TV broadcasters**. In Malaysia, **470–694 MHz is live
+MYTV digital TV**. Transmitting there without permission is an offence (Communications and
+Multimedia Act 1998), and it can stop your neighbours' TVs working. A DVB-T2 signal looks exactly
+like a real broadcast, which is why regulators treat interference from it seriously.
+
+### The only safe ways to do this lab
 
 | | Setup | Notes |
 |---|---|---|
-| ✅ | **Faraday cage / shielded enclosure** | What this lab is designed for. Both SDRs and the TV inside |
-| ✅ | **Direct cable, TX → attenuator → RX/TV** | Simplest and safest. 40–60 dB of attenuation, no antennas anywhere |
-| ✅ | **File only** — `lab10_dvbt2_generate.grc` | No RF at all. Everything except the final demonstration |
-| ❌ | "Low power should be fine" | It is not. A few mW into an antenna at UHF carries for hundreds of metres |
-| ❌ | "I picked an empty channel" | Empty where you are is not empty at the top of the hill |
-| ❌ | Antenna connected "just to test" | This is how people transmit by accident |
+| ✅ | **Faraday cage** (a shielded box or room) | The radio, and the TV, inside |
+| ✅ | **A cable: TX → attenuators → TV or second radio** | 40–60 dB of attenuation, **no antennas anywhere**. Simplest and safest — and it works *better* (see Lab 12) |
+| ✅ | **File only** — `lab10_dvbt2_generate.grc` | No radio waves at all. Covers everything except the final TV test |
+| ❌ | "Low power should be fine" | It is not. A few milliwatts into an antenna at UHF can travel hundreds of metres |
+| ❌ | "I picked an empty channel" | Empty where you are may not be empty on the next hill |
+| ❌ | An antenna connected "just to test" | This is exactly how people transmit by accident |
+
+### The transmitter starts switched off
+
+`lab10_dvbt2_tx.grc` starts with **`tx_amplitude = 0.0`** and **`tx_gain = 0 dB`**. It sends
+essentially nothing until you raise **both** sliders on purpose. That is the safety switch.
+**Look at what is connected to the `TX/RX` port before you touch either slider.**
+
+> ⚠️ `TX/RX` is used for both transmit and receive. If the FM antenna from Labs 01–08 is still on
+> it, it is still on it now.
 
 ### Check nothing is still transmitting
 
-A flowgraph killed from a terminal does not always die. While building this lab a transmit
-flowgraph was found **still running 16 minutes after the command that started it had been
-killed**, holding the radio and streaming to the DAC. It had been started by
-`tv_playout.py --launch`, and killing playout left it orphaned.
-
-That is fixed — playout now asks the kernel to kill the flowgraph if playout dies by any means,
-tested against both SIGTERM and SIGKILL. Check anyway, because this is a transmitter:
+A flowgraph killed from a terminal does not always stop. While building this lab, a transmitter
+was found **still running 16 minutes after** the command that started it had been killed. (It had
+been started by `tv_playout.py --launch`. That bug is fixed: playout now makes the kernel stop the
+flowgraph if playout itself dies, tested with both SIGTERM and SIGKILL.) Check anyway:
 
 ```bash
 ps -eo pid,args | grep [l]ab10_dvbt2_tx
 ```
 
-Kill what you find **by PID**. Do not use `pkill -f` for this: the pattern matches `pkill`'s own
-command line and it kills the shell that launched it.
-
-### The defaults are deliberately inert
-
-`lab10_dvbt2_tx.grc` ships with **`tx_amplitude = 0.0` and `tx_gain = 0 dB`**. Running it
-radiates essentially nothing until you deliberately raise both sliders. That is not an
-inconvenience — it is the safety interlock. **Check what is connected to the TX/RX port before
-you touch either slider.**
-
-> ⚠️ The TX/RX port is bidirectional. If an antenna is attached from an earlier lab — the FM whip
-> from Labs 01–08, for instance — it is still attached now.
+If you see anything, stop it **by its number (PID)**: `kill 12345`. Do **not** use `pkill -f` —
+its pattern matches its own command line and it kills the terminal that ran it.
 
 ---
 
 ## 🎯 Goal
 
-Build a **complete digital television transmitter** from the standard's own building blocks,
-then prove it works by having a real television lock to it.
+Build a **complete digital TV transmitter** from the standard's building blocks, and prove it by
+having a real television find and play the channel.
 
-This is the most sophisticated signal in the repository by a wide margin. It layers, in order:
+This is the most complex signal in the course. Twelve stages, in order:
 
 ```
-   MPEG-2 transport stream
-     → baseband framing         → scrambling
-     → BCH outer code           → LDPC inner code      (Fundamentals 10)
-     → bit interleaving         → QAM mapping          (Fundamentals 08)
-     → cell + time interleaving → frame mapping
-     → frequency interleaving   → pilot insertion + IFFT   (Fundamentals 11)
-     → cyclic prefix            → P1 preamble
-   → 7.6 MHz of RF
+   MPEG-2 transport stream (the TV programme, as 188-byte packets)
+     → baseband framing          → scrambling
+     → BCH outer code            → LDPC inner code        (Fundamentals 10, 11)
+     → bit interleaving          → QAM mapping            (Fundamentals 08)
+     → cell and time interleaving → frame building
+     → frequency interleaving    → pilots + IFFT          (Fundamentals 11)
+     → cyclic prefix             → P1 preamble
+   → 7.8 MHz of radio signal
 ```
 
-Twelve stages. Every one exists to defeat a specific channel impairment, and by the end of this
-lab you should be able to say which.
+Every stage fights a particular problem. By the end you should be able to say which.
 
-> **Verified, in the mode real broadcasters use.** The lab now transmits **32K extended,
-> 256QAM, CR 2/3, GI 1/128, PP7 — 40.000738 Mbit/s**, which is what UK Freeview HD and
-> Malaysian MYTV put on air. The waveform passes all five structural checks in
-> `03_scripts/analyze_dvbt2.py`: occupied bandwidth **7.693 MHz** against 7.768 predicted,
-> cyclic prefix at **19.9×**, OFDM symbol period **33,022 samples against 33,024**, P1 preamble
-> at **23.9×**, and a T2 frame of **1,983,028 samples against 1,983,488 — 0.023 % error**. The
-> multiplex inside it is a real H.264 + MP2 service muxed to **40.000737 Mbit/s against the
-> 40.000738 the modulator consumes — 0.0000 % error**, confirmed from the file's own PCR.
->
-> **Not verified:** no television has locked to it yet. That is
-> [the one measurement left](#what-was-not-tested), and it needs your TV.
+> ✅ **Tested, in the mode broadcasters use:** **32K extended, 256QAM, code rate 2/3,
+> guard 1/128, pilot pattern PP7 — 40.000738 Mbit/s**. That is what Malaysia's MYTV and the UK's
+> Freeview HD transmit. The generated signal passes all five structural checks, and **a real
+> television found the service and played the video** (reported by the lab's owner — see
+> [Verification](#-verification)).
 
 ---
 
-## 📖 Background: What DVB-T2 Is
+## 1. Background: what DVB-T2 is
 
-DVB-T2 (ETSI EN 302 755) is the second-generation European terrestrial television standard. It
-carries 30–40 Mbit/s through an 8 MHz channel — roughly **50 % more than DVB-T** in the same
-spectrum — and it does so in the worst channel a broadcaster faces: an indoor aerial, in a city,
-with reflections from every building.
+**DVB-T2** (standard ETSI EN 302 755) is the second-generation digital terrestrial TV system. It
+carries 30–40 Mbit/s in an 8 MHz channel — about **50 % more than DVB-T** in the same space —
+through the hardest conditions a broadcaster faces: indoor aerials in cities, with echoes from
+every building.
 
 | | DVB-T (1997) | DVB-T2 (2009) |
 |---|---|---|
-| Inner FEC | Convolutional | **LDPC** (64800-bit) |
-| Outer FEC | Reed–Solomon | **BCH** |
+| Inner error correction | convolutional | **LDPC** (64,800-bit blocks) |
+| Outer error correction | Reed–Solomon | **BCH** |
 | Constellations | up to 64QAM | up to **256QAM**, rotated |
-| FFT sizes | 2K, 8K | 1K, 2K, 4K, 8K, **16K, 32K** |
+| FFT sizes | 2K, 8K | 1K, 2K, 4K, 8K, 16K, **32K** |
 | Pilot patterns | one | **eight** (PP1–PP8) |
 | Typical capacity | 24 Mbit/s | **36–40 Mbit/s** |
-| Multiple services | one stream | **PLPs** with independent robustness |
 
-The gain comes almost entirely from **better coding** (Fundamentals 10) and **more OFDM
-options** (Fundamentals 11), not from more bandwidth.
+The improvement comes from **better error correction** and **more OFDM options**, not from more
+bandwidth.
 
-### Why you can transmit it but not receive it in GNU Radio
+### Why GNU Radio can send DVB-T2 but not receive it
 
-`gr-dtv` ships a **complete DVB-T2 transmitter** and **no DVB-T2 receiver**. That asymmetry is
-not an oversight — a T2 demodulator needs P1 detection, integer and fractional frequency
-recovery, channel estimation from eight possible pilot patterns, L1 signalling decode,
-de-interleaving across time, an iterative LDPC decoder and a BCH decoder. It is a person-year of
-work and several existing commercial implementations.
+GNU Radio's `gr-dtv` has a **complete DVB-T2 transmitter** but **no DVB-T2 receiver**. A receiver
+needs P1 detection, frequency recovery, channel estimation for eight pilot patterns, signalling
+decoding, time de-interleaving, an iterative LDPC decoder and a BCH decoder — about a person-year
+of work.
 
-So this lab does what the industry does: **transmit with software, receive with silicon.** A
-€15 USB tuner contains a demodulator chip that does all of the above, and it is the right tool.
+So this lab does what the industry does: **transmit with software, receive with a chip.** A cheap
+TV or USB tuner contains a chip that does all of that.
 
-> If you want a full software round trip, gr-dtv *does* include a complete **DVB-T** (first
-> generation) transmitter *and* receiver. See [Going Further](#-going-further).
+> 💡 For a full software round trip, `gr-dtv` has a complete **DVB-T** (first-generation)
+> transmitter **and** receiver. [Lab 11](../lab11_tv_receiver/README.md) builds on it.
 
 ---
 
-## 📐 Architecture
-
-### Three flowgraphs
-
-| File | RF? | Purpose |
-|---|---|---|
-| **`lab10_dvbt2_generate.grc`** | **No** | Build the waveform, write it to a file. Start here |
-| `lab10_dvbt2_analyze.grc` | optional | Measure a waveform: spectrum, symbol timing, statistics |
-| `lab10_dvbt2_tx.grc` | **Yes** | Transmit. Cage or cable only |
-
-### The transmit chain
+## 2. The transmit chain
 
 ```
-   MPEG-2 TS file (188-byte packets)
+   MPEG-2 TS (188-byte packets), from a file or from tv_playout.py
         │
-        ▼
-  ┌─────────────────┐  1. BB Header        slice into BBFRAMEs, describe the coding
-  ├─────────────────┤  2. BB Scrambler     energy dispersal, so data cannot make a line spectrum
-  ├─────────────────┤  3. BCH encoder      outer code - kills the LDPC error floor
-  ├─────────────────┤  4. LDPC encoder     inner code - 64800-bit codewords, near Shannon
-  ├─────────────────┤  5. Bit interleaver  spread a codeword over bits of differing reliability
-  ├─────────────────┤  6. QAM mapper       bits → constellation points (rotated)
-  ├─────────────────┤  7. Cell + TIME      spread one codeword over hundreds of milliseconds
-  │                 │     interleaver
-  ├─────────────────┤  8. Frame mapper     build the T2 frame + L1 signalling in the P2 symbols
-  ├─────────────────┤  9. Freq interleaver scatter cells across carriers
-  ├─────────────────┤ 10. Pilot generator  insert pilots, then IFFT → time domain
-  ├─────────────────┤ 11. Cyclic prefixer  copy the last 1/8 of each symbol to its front
-  ├─────────────────┤ 12. P1 insertion     prepend the 2048-sample preamble
+  ┌─────────────────┐  1. BB Header           cut the stream into frames; describe the coding
+  ├─────────────────┤  2. BB Scrambler        mix the bits, so data cannot make a single tone
+  ├─────────────────┤  3. BCH encoder         outer code: cleans up LDPC's leftover errors
+  ├─────────────────┤  4. LDPC encoder        inner code: 64,800-bit blocks, near the theoretical limit
+  ├─────────────────┤  5. Bit interleaver     spread each block over bits of different reliability
+  ├─────────────────┤  6. QAM mapper          bits → 256QAM points (rotated)
+  ├─────────────────┤  7. Cell + time         spread each block over time, so a short burst of
+  │                 │     interleaver         interference cannot destroy it
+  ├─────────────────┤  8. Frame mapper        build the T2 frame, with signalling in the P2 symbol
+  ├─────────────────┤  9. Freq interleaver    scatter data across carriers
+  ├─────────────────┤ 10. Pilot generator     add pilots, then IFFT → time signal
+  ├─────────────────┤ 11. Cyclic prefixer     copy the last 1/128 of each symbol to its front
+  ├─────────────────┤ 12. P1 insertion        add the 2048-sample frame-start preamble
   └────────┬────────┘
            ▼
-      × tx_amplitude          ← OFDM has ~10 dB PAPR: leave headroom or the peaks clip
+      × tx_amplitude         ← OFDM has ~10 dB of peaks: leave room, or they clip
            │
      ┌─────┴─────┬──────────────┬──────────────┐
      ▼           ▼              ▼              ▼
- Freq Sink   Time Sink     File Sink      USRP SINK
-                          (generate)     (tx, RF!)
+ Spectrum    Time plot      File Sink      USRP SINK
+                           (generate)      (tx — RADIO!)
 ```
 
-### Rate plan
+### The numbers
 
 | Quantity | Value | Why |
 |---|---|---|
-| Elementary sample rate | **9.142857 MSPS** | $\frac{64}{7}$ MHz — **fixed by the standard** for an 8 MHz channel |
-| FFT size | 32768 (`FFTSIZE_32K_T2GI`) | What broadcasters use. See [config table](#-changing-the-configuration) |
-| Carrier spacing | 279.02 Hz | $f_s / N_{fft}$ — thirty-two times finer than the 1K mode |
-| Useful symbol $T_u$ | 3.584 ms | $1/\Delta f$ |
-| Guard interval | 256 samples = 28 µs | GI 1/128 → tolerates an 8.4 km path difference |
-| Symbol period | **33,024 samples** = 3.612 ms | $32768 + 256$ |
-| Active carriers | 27,841 (extended) | → occupied bandwidth **7.768 MHz** |
-| P2 symbols | 1 | $N_{P2}$ is 1 for 16K and 32K, 16 for 1K |
+| Sample rate | **9.142857 MSPS** | 64/7 MHz — **fixed by the standard** for 8 MHz channels |
+| FFT size | 32,768 (`FFTSIZE_32K_T2GI`) | what broadcasters use |
+| Carrier spacing | 279.02 Hz | sample rate ÷ FFT size |
+| Useful symbol | 3.584 ms | 1 ÷ spacing |
+| Guard interval | 256 samples = 28 µs | GI 1/128: copes with 8.4 km of extra echo path |
+| **Symbol length** | **33,024 samples** = 3.612 ms | 32,768 + 256 |
+| Active carriers | 27,841 (extended mode) | → **7.768 MHz** wide |
+| P2 symbols | 1 | 1 for 16K and 32K |
 | T2 frame | 1,983,488 samples = **216.94 ms** | P1 (2048) + 1 P2 + 59 data symbols |
-| **Payload rate** | **40.000738 Mbit/s** | $\frac{202 \times (43040 - 80)}{216.94\ \text{ms}}$ |
+| **Payload rate** | **40.000738 Mbit/s** | 202 × (43,040 − 80) bits per 216.94 ms |
 
-> **Why 32K rather than something gentler?** Because a television has to recognise it. 1K is a
-> legal DVB-T2 mode and part of the validation vectors, but no broadcaster transmits it, and a
-> consumer tuner that only scans what it expects to find may simply never look. 32K extended
-> with GI 1/128 and PP7 is the single most deployed DVB-T2 mode in the world.
->
-> The cost is nothing here: this configuration runs at **7.8× real time** on an i7-10875H.
+> 💡 **Why 32K?** A TV has to recognise the signal. The 1K mode is legal, but no broadcaster uses
+> it, and a TV that only looks for what it expects may never find it. 32K extended, GI 1/128, PP7
+> is the most widely used DVB-T2 mode in the world. It runs at **7.8× real time** on the test
+> laptop (Intel i7-10875H), so it costs nothing extra here.
 
-> **The sample rate is not a free choice.** Unlike every other lab in this repo, you cannot pick
-> a convenient rate and resample: 64/7 MHz *defines* the carrier spacing, and a receiver's FFT
-> will not line up with anything else. Measured on the SignalSDR Pro, UHD delivers
-> **9,142,856.97 SPS** against the required 9,142,857.14 — an error of **0.019 ppm**, far inside
-> tolerance.
+> 💡 **The sample rate is not your choice.** 64/7 MHz sets the carrier spacing; a TV's FFT will
+> not line up with anything else. Measured: UHD gives the SignalSDR Pro **9,142,856.97**
+> samples/s against the required 9,142,857.14 — an error of **0.019 parts per million**. Fine.
 
 ---
 
-## 🧪 Running the Lab
+## 3. Running the lab
 
-### Step 0 — Make a transport stream, with your own video in it
+### Step 0 — Make a transport stream (the TV programme)
 
-DVB-T2 carries an MPEG-2 Transport Stream, and **the rate is not a free choice**. This
-configuration swallows exactly:
+DVB-T2 carries an **MPEG-2 transport stream** (TS). Its rate **must** equal what the transmitter
+consumes — for this mode:
 
-$$\frac{202 \text{ FEC blocks} \times (43040 - 80)\ \text{bits}}{1{,}983{,}488 / 9{,}142{,}857\ \text{s}}
-= \mathbf{40{,}000{,}738\ \text{bit/s}}$$
+$$\frac{202 \times (43040 - 80)\ \text{bits}}{1{,}983{,}488 / 9{,}142{,}857\ \text{s}} = \mathbf{40{,}000{,}738\ \text{bit/s}}$$
 
-**Encode once, then play it out.** Two steps, and the split matters — see
-[below](#dont-encode-in-real-time).
+**Encode once, then play it out.** Two separate steps (why: see
+[Don't encode live](#dont-encode-live)):
 
 ```bash
 cd 03_scripts
 
-# 1. Encode once. --loop-safe trims to a clean loop point.
+# 1. Encode your video once. --loop-safe cuts it at a clean loop point.
 ./make_video_ts.py ~/Downloads/Bintang.mp4 /tmp/bintang_dvbt2.ts \
     --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
     --t2-fecblocks 202 --t2-datasyms 59 --video-bitrate 12000000 --loop-safe
 
-# 2. Play it out forever. --copy means remux only: almost no CPU.
+# 2. Play it out forever. --copy only re-packages it: almost no CPU.
 ./tv_playout.py /tmp/bintang_dvbt2.ts --copy \
     --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
     --t2-fecblocks 202 --t2-datasyms 59 --fifo /tmp/tv.fifo \
     --launch "python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
 ```
 
-`--launch` starts the flowgraph once the FIFO is ready. Without it, start playout first and the
-flowgraph second — `ts_file` already points at `/tmp/tv.fifo`.
+`make_video_ts.py` works out the rate from the settings, encodes H.264 video and MP2 audio, fills
+the rest with empty ("null") packets up to exactly that rate, and then checks its own work by
+reading the rate back from the stream's clock:
 
-#### Don't encode in real time
+```
+  PCR-derived mux rate: 40.000737 Mbit/s
+  expected            : 40.000738 Mbit/s  (-0.0000 % error)
+```
 
-`tv_playout.py` will happily encode live, and it is the wrong thing to do while the modulator is
-running. A 32K DVB-T2 chain uses several cores; so does x264 at 1080p. When the encoder loses
-that race, playout's buffer empties, the flowgraph blocks on its read, and the transmitter puts
-a **gap on the air**.
+`--launch` starts the transmitter once the FIFO (a named pipe) is ready.
 
-That gap is not a cosmetic problem. A television rides it out by draining its own buffers — but
-its audio and video buffers drain and recover by *different* amounts, so what you see afterwards
-is lip sync that has slipped and stays slipped. **Underruns and desynchronised audio are the
-same fault, not two.** Playout now says so when it happens:
+**No ffmpeg, or no video?** This makes a stream with the service name but no picture:
+
+```bash
+./make_test_ts.py --out /tmp/bintang_dvbt2.ts --seconds 10 --rate 40000738
+```
+
+#### Settings a real TV needs
+
+`make_video_ts.py` uses these by default, because TVs are stricter than computer players:
+
+| Setting | Value | Why |
+|---|---|---|
+| Video | H.264 High@4.0, `yuv420p` | the DVB-T2 baseline. 10-bit or 4:2:2 will not play |
+| Audio | **MP2**, 48 kHz stereo | every DVB TV plays MP2; AAC is not universal on older sets |
+| GOP | 25 frames, closed, keyframe every GOP | the TV can start playing at any keyframe |
+| SDT every 0.5 s | | this table puts the **name** in the TV's channel list |
+| Constant bit rate | `minrate = maxrate` | a multiplex cannot borrow bits from later |
+| `--video-bitrate 12000000` | 12 Mbit/s video | excellent 1080p; the other 28 Mbit/s is filled with null packets, just like a real multiplex with spare room |
+
+#### Don't encode live
+
+`tv_playout.py` *can* encode while it plays — don't. The 32K transmitter and a 1080p video encoder
+both need several CPU cores. When the encoder falls behind, playout's buffer empties, the
+transmitter has nothing to send, and it puts a **gap on the air**.
+
+The TV survives the gap by emptying its own buffers — but audio and video recover by different
+amounts, so **lip sync slips and stays slipped**. **Underruns and out-of-sync sound are the same
+fault.** Playout tells you when it happens:
 
 ```
   *** UNDERRUN: buffer empty, the transmitter is putting a gap on the air.
@@ -249,126 +254,85 @@ same fault, not two.** Playout now says so when it happens:
       CPU with the modulator.
 ```
 
-Remuxing costs essentially nothing — measured, `--copy` produced 786 MB of multiplex in 0.94 s,
-against the encoder's 2.6× real time.
+`--copy` only re-packages the already-encoded stream: measured, 786 MB of multiplex in 0.94 s.
 
-#### What `--loop-safe` is for
+#### What `--loop-safe` does
 
-A stream that will be looped forever has to end on a boundary that the video and audio codecs
-share, or every lap leaves a sliver of one of them unmatched. `Bintang.mp4` is 209.066 s with
-**video running 208.960 s and audio 209.066 s — 106 ms apart**, and its video starts 40 ms after
-its audio. At 25 fps a video frame is 40 ms and an MP2 frame at 48 kHz is 24 ms, so the nearest
-clean cut is a multiple of **120 ms**: 209.04 s, exactly 5,226 video frames and 8,710 audio
-frames.
+A stream played in a loop must end where **both** video and audio frames end, or each lap leaves a
+tiny unmatched piece. `Bintang.mp4` is 209.066 s long, but its video runs 208.960 s and its audio
+209.066 s (106 ms apart). Video frames are 40 ms (25 fps) and MP2 audio frames 24 ms, so the
+nearest clean cut is a multiple of **120 ms**: **209.04 s** = exactly 5,226 video frames and 8,710
+audio frames.
 
-> An earlier attempt used ffmpeg's `-shortest` here, which sounds right and is not: it stops at
-> whichever codec finishes first and leaves the two one audio frame apart. Measured across 7.85
-> laps that was **24 ms of slip per lap**; an exact `-t` on a shared boundary brought it to 8 ms,
-> and the remaining difference is a silent gap rather than drift — checked by comparing audio and
-> video timestamps at matched byte positions through the stream, where the offset scatters
-> without trend rather than accumulating.
+> 💡 ffmpeg's `-shortest` sounds right but is not: it stops at whichever runs out first, leaving
+> them one audio frame apart. Measured over 7.85 laps: **24 ms of slip per lap**. Cutting at an
+> exact shared boundary reduced it to 8 ms, and that remainder does not grow.
 
-`--video-bitrate` matters at 40 Mbit/s: a broadcaster fills that with six or seven programmes,
-and you have one. Capping the video at 12 Mbit/s gives excellent 1080p and lets the muxer stuff
-the remaining 28 Mbit/s with null packets — which is precisely what a real multiplex with spare
-capacity looks like.
+#### Two mistakes this lab made, and fixed
 
-That computes the rate from the modulation parameters, encodes H.264 + MP2 inside it, stuffs
-null packets up to exactly that figure, and then checks its own work by recovering the rate
-from the PCR timestamps in the finished file:
+> ⚠️ **1. The wrong rate.** Earlier versions used `--rate 4e6` (4 Mbit/s). That fails silently:
+> the file source loops, so the transmitter never runs dry — it just reads the stream faster than
+> the stream's own clock says. With no picture, nothing looks wrong. With video, the TV's clock
+> fights the stream for a few seconds, then gives up. **Calculate the rate, fill to it, and check
+> it from the clock.**
 
-```
-  PCR-derived mux rate: 40.000737 Mbit/s
-  expected            : 40.000738 Mbit/s  (-0.0000 % error)
-```
-
-No ffmpeg? This still works, it just has no picture:
-
-```bash
-./make_test_ts.py --out /tmp/bintang_dvbt2.ts --seconds 10 --rate 40000738
-```
-
-> #### ⚠️ Correction to earlier versions of this lab
+> ⚠️ **2. Looping the finished file.** The first long broadcast looked *high quality but jerky* on
+> a real TV — every byte correct, yet never smooth. A transport stream carries its **own clock**
+> (the **PCR**, written every 20 ms). The TV locks its 27 MHz clock to it. When a looped `.ts` file
+> wraps around, the PCR jumps **backwards 208.86 seconds**, with no warning flag. The TV is handed
+> frames it thinks are minutes old. Over 26 minutes this happened 7.5 times.
 >
-> This page used to say `--rate 4e6`, and the ffmpeg example used `-muxrate 4000000`. **That is
-> wrong**, and it is wrong in a way that hides itself. The file source loops, so the modulator
-> never starves — it simply reads the file faster than the stream's own clock says it should. With a pictureless test stream nothing visibly breaks. Put video in it and the
-> television's clock recovery fights the PCR for a few seconds and then gives up.
+> **The fix:** loop the *input video* and let the encoder keep counting upwards — what real TV
+> playout does. That is `tv_playout.py`. Tested over 4.2 laps: **0 backward clock jumps** in
+> 83.9 s; the clock rose smoothly from 0.700 s to 84.580 s, one PCR every 20.00 ms.
 >
-> The rate is arithmetic. Compute it, stuff to it, and verify it from the PCR.
+> **Correct bytes are not the same as a working TV service.** Timing matters too.
 
-> #### ⚠️ And a second one, found by putting it on a real television
->
-> The first long transmission of this lab looked *high quality but sluggish* on a TV — not
-> broken up, not pixelated, just never quite smooth. Every byte was arriving perfectly.
->
-> The cause was looping the finished `.ts` with `repeat = True`. **A transport stream carries
-> its own clock.** Every 20 ms the muxer writes a Programme Clock Reference and the television
-> slaves a 27 MHz oscillator to it. When the file wraps, the PCR jumps *backwards* by the whole
-> length of the file, with no discontinuity flag to warn anyone. Measured on this lab's own
-> stream:
->
-> ```
-> first PCR   0.700 s
-> last  PCR 209.560 s     -> every lap the clock jumps back 208.86 s
-> ```
->
-> The presentation timestamps go back at the same instant, so the decoder is handed frames it
-> believes are three minutes stale. It does not fail; it limps. After 26 minutes the transmitter
-> had done this **7.5 times**.
->
-> The fix is not to loop the output. It is to loop the **input** and let the muxer keep counting
-> upwards forever, which is what a real playout chain does — `tv_playout.py`. Verified across
-> 4.2 laps of a short clip: **0 backward PCR jumps** in 83.9 seconds, clock rising monotonically
-> from 0.700 s to 84.580 s, PCR interval 20.00 ms throughout.
->
-> **A perfect bit pipe is not the same as a working television service.** Lab 12 proves this
-> chain delivers bytes with zero errors; that was necessary and not sufficient.
-
-
-#### Settings that matter to a real television
-
-`make_video_ts.py` defaults to these because consumer tuners are less forgiving than ffplay:
-
-| Setting | Value | Why |
-|---|---|---|
-| Video codec | H.264 High@4.0, `yuv420p` | The DVB-T2 baseline. 10-bit or 4:2:2 will not decode |
-| Audio codec | **MP2**, 48 kHz stereo | Every DVB television decodes MP2. AAC is smaller but not universal on older sets |
-| GOP | 25 frames, **closed**, IDR every GOP | The TV can start at any keyframe. Long or open GOPs make channel change feel broken |
-| `-sdt_period 0.5` | SDT twice a second | This is the table that puts the name in the channel list |
-| Rate control | CBR with `minrate = maxrate` | A multiplex has no room to borrow from later |
-
-### Step 1 — Generate the waveform, with no RF
+### Step 1 — Make the signal, with no radio
 
 ```bash
 cd 02_flowgraphs/lab10_dvbt2_tx_rx
 python3 lab10_dvbt2_generate.py
 ```
 
-Three seconds of signal is 220 MB. Watch the **Frequency Sink**: OFDM does not look like the
-signals in earlier labs.
+It reads `/tmp/bintang_dvbt2.ts` and writes 3 seconds of signal (about **220 MB**) to
+`/tmp/dvbt2_signal_9M14_fc32.iq`. Close the window when it has finished.
+
+Look at the **spectrum**. OFDM looks nothing like the earlier labs:
 
 ```
-    Lab 07 BPSK (RRC shaped)          DVB-T2 OFDM
+    Lab 07 BPSK                       DVB-T2 OFDM
          ╱▔▔▔▔▔╲                   ▁▁▁████████████▁▁▁
         ╱       ╲                  ▁▁▁████████████▁▁▁
     ───╱─────────╲───              ───┴────────────┴───
-      raised cosine hump           flat top, near-vertical skirts
-                                   ◄──── 7.6 MHz ────►
+      a smooth hump                flat top, almost vertical sides
+                                   ◄──── 7.8 MHz ────►
 ```
 
-**The flat top is the 853 carriers.** The near-vertical edges are what orthogonality buys you —
-no guard bands, no roll-off, just a wall of carriers that stops abruptly.
+**The flat top is 27,841 carriers side by side.** The almost-vertical edges show OFDM's
+orthogonality: no gaps between carriers, and a sharp stop at the edge.
 
-### Step 2 — Prove it is really DVB-T2
+### Step 2 — Prove it really is DVB-T2
 
 ```bash
 cd 03_scripts
 python3 analyze_dvbt2.py /tmp/dvbt2_signal_9M14_fc32.iq
 ```
 
-This measures five properties the standard fixes and checks them against the configuration. All
-five must pass before you consider transmitting anything.
+This measures five things the standard fixes, and compares them with the settings. Expected
+(measured on a freshly generated signal):
+
+```
+1. Occupied bandwidth          measured 7.692 MHz    expected 7.768 MHz        PASS
+2. Cyclic prefix correlation   peak/median = 19.1x                             PASS
+3. OFDM symbol period          measured 33024 samples, expected 32768 + 256    PASS
+4. P1 preamble detection       peak/mean = 23.9x                               PASS
+5. T2 frame period             measured 1,983,025 samples, expected 1,983,488  PASS
+   PAPR (99.99th percentile / mean): 9.6 dB
+RESULT: 5/5 checks passed  -  this is a valid DVB-T2 waveform
+```
+
+**All five must pass before you think about transmitting.**
 
 ### Step 3 — Watch the OFDM structure live
 
@@ -377,94 +341,78 @@ cd 02_flowgraphs/lab10_dvbt2_tx_rx
 python3 lab10_dvbt2_analyze.py
 ```
 
-Look at the **cyclic-prefix correlation** plot. Four blocks — Delay(1024) → Conjugate →
-Multiply → Moving Average(128) — produce a peak at the start of **every OFDM symbol**:
+Look at the **cyclic-prefix correlation** plot. Four blocks — **Delay (32,768) → Conjugate →
+Multiply → Moving Average (256)** — make a peak at the start of **every OFDM symbol**:
 
 ```
-    │    ╱╲          ╱╲          ╱╲          ╱╲
-    │   ╱  ╲        ╱  ╲        ╱  ╲        ╱  ╲
-    └──╱────╲──────╱────╲──────╱────╲──────╱────╲──▶
-       ◄─── 1152 samples ───►   126 µs apart
+    │    ╱╲             ╱╲             ╱╲             ╱╲
+    │   ╱  ╲           ╱  ╲           ╱  ╲           ╱  ╲
+    └──╱────╲─────────╱────╲─────────╱────╲─────────╱────╲──▶
+       ◄──── 33,024 samples ────►    3.61 ms apart
 ```
 
-That is the van de Beek estimator from
-[Fundamentals 11](../../01_fundamentals/11_ofdm_and_broadcast_systems.md), built from primitives,
-finding symbol timing with **no pilots, no preamble and no knowledge of the data**. It works
-purely because the guard interval is a copy.
+That is the **van de Beek** method from
+[Fundamentals 11 §6](../../01_fundamentals/11_ofdm_and_broadcast_systems.md#part-6--how-an-ofdm-receiver-locks-on),
+built from simple blocks. It finds symbol timing with **no pilots, no preamble and no knowledge of
+the data** — only because the guard interval is a copy.
 
-The **amplitude histogram** shows the Rayleigh distribution — the visible cost of OFDM's PAPR.
+The **amplitude histogram** shows the long tail of peaks: OFDM's PAPR, made visible.
 
-### Step 4 — Transmit (cage or cable only)
+> 💡 **If you change the transmit mode**, change `fft_len` and `cp_len` in the analyser to match
+> (for the old 1K test mode: 1024 and `fft_len // 8`). An earlier version was left at the 1K
+> settings after the lab moved to 32K; on a 32K signal it showed no symbol peaks at all.
+
+### Step 4 — Transmit (cage or cable only!)
 
 Set up first:
 
 ```
   ┌──────────────┐                                  ┌──────────────┐
-  │ Laptop 1     │   TX/RX ──[ 30 dB ]──[ 30 dB ]── │ TV / USB     │
-  │ SignalSDR #1 │            attenuators           │ tuner        │
-  │ lab10_tx.grc │                                  └──────────────┘
+  │ Laptop       │   TX/RX ──[ 30 dB ]──[ 30 dB ]── │ TV or USB    │
+  │ SignalSDR    │            attenuators           │ TV tuner     │
+  │ lab10_tx     │                                  └──────────────┘
   └──────────────┘         (or: everything inside a Faraday cage)
 ```
 
 Then:
 
-1. **Check the antenna port.** Physically look at it.
-2. Choose `center_freq` — a UHF TV channel **that is unused where you are**. UK/EU channel 21 is
-   474 MHz; channel `n` is $474 + 8(n-21)$ MHz.
-3. Run `lab10_dvbt2_tx.py`.
+1. **Look at the `TX/RX` port.** Really look. No antenna.
+2. Choose `center_freq`: a UHF TV channel **not used where you are**. Channel 21 is 474 MHz;
+   channel *n* is 474 + 8 × (*n* − 21) MHz. Check which channels MYTV uses in your area, and
+   avoid them — even on a cable.
+3. Start playout and the transmitter (Step 0).
 4. Raise `tx_gain` to about 20 dB.
-5. Raise `tx_amplitude` **slowly**, from 0 toward 0.25. Watch the Time Sink — if the peaks flatten
-   at ±1 you are clipping, and the spectrum will regrow into the adjacent channel.
-6. On the TV, run a manual channel scan on that frequency.
+5. Raise `tx_amplitude` **slowly**, from 0 towards 0.25. Watch the time plot: if the peaks flatten
+   at ±1, you are **clipping**, and the signal will splash into neighbouring channels.
+6. On the TV, do a **manual channel scan** on that frequency.
 
-**What success looks like:** the TV reports signal strength and quality, and finds one service
-named **SDR LAB TV**. Most TVs have a hidden signal-meter page — that is where the interesting
-numbers are (MER, BER before and after LDPC).
+✅ **Success:** the TV shows signal strength and quality, and finds one channel named
+**SDR LAB TV**. Many TVs have a hidden signal page showing MER and error counts — that is where the
+interesting numbers are.
 
-### Step 5 — Receive with the second SDR
+### Step 5 — Receive with a second radio (optional)
 
-Enable `usrp_source` in `lab10_dvbt2_analyze.grc` (and disable `file_source` + `throttle`). Now
-you are measuring a genuine over-the-air OFDM signal: the cyclic-prefix correlation still
-appears, but now with real multipath and noise in it.
-
-**Compare the correlation peak sharpness with the file version.** Multipath broadens it — you are
-directly observing the channel's delay spread.
+In `lab10_dvbt2_analyze.grc`, **enable** `usrp_source` and **disable** `file_source` and
+`throttle`. Now you are measuring the real transmitted signal. The symbol peaks still appear, now
+with real noise and echoes. **Compare how sharp the peaks are** with the file version: echoes
+widen them. You are seeing the channel's delay spread directly.
 
 ---
 
 ## 🔬 Verification
 
-### What was tested
+### The signal is correct
 
-The generated waveform was analysed with `03_scripts/analyze_dvbt2.py`:
+A freshly generated waveform (`lab10_dvbt2_generate.py`, 3 s from a test stream at
+40,000,738 bit/s) passed all five checks in `analyze_dvbt2.py`: bandwidth **7.692 MHz** (expected
+7.768), cyclic prefix **19.1×**, symbol period **33,024** samples (exact), P1 at **23.9×**, T2 frame
+**1,983,025** samples against **1,983,488** (0.023 %). PAPR **9.6 dB**.
 
-```
-1. Occupied bandwidth (99% power)
-     measured 7.571 MHz    expected 7.616 MHz  (853 carriers x 8.929 kHz)      PASS
-2. Cyclic prefix correlation at lag N_fft
-     peak/median = 13.4x                                                        PASS
-3. OFDM symbol period
-     measured 1152 samples     expected 1152 = 1024 + 128                       PASS
-4. P1 preamble detection
-     3 detections, peak/mean = 24.3x                                            PASS
-5. T2 frame period
-     measured 2,284,869 samples = 249.91 ms
-     expected 2,285,312 samples = 249.96 ms   (0.019% error)                    PASS
+`lab10_dvbt2_analyze.py` was then run on the same file without a screen. Its correlator found
+**1,105 symbol peaks spaced exactly 33,024 samples apart**, 17.6× above the median level.
 
-   PAPR (99.99th percentile / mean): 9.6 dB
-RESULT: 5/5 checks passed - this is a valid DVB-T2 waveform
-```
-
-The `lab10_dvbt2_analyze.grc` flowgraph was then run headlessly against that waveform and its
-correlator recovered **47,557 symbol-timing peaks with a median spacing of 1153 samples** against
-the 1152 predicted.
-
-The transport stream generator was verified by parsing its own output back: **0 bad sync bytes,
-all 446 PSI sections CRC-valid**, and the service name round-trips through the SDT.
-
-**The video stream was then built and put through the same modulator.** `Bintang.mp4`
-(1920×1080 H.264 + AAC, 209 s) re-encoded to 1920×1080 H.264 High@4.0 at 12 Mbit/s with MP2
-audio, muxed up to the mode's full 40 Mbit/s:
+The stream made from `Bintang.mp4` (1920×1080 H.264 + AAC, 209 s), re-encoded to H.264 High@4.0
+at 12 Mbit/s with MP2 audio and filled to 40 Mbit/s:
 
 ```
 /tmp/bintang_dvbt2.ts
@@ -476,300 +424,163 @@ audio, muxed up to the mode's full 40 Mbit/s:
   expected            : 40.000738 Mbit/s  (-0.0000 % error)
 ```
 
-The payload rate was also confirmed against the running chain rather than only derived:
-86,779,200 transport bytes went in and **exactly 80.0000 T2 frames of 1,983,488 samples** came
-out — 1,084,740 bytes per frame, 40.000738 Mbit/s.
+The rate was also checked against the running transmitter: 86,779,200 bytes in gave **exactly
+80.0000 T2 frames** of 1,983,488 samples — 1,084,740 bytes per frame, 40.000738 Mbit/s. The
+modulated video stream passed all five checks too (7.693 MHz, 19.9×, 33,022 / 33,024 samples,
+P1 23.9×, 1,983,028 / 1,983,488 samples).
 
-That stream was modulated and analysed, and passes all five checks — occupied bandwidth
-**7.693 MHz** against 7.768 predicted, cyclic prefix **19.9×**, symbol period **33,022 against
-33,024**, P1 at **23.9×**, T2 frame **1,983,028 against 1,983,488**. **The waveform now carries
-a real picture, in the mode a television expects to find.**
+### Real time, and on the radio
 
-**Continuous playout was verified end to end.** `tv_playout.py` loops the *video*, so the
-transport clock rises without limit: across 83.9 s of output spanning **4.2 laps** of a short
-clip there were **0 backward PCR jumps**, the clock rose monotonically from 0.700 s to
-84.580 s, and the PCR interval held at 20.00 ms. Driving the transmitter from that FIFO for
-80 s — again spanning four wraps — produced **4 underflows, all within the first 1.6 s**, and
-none afterwards.
+- **Continuous playout:** 83.9 s spanning **4.2 laps** of a short clip — **0 backward clock
+  jumps**, the clock rising from 0.700 s to 84.580 s, one PCR every 20.00 ms.
+- **Driving the transmitter from the FIFO for 80 s** (four wraps): **4 underflows, all in the
+  first 1.6 s** while the buffers filled, none after.
+- **On the radio, with `tx_amplitude = 0`** (nothing radiated): 6 underflows, all in the first
+  1.6 s; none in the following 70 s. The chain runs at 7.8× real time on average, but produces a
+  whole T2 frame at once every 216.9 ms, so it needs a reservoir: the `tx_scale` block holds
+  4,194,304 samples (about two frames), and the USRP Sink has 1024 send frames. Without those, it
+  stutters even with 7.8× headroom.
+- The radio's transmit chain supports the required rate (**0.019 ppm** error) and the 9.14 MHz
+  analog bandwidth.
 
-**Real-time transmission was checked on the radio** with `tx_amplitude = 0`, so nothing
-radiated. Six underflows occurred, all of them in the **first 1.6 seconds** while the buffers
-prime; across the following 70 seconds there were **none**. The chain runs at 7.8× real time on
-average but delivers a whole T2 frame at once every 216.9 ms, so it needs a reservoir — the
-`tx_scale` block holds 4,194,304 samples (about two frames) and the USRP sink is given 1024 send
-frames. Without those, a chain with 7.8× headroom still stutters.
+### A real television
 
-On hardware, the USRP **TX** chain was queried (without ever starting a flowgraph, so no samples
-were streamed): it delivers the DVB-T2 elementary rate to **0.019 ppm** and supports the required
-9.14 MHz analog bandwidth.
+**A real TV found the service and played the video** at high quality. That test was done by the
+lab's owner, on their own low-power setup; it was reported, not recorded by a tool.
 
-### What was not tested
+### Not yet tested
 
-- **No television has locked to this signal.** The waveform is structurally correct by five
-  independent measurements, it now carries a decodable H.264 + MP2 service, and the chain is the
-  gr-dtv reference implementation used for the DVB-T2 validation vectors — but "a TV locks" is a
-  claim only you can verify. **This is the one remaining measurement in this lab.**
-- **The mode is now the one broadcasters use** (32K extended / 256QAM / CR 2/3 / GI 1/128 /
-  PP7), so "my TV does not support this mode" is no longer a likely explanation if it fails to
-  find the service. If it still does not, suspect signal level or the channel frequency before
-  the configuration.
-- **256QAM needs a good signal.** It is the least forgiving constellation in the standard,
-  wanting roughly 20 dB C/N against QPSK's 5 dB. Over a cable that is easy; over the air with
-  improvised antennas it may not be. If the TV sees the channel but cannot lock, drop to
-  `germany-g7` (64QAM CR 2/3, 31.7 Mbit/s) before suspecting anything else.
-- **The video path was verified by decoding the transport stream, not by watching a television.**
-  `ffprobe` reports H.264 High@4.0 1920×1080 yuv420p plus MP2 48 kHz stereo, and still frames
-  decode correctly out of the finished multiplex.
-- **Nothing was transmitted at non-zero amplitude by this session.** The real-time checks here
-  ran with `tx_amplitude = 0`; the on-air test above was run by the lab's owner.
-- **The smooth-playback fix has not been watched on a television.** Continuous playout is
-  verified by measurement — 0 backward PCR jumps across 4.2 laps, and the transmitter running
-  80 s from the FIFO with no underflows after start-up — but nobody has yet sat through a
-  wrap-point on a real set to confirm the judder is gone.
-- **The 12 stages are not individually verified.** The LDPC and BCH encoders are exercised, but
-  proving they are *correct* would need a receiver.
+- **The smooth-playback fix has not been watched on a TV.** It is proven by measurement (above),
+  but nobody has yet watched a loop point on a real set.
+- **The TV result was not recorded** — no screenshot or signal-quality numbers were saved.
+- **256QAM needs a clean signal** — about 20 dB C/N (QPSK needs about 5). Easy over a cable; harder
+  over the air with improvised antennas. If a TV sees the channel but cannot lock, try the
+  `germany-g7` preset (64QAM, 31.7 Mbit/s) before suspecting anything else.
+- **The twelve stages are not individually checked.** Only a receiver could prove the LDPC and BCH
+  encoders are *correct*; the TV test is that proof, end to end.
 
-**If you complete Step 4, please report what your TV showed** — that is the missing measurement.
+If you do Step 4, **please record what your TV shows** — signal strength, quality, MER.
 
 ---
 
-## ⚙️ Changing the Configuration
+## ⚙️ Changing the mode
 
-DVB-T2's parameters are GRC **enums**, so they cannot be driven from a single variable. Changing
-the mode means editing several blocks **consistently** — and an inconsistent set produces a
-signal no receiver can decode, usually with no error message.
+DVB-T2 settings are **enums** in GRC (fixed lists), so no single variable controls them. To change
+mode, you must change several blocks **so they all agree**. If they disagree, you get a signal no
+receiver can decode — usually **with no error message**.
 
-### Which blocks share which parameter
+### Which blocks share which setting
 
-| Parameter | Blocks that must agree |
+| Setting | Blocks that must agree |
 |---|---|
-| `fftsize` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ the `fft_len` variable** |
-| `guardinterval` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ `cp_len`** |
+| `fftsize` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ the `fft_len` variable** (and the analyser's) |
+| `guardinterval` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ `cp_len`** (and the analyser's) |
 | `pilotpattern` | framemapper, freqinterleaver, pilotgenerator |
 | `constellation` | bitinterleaver, modulator, cellinterleaver, framemapper |
 | `rate` | bbheader, bbscrambler, bch, ldpc, bitinterleaver, framemapper |
 | `numdatasyms` | framemapper, freqinterleaver, pilotgenerator, p1insertion **+ the variable** |
 | `carriermode` | framemapper, freqinterleaver, pilotgenerator, p1insertion |
-| `l1constellation` | framemapper (alone — but it must suit the mode) |
+| `l1constellation` | framemapper (on its own — but it must suit the mode) |
 | `fecblocks` | cellinterleaver, framemapper **+ the variable** |
 
-### Known-good presets
+### Presets that are known to be legal
 
-These come from the official gr-dtv profiles shipped in `/usr/share/gnuradio/examples/dtv/`, so
-every combination is legal. **Do not invent combinations** — the standard restricts which pilot
-patterns may be used with which FFT/guard-interval pairs, and *gr-dtv does not check*: it will
-accept `32K` with `GI 1/4` and `PP1` and hand you a signal no receiver on earth can decode, with
-no error message.
+From the official `gr-dtv` examples in `/usr/share/gnuradio/examples/dtv/`. **Do not invent
+combinations.** The standard only allows some pilot patterns with some FFT/guard pairs, and
+`gr-dtv` **does not check**: it will accept 32K + GI 1/4 + PP1 and give you a signal no receiver on
+Earth can decode, without any error.
 
-| Preset | FFT | Const. | Rate | GI | PP | Carriers | datasyms | fecblocks | Mbit/s | Notes |
+| Preset | FFT | Constellation | Rate | GI | PP | Carriers | Data symbols | FEC blocks | Mbit/s | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **vv003 (lab default)** | 32K T2GI | 256QAM | 2/3 | 1/128 | PP7 | extended | 59 | 202 | **40.00** | **What Freeview HD and MYTV transmit** |
-| vv016 | 32K T2GI | 256QAM | 3/4 | 1/128 | PP7 | extended | 59 | 200 | 44.6 | Same, less protection |
-| vv001 / vv019 | 32K T2GI | 256QAM | 3/5 | 1/128 | PP7 | extended | 59 | 202 | 36.0 | vv019 has rotation off |
-| germany-g6 | 32K | 256QAM | 3/5 | 1/32 | PP4 | normal | 55 | 179 | 33.0 | Real German broadcast |
-| germany-g7 | 32K | 64QAM | 2/3 | 1/16 | PP2 | extended | 63 | 150 | 31.7 | Real German broadcast |
-| vv036 | 32K | 256QAM | 3/5 | 1/8 | PP2 | normal | 53 | 162 | 30.2 | UK DTG test profile |
+| **vv003 (this lab)** | 32K T2GI | 256QAM | 2/3 | 1/128 | PP7 | extended | 59 | 202 | **40.00** | **what Freeview HD and MYTV use** |
+| vv016 | 32K T2GI | 256QAM | 3/4 | 1/128 | PP7 | extended | 59 | 200 | 44.6 | same, less protection |
+| vv001 / vv019 | 32K T2GI | 256QAM | 3/5 | 1/128 | PP7 | extended | 59 | 202 | 36.0 | vv019 without rotation |
+| germany-g6 | 32K | 256QAM | 3/5 | 1/32 | PP4 | normal | 55 | 179 | 33.0 | a real German broadcast |
+| germany-g7 | 32K | 64QAM | 2/3 | 1/16 | PP2 | extended | 63 | 150 | 31.7 | a real German broadcast |
+| vv036 | 32K | 256QAM | 3/5 | 1/8 | PP2 | normal | 53 | 162 | 30.2 | UK test profile |
 | vv008 | 16K | 256QAM | 4/5 | 1/32 | PP6 | extended | 100 | 168 | 37.5 | |
-| germany-g1 | 16K | 64QAM | 1/2 | 19/128 | PP2 | extended | 118 | 139 | 21.5 | Real German broadcast |
+| germany-g1 | 16K | 64QAM | 1/2 | 19/128 | PP2 | extended | 118 | 139 | 21.5 | a real German broadcast |
 | vv015 | 8K | 256QAM | 3/5 | 1/32 | PP7 | extended | 238 | 200 | 36.0 | |
-| vv011 (old default) | 1K | QPSK | 1/2 | 1/8 | PP3 | normal | 1966 | 48 | 6.17 | Lightest CPU; **no broadcaster uses it** |
+| vv011 (old lab default) | 1K | QPSK | 1/2 | 1/8 | PP3 | normal | 1966 | 48 | 6.17 | lightest on CPU; **no broadcaster uses it** |
 
-Ten parameters move together for a mode change, not seven — `carriermode` and
-`l1constellation` matter too, and the L1 constellation is easy to miss: vv003 signals its L1 in
-**64QAM**, while the old 1K default used **BPSK**.
-
-The corresponding `.grc` files are in `/usr/share/gnuradio/examples/dtv/` — open one alongside
-yours and copy the values across.
+**Ten** settings move together — including `carriermode` and `l1constellation`, which are easy to
+miss (vv003 sends its signalling in 64QAM; the old 1K mode used BPSK). Open the matching `.grc`
+from `/usr/share/gnuradio/examples/dtv/` next to yours and copy the values.
 
 ---
 
-## 🐛 Troubleshooting
+## 🔧 Troubleshooting
 
-### "The terminal says `underruns`, and the audio has drifted out of sync"
-
-These are the same fault. An underrun means playout's buffer was empty for a whole second, so
-the flowgraph had nothing to read, the transmit chain stopped, and the radio put a **gap** on
-the air. The television rides the gap out by draining its own buffers — but its audio and video
-buffers drain and recover by different amounts, so the lip sync slips and stays slipped.
-
-The cause is encoding in real time while the modulator is running: x264 at 1080p and a 32K
-DVB-T2 chain both want several cores, and the encoder loses.
-
-**Fix:** encode once, then remux. See
-[Don't encode in real time](#dont-encode-in-real-time).
-
-```bash
-./tv_playout.py /tmp/bintang_dvbt2.ts --copy --standard dvbt2 --t2-fft 32k \
-    --t2-guard 1/128 --t2-rate 2/3 --t2-fecblocks 202 --t2-datasyms 59 --fifo /tmp/tv.fifo
-```
-
-If underruns persist even with `--copy`, the disk is the bottleneck, not the CPU: raise
-`--buffer-seconds`.
-
-### "Nothing happens — the flowgraph starts and no window ever appears"
-
-**Playout is not running.** `ts_file` points at a FIFO, and opening a FIFO for reading *blocks
-until a writer exists*. GNU Radio opens the File Source while constructing the flowgraph, which
-is before Qt creates any window — so the process sits there, alive, silent, with no GUI and no
-error.
-
-Start `tv_playout.py` first, or let it start the flowgraph for you:
-
-```bash
-cd 03_scripts
-./tv_playout.py ~/Downloads/Bintang.mp4 --standard dvbt2 --t2-fft 32k \
-    --t2-guard 1/128 --t2-rate 2/3 --t2-fecblocks 202 --t2-datasyms 59 \
-    --video-bitrate 12000000 --fifo /tmp/tv.fifo \
-    --launch "python3 ../02_flowgraphs/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
-```
-
-Playout holds the FIFO open at both ends, so once it is running the flowgraph opens instantly
-and can be stopped and restarted freely without restarting playout.
-
-To go back to a plain file, set `ts_file` to a `.ts` path and `ts_source`'s `repeat` to `True` —
-but read [the PCR warning](#step-0--make-a-transport-stream-with-your-own-video-in-it) first.
-
-### "`AttributeError: module 'posixpath' has no attribute 'isfifo'`"
-
-Fixed. `os.path` has no `isfifo()`; the test is `stat.S_ISFIFO(os.stat(path).st_mode)`. It only
-ever fired when the FIFO **already existed**, which is why it survived testing — every test run
-deleted the FIFO first and took the other branch.
-
-### "`RuntimeError: LookupError: KeyError: No devices found`"
-
-Another process still owns the radio. Find it by PID and kill that:
-
-```bash
-ps -eo pid,cmd | grep [l]ab10
-```
-
-Avoid `pkill -f` here — the pattern matches `pkill`'s own command line and it kills the shell
-that launched it.
-
-### "The TV finds nothing"
-In order of likelihood:
-1. **The configuration is inconsistent.** Run `analyze_dvbt2.py` first — if the five checks pass,
-   the signal is fine and the problem is RF or the TV.
-2. `tx_amplitude` or `tx_gain` is still 0. They start there deliberately.
-3. Signal too *strong* — a TV front end overloads easily on a cable. Add 20 dB more attenuation.
-4. Wrong channel on the TV, or the TV is set to DVB-T rather than DVB-T2.
-
-### "The TV locks but the picture is blank"
-Expected with `make_test_ts.py` — there is no video in the stream. Use the ffmpeg command in
-Step 0.
-
-### "Signal quality is poor / it keeps dropping lock"
-Almost always **clipping**. OFDM's 10 dB PAPR means an average level of 0.25 already produces
-peaks near 1.0. Lower `tx_amplitude` and watch the Time Sink: if the peaks look flat-topped, you
-are clipping, and the spectrum will show shoulders growing on either side.
-
-### "The flowgraph will not start / shared memory error"
-Some blocks buffer entire T2 frames:
-```bash
-sudo sysctl -w kernel.shmmax=1073741824
-```
-
-### "It runs far slower than real time"
-Expected for the larger configurations. 9.14 MSPS through twelve stages including an LDPC encoder
-is genuinely heavy. Use the 1K/QPSK default, close the GUI sinks, and prefer `sc16` over `fc32`
-on the USRP sink to halve the USB load.
-
-### "`U` characters in the terminal while transmitting"
-TX **underflow** — the host is not feeding the SDR fast enough, so the transmitter emits gaps.
-The TV will lose lock. Same fixes as above.
-
-### "analyze_dvbt2.py says P1 detection FAILED"
-If checks 1–3 pass but 4 fails, your `--fft`/`--gi`/`--datasyms` arguments do not match how the
-signal was actually generated. The P1 detector itself correlates the C part against A at **lag
-542** — getting that lag wrong (1024 is the tempting mistake) makes it find nothing at all.
+| Problem | Cause and fix |
+|---|---|
+| **"Underruns", and sound out of sync with the picture** | The same fault: live encoding cannot keep up with the transmitter. Encode once, then use `--copy` ([Don't encode live](#dont-encode-live)). If it still happens with `--copy`, the disk is too slow: raise `--buffer-seconds` |
+| **The flowgraph starts, but no window ever appears** | **Playout is not running.** `ts_file` is a FIFO, and opening a FIFO waits until something writes to it — before any window is created. Start `tv_playout.py` first, or use its `--launch` option |
+| `AttributeError: module 'posixpath' has no attribute 'isfifo'` | Fixed in `tv_playout.py`. Update to the current version |
+| `RuntimeError: LookupError: KeyError: No devices found` | Another program still has the radio. Find it with `ps -eo pid,cmd \| grep [l]ab10` and stop it by PID |
+| **The TV finds nothing** | In order: (1) run `analyze_dvbt2.py` — if all five pass, the signal is fine; (2) `tx_amplitude` or `tx_gain` is still 0; (3) the signal is too **strong** — a TV on a cable overloads easily, add 20 dB more attenuation; (4) wrong channel on the TV, or the TV is set to DVB-T only |
+| The TV locks, but the picture is black | Expected with `make_test_ts.py` — it has no video. Use `make_video_ts.py` |
+| Poor quality, keeps losing lock | Usually **clipping**. With ~10 dB of peaks, an average of 0.25 already reaches about 1.0 at the peaks. Lower `tx_amplitude`; flat-topped peaks on the time plot mean clipping |
+| "Shared memory" error at start-up | Some blocks buffer whole T2 frames. `sudo sysctl -w kernel.shmmax=1073741824` (lasts until restart) |
+| Runs slower than real time | Close the display blocks. Use `sc16` instead of `fc32` on the USRP Sink to halve the USB load. For quick experiments, the 1K preset (vv011) uses far less CPU — but a TV will probably not find it |
+| `U` in the terminal while transmitting | Transmit **underflow**: the computer is not feeding the radio fast enough, so there are gaps on air, and the TV loses lock. Same fixes as above |
+| `analyze_dvbt2.py`: P1 detection FAILED | If checks 1–3 pass but 4 fails, the `--fft`/`--gi`/`--datasyms` options do not match how the signal was made. (The P1 search uses a lag of **542** samples; 1024 is the tempting mistake) |
 
 ---
 
-## ❓ Questions to Ponder
+## ✅ Summary
 
-1. **Why is the sample rate 64/7 MHz and not something round?**
-   It makes the carrier spacing an exact submultiple of the 8 MHz channel:
-   $\Delta f = \frac{64/7}{N_{fft}}$ MHz, which for 32K gives 279 Hz and packs 27,841 carriers
-   into 7.77 MHz. Every DVB-T2 receiver's FFT is built around it.
+- DVB-T2 is **twelve stages**, each fighting a specific problem: LDPC + BCH for errors, three
+  interleavers for bursts and fades, OFDM + cyclic prefix for echoes, P1 for finding frames.
+- Lab 10 uses **32K / 256QAM / 2/3 / GI 1/128 / PP7** — what real broadcasters use — at exactly
+  **40.000738 Mbit/s**.
+- The transport stream's **rate** and **clock** must be exact. Loop the input, not the output.
+- Keep `tx_amplitude` around **0.25**: OFDM's peaks need room.
+- **Transmit only into a cable or a Faraday cage.** The flowgraph starts at zero power on purpose.
 
-2. **The chain has three interleavers. Why not one?**
-   Each defeats a different impairment. **Bit** interleaving spreads a codeword across
-   constellation bits of unequal reliability. **Cell/time** interleaving spreads it across
-   hundreds of milliseconds, so an impulse — a car ignition, a light switch — cannot destroy a
-   whole codeword. **Frequency** interleaving spreads it across carriers, so a notch from
-   multipath cannot either. Time and frequency are genuinely different axes of failure.
+## 🧠 Check yourself
 
-3. **Why does the cyclic prefix let a single complex division equalise multipath?**
-   It turns linear convolution with the channel into *circular* convolution, and circular
-   convolution is multiplication in the DFT domain. See
-   [Fundamentals 11](../../01_fundamentals/11_ofdm_and_broadcast_systems.md).
-
-4. **What is `tx_amplitude = 0.25` protecting you from?**
-   PAPR. The measured signal has 9.6 dB of peak-to-average, so an average of 0.25 already puts
-   peaks near full scale. At 1.0 the peaks clip, generating spectral regrowth into the adjacent
-   channel — the exact thing that makes an illegal transmission also an *interfering* one.
-
-5. **Why does the standard bother with rotated constellations?**
-   Rotating the constellation makes I and Q each carry information about the whole symbol, so if
-   a deep fade destroys one component the other can still recover the point. It is essentially
-   free diversity, and it costs only a small amount of receiver complexity.
-
-6. **You have two SDRs. What else could the second one do here?**
-   Measure the transmitter, not the content: adjacent-channel power ratio, spectral regrowth
-   versus `tx_amplitude`, and constellation quality — see
-   [Test & Measurement](../../04_applications/14_test_measurement_and_infrastructure.md). That is
-   what a broadcast engineer actually does with a second receiver.
-
----
-
-## 🚀 Going Further
-
-### A full software round trip: DVB-T (first generation)
-
-`gr-dtv` includes both a transmitter **and a receiver** for DVB-T. That makes a complete
-SDR-to-SDR loop possible, with the transport stream recovered at the far end:
-
-```
-/usr/share/gnuradio/examples/dtv/dvbt_tx_8k.grc
-/usr/share/gnuradio/examples/dtv/dvbt_rx_8k.grc
-```
-
-Doing this **after** Lab 10 is the right order: T2 shows you the modern architecture, T1 lets you
-watch every stage undone. The receive chain — OFDM symbol acquisition, reference-signal
-demodulation, demapping, inner deinterleaving, Viterbi, convolutional deinterleaving,
-Reed–Solomon, energy descrambling — is a guided tour of everything in Fundamentals 08–11.
-
-### Other directions
-
-- **Measure your own transmitter** — ACPR and spectral regrowth versus drive level
-- **Add a second PLP** with different robustness, and see the TV list two services
-- **Deliberately impair the channel** — add noise, multipath and Doppler with a Channel Model
-  block, and find the cliff edge where the TV loses lock. That is the DVB-T2 equivalent of Lab
-  07's BER curve
-- **Compare 1K against 32K FFT** with the same content, and measure how much longer an echo each
-  survives
+1. Why is the sample rate 64/7 MHz, and not a round number?
+   <details><summary>Answer</summary>The standard fixes it: it sets the carrier spacing exactly
+   (279 Hz for 32K), so 27,841 carriers fit in 7.77 MHz. Every DVB-T2 receiver is built around
+   it.</details>
+2. Why three interleavers instead of one?
+   <details><summary>Answer</summary>Each fights a different problem. <b>Bit</b> interleaving
+   spreads a code block over bits of different reliability. <b>Time</b> interleaving spreads it
+   over hundreds of milliseconds, so a burst of interference (a car ignition) cannot destroy it.
+   <b>Frequency</b> interleaving spreads it over carriers, so a fade at one frequency cannot
+   either.</details>
+3. What does `tx_amplitude = 0.25` protect against?
+   <details><summary>Answer</summary>Clipping of OFDM's peaks (PAPR 9.6 dB). Clipped peaks
+   splash into neighbouring channels.</details>
+4. Your TV played the video in high quality but it was never smooth. What was wrong?
+   <details><summary>Answer</summary>Looping the finished <code>.ts</code> file made the stream's
+   clock (PCR) jump backwards at each loop. Loop the input video with <code>tv_playout.py</code>
+   instead.</details>
+5. Why is rotating the constellation useful?
+   <details><summary>Answer</summary>Rotation makes I and Q each carry information about the
+   whole point. If a fade destroys one of them, the other can still recover the point — free
+   protection.</details>
 
 ---
 
-## 📚 Key Takeaways
+## 🚀 Going further
 
-- **OFDM inverts the usual trade:** many slow carriers instead of one fast one, which turns a
-  brutal equalisation problem into one division per carrier.
-- **The cyclic prefix is the whole trick.** It is why OFDM tolerates multipath, and why
-  single-frequency networks are possible at all.
-- **PAPR is what OFDM costs**, and it is why the amplitude slider matters more than the gain one.
-- **Modern FEC is layered**: LDPC for capacity, BCH for the floor.
-- **Transmitting is a different discipline from receiving.** A receiver that is wrong is
-  disappointing; a transmitter that is wrong is somebody else's problem.
-- **Transmit with software, receive with silicon** when the receiver is a person-year of work.
-  Knowing when *not* to implement something is engineering too.
+- **A full software round trip:** the DVB-T (first generation) transmitter **and** receiver in
+  `/usr/share/gnuradio/examples/dtv/dvbt_tx_8k.grc` and `dvbt_rx_8k.grc`.
+  [Lab 11](../lab11_tv_receiver/README.md) builds a full receiver from them.
+- **Measure your own transmitter** with the second radio: power leaking into the next channel
+  versus `tx_amplitude` — see [Test & Measurement](../../04_applications/14_test_measurement_and_infrastructure.md).
+- **Damage the signal on purpose** with a Channel Model block (noise, echoes, Doppler) and find
+  where the TV loses lock — the DVB-T2 version of Lab 07's BER cliff.
+- **Compare 1K and 32K** with the same programme: how long an echo can each survive?
 
 ---
 
 ## 📖 References
 
-1. ETSI EN 302 755 — *DVB-T2* (the normative standard)
+1. ETSI EN 302 755 — the DVB-T2 standard
 2. ETSI TS 102 831 — DVB-T2 implementation guidelines
-3. [gr-dtv examples](file:///usr/share/gnuradio/examples/dtv/) — the validation vectors this lab's configuration comes from
-4. van de Beek, Sandell & Börjesson, "ML Estimation of Time and Frequency Offset in OFDM Systems", IEEE Trans. SP, 1997 — the cyclic-prefix estimator you build in Step 3
-5. ISO/IEC 13818-1 — MPEG-2 Systems (the transport stream `make_test_ts.py` writes)
+3. The `gr-dtv` examples in `/usr/share/gnuradio/examples/dtv/` — where this lab's settings come from
+4. van de Beek, Sandell & Börjesson, "ML Estimation of Time and Frequency Offset in OFDM Systems",
+   IEEE Trans. Signal Processing, 1997 — the method you build in Step 3
+5. ISO/IEC 13818-1 — MPEG-2 Systems (the transport stream)
