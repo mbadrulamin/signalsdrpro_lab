@@ -203,7 +203,8 @@ tell you when to use them.
 | [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Measures a DVB-T2 signal file and checks it matches the standard. |
 | [make_diagrams.py](./03_scripts/make_diagrams.py) | Redraws the pictures used in the Introduction. |
 | [test_labs_offline.py](./03_scripts/test_labs_offline.py) | Runs the **real** lab flowgraphs on test signals with known answers, and checks the results (audio rate, squelch, stereo separation). No radio needed. |
-| [run_offline.py](./03_scripts/run_offline.py) | Runs any lab's `.py` with a recorded file instead of the radio, and saves the audio instead of playing it. |
+| [run_offline.py](./03_scripts/run_offline.py) | Runs any lab's `.py` with a recorded file instead of the radio, and saves the audio instead of playing it. `--live` keeps the real radio (receive only). |
+| [test_labs_live.py](./03_scripts/test_labs_live.py) | Checks Labs 01–04 and 06 on a **real** FM station with the radio attached: audio SNR, and silence on an empty channel. Receive only. |
 | [make_test_iq.py](./03_scripts/make_test_iq.py) | Makes a test FM station (mono or stereo, with a different tone in each ear) as an IQ file. |
 | [check_links.py](./03_scripts/check_links.py) | Checks every link between the pages of this repository. |
 

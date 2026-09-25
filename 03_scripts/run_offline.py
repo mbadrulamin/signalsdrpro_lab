@@ -20,6 +20,9 @@ Usage:
                          themselves, e.g. a File Source with repeat on)
     --after mode=0       like --set, but called just after start(). Needed for
                          settings that only work on a running flowgraph (Lab 06)
+    --live               keep the REAL radio (receive only): only the Audio Sink is
+                         swapped for a recorder. <input.cfile> is then ignored. Refuses
+                         any flowgraph that contains a transmitter (usrp_sink)
 
 Labs that read a file instead of the radio (the Lab 05 player, the Lab 08 and
 09 "from file" versions) are handled too: every complex File Source is pointed
@@ -113,12 +116,17 @@ def main():
     ap.add_argument('--set', action='append', default=[], metavar='name=value')
     ap.add_argument('--seconds', type=float, default=None)
     ap.add_argument('--after', action='append', default=[], metavar='name=value')
+    ap.add_argument('--live', action='store_true')
     args = ap.parse_args()
 
-    _FakeUSRP.path = os.path.abspath(args.cfile)
-    uhd.usrp_source = _FakeUSRP
+    if args.live:
+        if 'usrp_sink' in open(args.lab_py).read():
+            sys.exit('refusing: this flowgraph contains a transmitter (usrp_sink); --live is receive-only')
+    else:
+        _FakeUSRP.path = os.path.abspath(args.cfile)
+        uhd.usrp_source = _FakeUSRP
+        blocks.file_source = _redirected_file_source
     audio.sink = _AudioRecorder
-    blocks.file_source = _redirected_file_source
 
     from PyQt5 import Qt
     app = Qt.QApplication.instance() or Qt.QApplication(sys.argv)
