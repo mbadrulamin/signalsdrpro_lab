@@ -1,8 +1,8 @@
 # 🔭 12 — Science & Radio Astronomy
 
-> Point your antenna at the sky and you are doing astronomy. Not metaphorically — the same
-> hydrogen line that professional observatories map is detectable from a garden with equipment
-> costing less than a phone.
+> Point your antenna at the sky and you are doing real astronomy. The same hydrogen signal that
+> big observatories map can be detected from a garden, with equipment costing less than a
+> phone.
 >
 > [← Radar & Sensing](./11_radar_and_sensing.md) · [Catalogue index](./README.md) · [Next: Security Research →](./13_security_research.md)
 
@@ -10,9 +10,10 @@
 
 ## What makes radio astronomy different
 
-Everything else in this catalogue is a **signal someone transmitted**. Astronomical sources emit
-**noise** — broadband, incoherent, and usually weaker than your receiver's own noise floor. You
-are not decoding; you are **measuring power** with enough precision to see a small excess.
+Everything else in this catalogue is a **signal someone sent**. Objects in space send out
+**noise** — spread over many frequencies, with no pattern, and usually weaker than your receiver's
+own noise. You are not decoding anything. You are **measuring power** carefully enough to see a
+tiny increase.
 
 The instrument you need is a **total-power radiometer**, and its sensitivity is given by the
 radiometer equation:
@@ -27,9 +28,10 @@ $$
 \frac{\Delta T}{T_{\text{sys}}} = \frac{1}{\sqrt{2\times10^6 \times 60}} = 9.1 \times 10^{-5}
 $$
 
-So a system at 150 K can detect a **0.014 K** change. That is why integration matters more than
-gain: you buy sensitivity with *time*, not amplification. It is the same processing-gain idea as
-[Fundamentals 06](../01_fundamentals/06_noise_snr_and_gain.md), applied to noise instead of signal.
+So a system at 150 K can detect a change of only **0.014 K**. That is why averaging for longer
+matters more than gain: you get sensitivity from **time**, not from amplification. It is the
+processing-gain idea from [Fundamentals 06](../01_fundamentals/06_noise_snr_and_gain.md), applied
+to noise.
 
 ---
 

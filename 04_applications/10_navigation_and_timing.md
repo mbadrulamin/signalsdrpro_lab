@@ -1,8 +1,7 @@
 # 🧭 10 — Navigation & Timing
 
-> How the world knows where it is and what time it is. Also the domain containing the single most
-> impressive thing an SDR can do: pull a signal out from **20 dB below the noise floor** by
-> correlation alone.
+> How the world knows where it is and what time it is. This area also has the most impressive
+> thing an SDR can do: pull a signal out from **20 dB below the noise** using correlation alone.
 >
 > [← Cellular](./09_cellular.md) · [Catalogue index](./README.md) · [Next: Radar & Sensing →](./11_radar_and_sensing.md)
 
@@ -10,9 +9,9 @@
 
 ## Why GNSS is the best hard project in SDR
 
-A GPS satellite transmits about 27 W from 20,200 km away. By the time it reaches you, the signal
-is around **−130 dBm** — roughly 20 dB *below* the thermal noise in its own bandwidth. You cannot
-see it on any spectrum display. It simply is not there.
+A GPS satellite transmits about 27 W from 20,200 km away. When it reaches you, the signal is about
+**−130 dBm** — roughly 20 dB (100 times) *weaker* than the noise in its own bandwidth. You cannot
+see it on any spectrum display at all.
 
 And yet it decodes perfectly, because of [Fundamentals 06's](../01_fundamentals/06_noise_snr_and_gain.md)
 processing gain:
@@ -97,18 +96,23 @@ decoding, and finally orbital mechanics — every skill in this repository plus 
 
 ---
 
-## Try this first: DCF77 or WWVB
+## Try this first: a longwave time station (needs an upconverter)
 
-If you have an upconverter, a longwave time station is the **gentlest possible introduction to
-decoding a real protocol**, because the data rate is *one bit per second*.
+With an upconverter, a longwave time station is the **gentlest introduction to decoding a real
+protocol**, because it sends only **one bit per second**.
 
-DCF77 (77.5 kHz, Germany) reduces its carrier amplitude to 15 % at the start of every second. A
-100 ms reduction is a `0`; a 200 ms reduction is a `1`. Fifty-nine bits per minute carry the
-minute, hour, day, month, year and two parity bits — and the 60th second has no marker at all,
-which is how you find the frame boundary.
+The classic example is DCF77 (77.5 kHz, Germany). At the start of every second it reduces its
+carrier to 15 %. A 100 ms dip is a `0`; a 200 ms dip is a `1`. 59 bits a minute carry the minute,
+hour, day, month, year and parity bits — and the 60th second has no dip at all, which is how you
+find the start of each minute.
 
-You can decode it with an envelope detector and a stopwatch. No synchronisation loop, no FEC,
-nothing hidden. And at the end you have set a clock from a caesium standard 1000 km away.
+> 🇲🇾 DCF77 (Germany) and WWVB (USA) are too far away to hear in Malaysia. The nearest stations are
+> **JJY** (Japan, 40 and 60 kHz) and **BPC** (China, 68.5 kHz) — best at night, with a good long
+> antenna. Their codes differ in detail but work the same way.
+
+You can decode it with an envelope detector and a stopwatch. No synchronisation loop, no error
+correction, nothing hidden. At the end, you have set a clock from an atomic clock thousands of
+kilometres away.
 
 ---
 

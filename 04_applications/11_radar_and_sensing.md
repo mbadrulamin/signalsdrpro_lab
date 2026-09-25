@@ -1,7 +1,7 @@
 # 📶 11 — Radar & Sensing
 
-> Using radio to measure the physical world rather than to carry messages. This is where SDR
-> stops being a receiver and becomes an **instrument**.
+> Using radio to measure the world, not to carry messages. Here the SDR stops being a receiver
+> and becomes a **measuring instrument**.
 >
 > [← Navigation & Timing](./10_navigation_and_timing.md) · [Catalogue index](./README.md) · [Next: Science →](./12_science_and_radio_astronomy.md)
 
@@ -25,9 +25,9 @@ $$
 \chi(\tau, f_d) = \int s_{\text{surv}}(t)\, s^*_{\text{ref}}(t-\tau)\, e^{-j2\pi f_d t}\, dt
 $$
 
-**No licence, no transmitter, no spectrum allocation.** You are borrowing a 100 kW FM or DVB-T
-station as your illuminator. This is the single most impressive thing you can build with two
-cheap SDRs, and it is entirely legal.
+**No licence, no transmitter, no frequency permission needed.** You borrow a 100 kW FM or TV
+station as your "illuminator" (the light source). It is one of the most impressive things you can
+build, and it only receives.
 
 ---
 
@@ -132,9 +132,9 @@ It is a complete radar measurement made entirely passively, with no licence and 
 
 ## Then: passive radar, properly
 
-Passive radar needs **two coherent receive channels**, and this is where your hardware earns its
-keep: the B210 has **two RX channels sharing one clock and one LO**, which is exactly the
-requirement. Most cheap SDRs cannot do this at all.
+Passive radar needs **two receive channels locked to the same clock**. This is where your
+SignalSDR Pro shines: it has **two receive channels sharing one clock and one LO** — exactly what
+is needed. Most cheap SDRs cannot do this at all.
 
 ```
    Channel 0 ── antenna pointed AT the FM transmitter    (reference)
