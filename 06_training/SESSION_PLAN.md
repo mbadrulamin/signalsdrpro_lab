@@ -1,19 +1,18 @@
 # Introduction to SDR — 4-Hour Classroom Session
 ## Presentation plan, timings and speaker notes
 
-**Audience: beginner to intermediate.** They have *used* radio — handhelds, scanners, car
-radios, maybe a base station — as **operators, not designers**. Assume they can tune a dial
-and read a signal-strength bar. Do **not** assume they can name the stages inside the set,
-read a block diagram, do algebra with decibels, or write code. A minority will know
-considerably more than that, and serving both is the central design problem of this session
-(see §2).
+**Audience: beginner to intermediate.** They have *used* radios — walkie-talkies, scanners, car
+radios, maybe a base station — as **users, not designers**. Assume they can tune a radio and read
+a signal-strength bar. Do **not** assume they can name the parts inside a radio, read a block
+diagram, calculate with decibels, or write code. A few will know much more. Teaching both groups
+at once is the main challenge of this session (see §2).
 
 **Goal:** by 16:00 they can (a) say what SDR replaces and why in their own words, (b) set up a
 SignalSDR Pro from cold and prove it works, (c) build one working flowgraph, and (d) name,
 from having *seen* it, roughly ten things SDR does that their existing radios cannot.
 
-**Explicit non-goal:** completeness. Four hours cannot teach this repository. The session is a
-guided trailer whose deliverable is a person who knows *what to read next, in what order.*
+**Not a goal:** covering everything. Four hours cannot teach this whole repository. The session
+is a guided preview. Success is a person who knows **what to read next, and in what order.**
 
 ---
 
@@ -21,51 +20,51 @@ guided trailer whose deliverable is a person who knows *what to read next, in wh
 
 | # | Decision | Why |
 |---|---|---|
-| 1 | **Explain the superhet — don't elicit it.** Slide 8 *tells* them what is inside their radio, then slide 9 moves one line through it. | A beginner cannot name the stages of a superheterodyne receiver, and asking them to try in front of peers is how you lose a room in the first twenty minutes. The "one line moved" image still lands — it just has to be given, not extracted. |
-| 2 | **Only two pieces of theory: sampling and I/Q — with a scaffolding slide in front of each.** | Filters, PLLs, FEC and OFDM can all be *watched* without understanding. I/Q cannot: without it, every screen in the room is meaningless. Beginners need "what is a wave, what is frequency" first, so Segment 3 gets 25 minutes and everything else gets none. |
-| 3 | **Setup is taught live, from cold, including the deliberate failure.** | This audience will judge SDR on whether they can make it work on Monday. The highest-value 25 minutes of the day is watching a radio come up — *and* watching the UHD images error get fixed, because every one of them will hit it. |
-| 4 | **Lab 01 is built in front of them, slowly, narrating every click.** | One complete flowgraph turns "software radio" from a claim into something they have watched a human being do. Labs 02–12 then read as *the same thing, larger*. Hands-on variant in §5. |
-| 5 | **The lab tour is 40 minutes for 8 labs.** | Any deeper and you demo three labs instead of eight, and the room leaves without a sense of range. For a beginner audience, range *is* the message — this is the segment they will talk about afterwards. |
+| 1 | **Explain the superhet — don't ask the room to name its parts.** Slide 8 *tells* them what is inside their radio; slide 9 moves one line through it. | A beginner cannot name the stages of a superheterodyne receiver. Asking them to try in front of others makes them feel foolish in the first twenty minutes, and you lose them. The "one line moved" picture still works — you just give it to them. |
+| 2 | **Only two pieces of theory: sampling and I/Q — each with a simple "first step" slide before it.** | Filters, PLLs, error correction and OFDM can all be *watched* without understanding them. I/Q cannot: without it, every screen in the room means nothing. Beginners need "what is a wave, what is frequency" first, so Segment 3 gets 25 minutes, and other theory gets none. |
+| 3 | **Setup is shown live, from the start, including a planned failure.** | This audience will judge SDR on whether they can make it work on Monday. The most valuable 25 minutes of the day is watching a radio start up — *and* watching the "UHD images" error get fixed, because every one of them will meet it. |
+| 4 | **Lab 01 is built in front of them, slowly, explaining every click.** | One complete flowgraph turns "software radio" from a claim into something they have seen a person do. Labs 02–12 then look like *the same thing, bigger*. Hands-on version in §5. |
+| 5 | **The lab tour is 40 minutes for 8 labs.** | Go deeper and you only show three labs instead of eight, and people leave without seeing how much SDR can do. For beginners, that range *is* the message — this is the part they will talk about afterwards. |
 | 6 | **The transmit segment demos over a cable, not over the air.** | Legal, technical and pedagogical reasons — see §7. |
 
 ### What changed from the expert-audience version
 
-Segment 2 gained a slide on *what a radio actually does* before any block diagram appears.
-Segment 3 grew from 20 to 25 minutes and gained two scaffolding slides. Segment 4 (hardware)
-shrank from 20 to 15 — the competitive comparison table is an intermediate's interest, not a
-beginner's. Segment 8 (transmit) shrank from 30 to 25 and now tells two war stories instead of
-three. Net effect: **more time on the two ideas that must land, less on the material a
-beginner cannot yet use.**
+Segment 2 gained a slide on *what a radio actually does*, before any block diagram. Segment 3
+grew from 20 to 25 minutes and gained two "first step" slides. Segment 4 (hardware) shrank from
+20 to 15 minutes — comparing SDR products interests intermediates, not beginners. Segment 8
+(transmit) shrank from 30 to 25 minutes and now tells two real problem stories instead of three.
+Overall: **more time on the two ideas that must be understood, less on material beginners cannot
+use yet.**
 
 ---
 
 ## 2. Teaching a mixed-level room
 
-Beginner-to-intermediate is harder than either alone. The failure mode is symmetrical: pitch to
-the beginner and the intermediates disengage by the first break; pitch to the intermediate and
-the beginners quietly decide SDR is not for them and never open the repo. Five mechanisms:
+A mixed room is harder than a room of only beginners or only intermediates. It can fail both
+ways: aim at beginners, and the intermediates are bored by the first break; aim at
+intermediates, and the beginners quietly decide SDR is not for them and never open the
+repository. Five ways to handle it:
 
-1. **Pace taught segments to the beginner; pace demos to the intermediate.** Segments 2–3 go
-   slowly and skip nothing. Segment 7's demos are new to *everybody* — nobody in the room has
-   seen aircraft positions decoded from raw samples — so the tour naturally re-levels the room.
-   This is why the lab tour is deliberately the longest segment.
-2. **Depth boxes.** A marked corner on technical slides carrying one line of real detail plus a
-   repo pointer — *"the discriminator is `atan2` on consecutive samples → fundamentals/04."*
-   Read it aloud only if the room's energy says to. Beginners skip it without feeling talked
-   down to; intermediates get their fix and, more importantly, a place to go.
-3. **The parking lot, used visibly.** A whiteboard column for questions you will not answer
-   now. It protects beginners from being derailed *and* signals to intermediates that they
-   have not been ignored. Clear it in Segment 9 — that is what the Q&A buffer is for.
-4. **Pair the room if there are laptops.** Seat people who have written code next to people who
-   have not. The intermediates become your teaching assistants and stay engaged by teaching.
-5. **Ban three phrases.** *"As you all know"*, *"this is trivial"*, *"obviously."* Each one
-   tells half the room they are in the wrong place. Say *"some of you will know this"* instead —
-   it is true, and it gives permission to both halves.
+1. **Teach at the beginners' speed; demo at the intermediates' speed.** Segments 2–3 go slowly
+   and skip nothing. Segment 7's demos are new to *everyone* — nobody in the room has seen
+   aircraft positions decoded from raw samples — so the tour puts everyone at the same level
+   again. That is why the lab tour is the longest segment.
+2. **"Depth boxes".** A marked corner on technical slides with one line of real detail and a
+   pointer into the repository — *"the discriminator is `atan2` on consecutive samples →
+   fundamentals/04."* Read it aloud only if the room seems ready. Beginners can ignore it without
+   feeling talked down to; intermediates get the detail they want, and a place to read more.
+3. **A "parking lot", used openly.** A whiteboard column for questions you will answer later. It
+   stops the session going off track for beginners, *and* shows intermediates their questions
+   were not ignored. Answer them in Segment 9 — that is what the Q&A time is for.
+4. **If there are laptops, work in pairs.** Seat people who have written code next to people who
+   have not. The intermediates become your assistants, and stay interested by helping.
+5. **Never say three phrases:** *"as you all know"*, *"this is trivial"*, *"obviously"*. Each one
+   tells half the room they do not belong. Say *"some of you will know this"* instead — it is
+   true, and it is comfortable for both groups.
 
-> **Calibrate at S4 and actually act on it.** If almost nobody raises a hand for "written any
-> code", slow S38's live build and narrate every field. If more than a third do, speed the
-> build and spend the recovered minutes on S39's deliberate faults, which intermediates enjoy
-> far more.
+> **Check the room at S4, and adjust.** If almost nobody raises a hand for "written any code",
+> slow down S38's live build and explain every field. If more than a third do, go faster, and
+> spend the saved minutes on S39's planned faults, which intermediates enjoy much more.
 
 ---
 
@@ -488,17 +487,16 @@ conditions, and the plan above stays the default:
 | **A floating assistant** | One person who does nothing but unstick individuals. Without this, you stop presenting and start doing desk support, and the schedule dies. |
 | **Pair beginners with intermediates** | §2, mechanism 4. |
 
-**Recommendation: do not attempt hands-on for a first delivery of this material.** Run it as
-demo-led, find out where this specific audience actually gets stuck, then build the hands-on
-version with that knowledge. A smooth demo-led session converts more beginners than a chaotic
-hands-on one.
+**Recommendation: do not try hands-on the first time you teach this.** Run it as demos, learn
+where this audience really gets stuck, then build the hands-on version with that knowledge. A
+smooth demo session wins over more beginners than a chaotic hands-on one.
 
 ---
 
 ## 6. Demo risk management
 
-Live SDR demos fail in front of audiences for reasons that never occur at your desk. In order
-of how much they will save you:
+Live SDR demos fail in front of an audience for reasons that never happen at your desk. In order
+of how much they help:
 
 1. **Every live demo has a recorded fallback** — a screen capture of that same demo working,
    full-screen, one keystroke away. If a demo has not recovered in **30 seconds**, switch to the
@@ -538,20 +536,20 @@ of how much they will save you:
 
 ## 7. The transmit demo — a recommendation, not a preference
 
-Segment 8 is the most compelling part of the day and the only part with legal exposure.
+Segment 8 is the most exciting part of the day — and the only part with legal risk.
 
 **Demonstrate over a cable — SMA from transmitter to receiver through a 30–40 dB attenuator,
 with no antenna on the transmitter.** Three independent reasons:
 
-- **Legal.** Labs 10 and 12 use licensed broadcast television spectrum. A classroom is not a
-  screened enclosure, and a room full of witnesses is not the place to discover how far five
-  metres really goes.
+- **Legal.** Labs 10 and 12 use frequencies licensed to TV broadcasters (in Malaysia, MYTV). A
+  classroom is not a shielded room, and a room full of people is not the place to find out how
+  far "five metres" really reaches.
 - **Technical.** This repository's own measurements show the cable link performs *better*: over
   the air, identical settings needed 19 dB more transmit gain, while the cable link was proven
   byte-for-byte exact across 79,357,996 bytes with zero errors.
-- **Pedagogical.** It teaches the professional habit at the exact moment the audience is most
-  impressed. **Beginners copy what they see the expert do** — which is precisely why they should
-  see an attenuator and not an antenna.
+- **Teaching.** It shows the professional habit at the moment the audience is most impressed.
+  **Beginners copy what they see the expert do** — so they should see an attenuator, not an
+  antenna.
 
 If the venue genuinely has a screened enclosure, an over-the-air run is a fine finale — but
 schedule the cable demo and treat the other as a bonus.
@@ -600,7 +598,6 @@ In this order, and no further:
 5. **S29** (antennas + comparison) — it is on the handout card anyway.
 
 **Never cut:** **S9** (the line through the superhet), **S20** (I and Q), **S34** (the failure
-fixed live), **S38** (the live build), **S60** (your first week). Those five are the session —
-the first two are the only ideas that must transfer, the middle two are the only proof that it
-is doable, and the last is the only thing that turns a good afternoon into someone who actually
-starts.
+fixed live), **S38** (the live build), **S60** (your first week). These five *are* the session:
+the first two are the only ideas that must be understood; the middle two are the proof that it
+can be done; and the last one is what turns a good afternoon into someone who actually starts.
