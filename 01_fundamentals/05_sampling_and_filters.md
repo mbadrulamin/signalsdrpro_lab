@@ -1,332 +1,315 @@
-# 🔬 Fundamentals 05 — Sampling, Filters & Resampling
+# 🔬 Fundamentals 05 — Sampling, Filters and Changing the Sample Rate
 
-> **Prerequisite:** IQ Sampling (Fundamentals 02), and you should have run Lab 02.
-> **Time to read:** 50 minutes
-> **Used by:** Lab 05, Lab 06, Lab 07, Lab 08, Lab 09
+> **What you will learn:** what really happens when you sample; how aliasing works; how FIR
+> filters work and **how many taps** one needs; how to reduce (decimate) or change (resample)
+> the sample rate safely; the Frequency Xlating FIR Filter; and the de-emphasis filter.
+> **Before this:** [Fundamentals 02 — IQ](./02_iq_sampling.md), and you should have done
+> [Lab 02](../02_flowgraphs/lab02_enhanced_wbfm/README.md).
+> **Time:** about 50 minutes. **Used by:** Labs 05, 06, 07, 08, 09.
 
 ---
 
-## Why This Chapter Exists
+## Why this chapter exists
 
 In Labs 01–04 you typed numbers into filter blocks — `cutoff = 100000`, `width = 20000`,
 `decim = 125` — and the radio worked. You were following a recipe.
 
-This chapter turns the recipe into **engineering**. After reading it you will be able to
-answer, for any block in any flowgraph:
+This chapter explains the recipe. Afterwards, for any wire in any flowgraph, you can answer:
 
-- What sample rate is at this wire, and why?
-- What is the cutoff, and what happens to everything above it?
-- How many taps does this filter cost, and how much CPU is that?
-- Is this decimation safe, or am I about to alias a neighbouring station on top of mine?
-
-Every later lab in this repo depends on these four answers.
+1. What is the **sample rate** on this wire, and why?
+2. What does this **filter** keep, and what does it remove?
+3. How many **taps** does the filter need, and how much CPU does that cost?
+4. Is it **safe** to reduce the sample rate here, or will another station fold on top of mine?
 
 ---
 
-## Part 1 — Sampling and the Nyquist Criterion
+## Part 1 — Sampling and aliasing
 
-### The sampling operation
+### What sampling does to the spectrum
 
-Sampling a continuous signal $x(t)$ every $T_s$ seconds gives the sequence
+When you sample a signal *f*ₛ times per second, something surprising happens to its spectrum:
+it gets **copied**. The sampled signal's spectrum is the original spectrum, repeated again and
+again, every *f*ₛ hertz, forever:
 
-$$
-x[n] = x(nT_s), \qquad f_s = \frac{1}{T_s}
-$$
+```
+The original signal, from −B to +B:
 
-Mathematically, sampling is multiplication by an impulse train:
+              ┌───┐
+   ───────────┤   ├───────────────────────────────  frequency
+             -B   +B
+
+After sampling at fs — a copy every fs:
+
+   ┌───┐      ┌───┐      ┌───┐      ┌───┐
+ ──┤   ├──────┤   ├──────┤   ├──────┤   ├────────  frequency
+   -fs        0          fs         2fs
+```
+
+These copies are called **images** or **aliases**. As long as the copies **do not overlap**,
+nothing is lost: you can always get the original back.
+
+<details>
+<summary><b>Going deeper:</b> why sampling makes copies</summary>
+
+Sampling every $T_s$ seconds is the same as multiplying by a train of spikes:
 
 $$
 x_s(t) = x(t) \cdot \sum_{n=-\infty}^{\infty} \delta(t - nT_s)
 $$
 
-Multiplication in time is **convolution in frequency**. The Fourier transform of an impulse
-train of spacing $T_s$ is another impulse train of spacing $f_s$, so:
+Multiplying in time is **convolution** in frequency. The spectrum of a spike train with
+spacing $T_s$ is another spike train, with spacing $f_s = 1/T_s$. Convolving with it copies the
+spectrum at every multiple of $f_s$:
 
 $$
-\boxed{X_s(f) = f_s \sum_{k=-\infty}^{\infty} X(f - k f_s)}
+X_s(f) = f_s \sum_{k=-\infty}^{\infty} X(f - k f_s)
 $$
 
-**This single equation is the whole theory of sampling.** The spectrum of the sampled signal
-is the original spectrum **repeated forever** at multiples of $f_s$. These copies are called
-**images** or **aliases**.
+That one equation is the whole theory of sampling.
+</details>
 
-```
-Original spectrum X(f), bandlimited to ±B:
+### The Nyquist rule, exactly
 
-              ┌───┐
-   ───────────┤   ├───────────────────────────────  f
-             -B   +B
+The copies do not overlap if:
 
-After sampling at fs — copies every fs:
+| Kind of samples | Rule | In words |
+|---|---|---|
+| **Real** (one number each, like audio) | $f_s > 2B$ | sample rate more than **twice** the highest frequency |
+| **IQ** (two numbers each, like an SDR) | $f_s > B$ | sample rate more than the **total width** |
 
-   ┌───┐      ┌───┐      ┌───┐      ┌───┐
- ──┤   ├──────┤   ├──────┤   ├──────┤   ├────────  f
-   -fs        0          fs         2fs
-```
+**IQ gives you twice as much for the same sample rate.** At 2 MSPS, your SignalSDR Pro shows a
+full 2 MHz of spectrum (from −1 MHz to +1 MHz), not 1 MHz.
 
-### Nyquist, stated precisely
+### What aliasing does
 
-The copies do not overlap if and only if
+If a signal lies **outside** the range the sample rate can hold (±*f*ₛ/2), it does not
+disappear. It **folds back** and appears at a false frequency:
 
 $$
-f_s > 2B \quad \text{(real signal, bandwidth } B \text{ one-sided)}
+f_{\text{alias}} = f_0 - k \cdot f_s, \qquad k = \text{the whole number nearest to } f_0 / f_s
 $$
 
-$$
-f_s > B \quad \text{(complex/IQ signal, bandwidth } B \text{ total)}
-$$
+The false copy looks **exactly** like a real signal at that frequency. No later processing can
+remove it. So a filter must remove out-of-range signals **before** every reduction in sample
+rate — never after.
 
-**IQ sampling buys you a factor of two.** This is the practical payoff of Fundamentals 02: a
-complex signal has no conjugate-symmetry constraint, so its spectrum occupies $-f_s/2$ to
-$+f_s/2$ with no waste. When your SignalSDR Pro runs at 2 MSPS complex, you see a genuine
-2 MHz of spectrum, not 1 MHz.
+> **Example.** You reduce the rate to 240 kSPS (so you can hold ±120 kHz). A strong pager
+> transmitter is 260 kHz away from your tuned frequency. The nearest whole number to
+> 260 ÷ 240 is 1, so it folds to 260 − 240 = **20 kHz** — right inside the FM station you are
+> listening to. You would hear interference and never know why. **Filter first.**
 
-### What aliasing actually does
+### Sample rates on the SignalSDR Pro
 
-If a component sits at frequency $f_0 > f_s/2$, sampling folds it to
-
-$$
-f_{\text{alias}} = f_0 - k f_s \quad \text{where } k = \operatorname{round}\!\left(\frac{f_0}{f_s}\right)
-$$
-
-The folded copy is **indistinguishable** from a genuine signal at that frequency. No amount
-of later DSP can remove it. This is why an anti-alias filter must come **before** every rate
-reduction, never after.
-
-> **Worked example.** You sample at $f_s = 240$ kSPS. A strong pager transmitter sits
-> 260 kHz away from your tuned frequency. $k = \operatorname{round}(260/240) = 1$, so it
-> aliases to $260 - 240 = 20$ kHz — right on top of the FM stereo pilot tone. Your Lab 04
-> stereo decoder would lose lock and you would never know why. **Filter first.**
-
-### Sample rate reality check for the SignalSDR Pro
-
-| Rate | Complex bandwidth | Bytes/s (fc32) | Comment |
+| Rate | Width you see | Data (fc32) | Notes |
 |---|---|---|---|
-| 250 kSPS | 250 kHz | 2.0 MB/s | One FM channel, minimum for WBFM |
-| 1 MSPS | 1 MHz | 8.0 MB/s | Lab 01 default; ~5 FM channels |
-| 2 MSPS | 2 MHz | 16.0 MB/s | Labs 03–04; comfortable on USB 3.0 |
-| 8 MSPS | 8 MHz | 64.0 MB/s | Wideband scanning; watch for overflow `O` |
-| 20 MSPS | 20 MHz | 160.0 MB/s | Near the B210 USB 3.0 practical ceiling |
+| 250 kSPS | 250 kHz | 2 MB/s | one FM station, just |
+| 1 MSPS | 1 MHz | 8 MB/s | Lab 01; about 5 FM stations |
+| 2 MSPS | 2 MHz | 16 MB/s | Labs 02–09; easy over USB 3.0 |
+| 8 MSPS | 8 MHz | 64 MB/s | wide scanning; watch for `O` (overflow) |
+| 20 MSPS | 20 MHz | 160 MB/s | near the practical USB 3.0 limit |
 
-At `fc32` (complex float32) each sample is 8 bytes. At `sc16` it is 4 bytes — halving the
-USB load at the cost of some dynamic range headroom. Lab 05 uses this fact.
+`fc32` (complex float32) is 8 bytes per sample. `sc16` (complex 16-bit integers) is 4 bytes —
+half the USB load. Lab 05 uses this.
 
 ---
 
-## Part 2 — FIR Filters
+## Part 2 — FIR filters
 
-### The FIR equation
+### What an FIR filter does
 
-A **Finite Impulse Response** filter computes each output as a weighted sum of the last $N$
-inputs:
-
-$$
-y[n] = \sum_{k=0}^{N-1} h[k] \, x[n-k]
-$$
-
-The coefficients $h[k]$ are the **taps**. In the frequency domain this is multiplication:
+An **FIR** (finite impulse response) filter makes each output sample from a **weighted average
+of the last *N* input samples**:
 
 $$
-Y(e^{j\omega}) = H(e^{j\omega}) X(e^{j\omega}), \qquad
-H(e^{j\omega}) = \sum_{k=0}^{N-1} h[k] e^{-j\omega k}
+y[n] = h[0]\,x[n] + h[1]\,x[n-1] + h[2]\,x[n-2] + \dots + h[N-1]\,x[n-N+1]
 $$
 
-FIR filters are the workhorse of SDR because they are:
+The weights *h*[*k*] are called the **taps**. *N* is the number of taps. Choosing the right
+weights makes the filter keep some frequencies and remove others.
 
-- **Unconditionally stable** — no feedback, so no way to blow up.
-- **Exactly linear phase** if the taps are symmetric ($h[k] = h[N-1-k]$), meaning all
-  frequencies are delayed by the same $\frac{N-1}{2}$ samples. Audio and data both need this.
-- **Cheap to parallelise** — it is a dot product.
+FIR filters are used almost everywhere in SDR because:
 
-### The ideal filter and why it is impossible
+- **They are always stable.** There is no feedback, so they cannot "run away".
+- **They can delay every frequency equally** (if the taps are symmetric). Every frequency is
+  delayed by exactly (*N* − 1)/2 samples, so the shape of the signal is kept. Audio and data
+  both need this. (Remember this delay — it caused the Lab 04 stereo bug.)
+- **They are simple for a computer:** just multiply and add.
 
-The ideal lowpass with cutoff $f_c$ has a rectangular frequency response. Its impulse
-response is the inverse transform:
+### The perfect filter is impossible
 
-$$
-h_{\text{ideal}}[k] = 2\frac{f_c}{f_s}\,\operatorname{sinc}\!\left(2\frac{f_c}{f_s}k\right),
-\qquad \operatorname{sinc}(x) = \frac{\sin \pi x}{\pi x}
-$$
+A perfect low-pass filter would pass everything below the cutoff and remove everything above,
+with a vertical wall in between. Its taps would go on **forever** — impossible to build. If you
+simply cut them short, the filter leaks: its "stop" region only reaches about **−21 dB**, no
+matter how many taps you use.
 
-This is **infinitely long** and non-causal. To build it we must truncate it — and truncation
-in time is multiplication by a rectangle, which convolves the frequency response with a
-`sinc`, producing ripple. The worst ripple never goes below about **−21 dB** no matter how
-many taps you add. This is the **Gibbs phenomenon**.
+### Windows: smoothing the taps
 
-### Windows: trading transition width for stopband depth
+The fix is to fade the taps gently to zero at both ends, using a **window**. Different windows
+give different results:
 
-The fix is to taper the truncated impulse response with a **window** $w[k]$:
-
-$$
-h[k] = h_{\text{ideal}}[k] \cdot w[k]
-$$
-
-| Window | GNU Radio constant | Stopband attenuation $A_{dB}$ |
+| Window | GNU Radio name | How much it blocks (stopband) |
 |---|---|---|
-| Rectangular | `window.WIN_RECTANGULAR` | 21 dB |
+| Rectangular (no fading) | `window.WIN_RECTANGULAR` | 21 dB |
 | Bartlett | `window.WIN_BARTLETT` | 27 dB |
 | Hann | `window.WIN_HANN` | 44 dB |
 | **Hamming** | `window.WIN_HAMMING` | **53 dB** |
 | Blackman | `window.WIN_BLACKMAN` | 74 dB |
-| Blackman-Harris | `window.WIN_BLACKMAN_hARRIS` | 92 dB |
-| Kaiser ($\beta = 6.76$) | `window.WIN_KAISER` | 70 dB |
+| Blackman-Harris | `window.WIN_BLACKMAN_HARRIS` | 92 dB |
+| Kaiser (β = 6.76) | `window.WIN_KAISER` | 70 dB |
 
-(Yes, `WIN_BLACKMAN_hARRIS` really is spelled with a lowercase `h` in GNU Radio 3.10. It is a
-long-standing typo that became API.)
+**Hamming is used in every lab here.** 53 dB is enough to push a neighbouring FM station below
+the noise, and it needs fewer taps than Blackman.
 
-**Hamming is the default in every lab here** because 53 dB is enough to push an adjacent FM
-station below the noise floor, and it costs far fewer taps than Blackman.
-
-### The tap-count equation
-
-This is the single most useful formula in practical SDR — and it is the *exact* formula GNU
-Radio's `firdes` uses internally (a form of the fred harris rule):
+### How many taps? The most useful formula in practical SDR
 
 $$
-\boxed{N = \frac{A_{dB} \cdot f_s}{22 \cdot \Delta f}}
+\boxed{N = \frac{A_{dB} \times f_s}{22 \times \Delta f}}
 $$
 
-Where $\Delta f$ is the **transition width** (the `width` parameter in GNU Radio's Low Pass
-Filter block) and $A_{dB}$ is the window attenuation from the table above. `firdes` then
-rounds $N$ up to the next odd number so the filter has an exact integer group delay.
+- $A_{dB}$ — how much the window blocks (from the table: 53 for Hamming)
+- $f_s$ — the sample rate going **into** the filter
+- $\Delta f$ — the **transition width**: how quickly the filter goes from "pass" to "block"
+  (the `width` setting in GNU Radio)
 
-> **Worked example — the Lab 03 pre-filter.**
-> $f_s = 2{,}000{,}000$, cutoff $= 100$ kHz, width $= 20$ kHz, Hamming ($A_{dB} = 53$):
-> $$N = \frac{53 \times 2{,}000{,}000}{22 \times 20{,}000} = 240.9 \rightarrow 241 \text{ taps}$$
-> At 2 MSPS that costs $241 \times 2 \times 10^6 \approx 4.8 \times 10^8$ multiply-accumulates
-> per second. That is real CPU. Halve the transition width to 10 kHz and you get 481 taps —
-> the cost **doubles**.
+This is exactly the formula GNU Radio's `firdes` uses. It then rounds *N* up to an odd number.
 
-**Three rules of thumb that follow directly from the equation:**
+> **Example — Lab 03's channel filter.** 2,000,000 samples/s, transition 20 kHz, Hamming:
+>
+> $$N = \frac{53 \times 2{,}000{,}000}{22 \times 20{,}000} = 240.9 \rightarrow \mathbf{241} \text{ taps}$$
+>
+> Each output needs 241 multiplications, and there are 2 million outputs per second: about
+> **480 million** multiplications per second. That is real CPU work. Halve the transition to
+> 10 kHz and you need 481 taps — **twice** the work.
 
-1. Narrow transitions are expensive. Ask for the widest transition band the application
-   tolerates.
-2. Cost scales with the *input* sample rate. Filter as late (and as slowly) as you can — or
-   better, decimate in stages.
-3. A deeper window is cheaper than you think. Going Hamming → Blackman is only 1.4× the taps
-   for 21 dB more rejection. Going 20 kHz → 10 kHz transition is 2× the taps for *nothing*.
+**Three rules that follow from the formula:**
 
-### Verify it yourself
+1. **Sharp filters are expensive.** Ask for the widest transition your signal allows.
+2. **Cost grows with the input sample rate.** Filter at the lowest rate you can — reduce the
+   rate in steps.
+3. **A stronger window is cheaper than a sharper edge.** Hamming → Blackman costs 1.4× the taps
+   for 21 dB more blocking. Halving the transition costs 2× the taps.
+
+Check it yourself:
 
 ```bash
 python3 -c "
 from gnuradio.filter import firdes
 from gnuradio.fft import window
 t = firdes.low_pass(1.0, 2e6, 100e3, 20e3, window.WIN_HAMMING, 6.76)
-print('taps:', len(t))
-"
+print('taps:', len(t))"
 ```
+
+✅ `taps: 241`
 
 ---
 
-## Part 3 — Decimation, Interpolation, Resampling
+## Part 3 — Changing the sample rate
 
-### Decimation = filter, then throw away
+### Decimation: filter, then keep 1 in M
 
-To reduce the sample rate by an integer factor $M$:
+To **reduce** the sample rate by a whole number *M*:
 
-1. **Lowpass filter** to $f_s / (2M)$ — this is mandatory, not optional.
-2. Keep every $M$-th sample.
+1. **Low-pass filter** so nothing is left above the new limit (*f*ₛ / 2*M*). **This step is
+   required.**
+2. **Keep every M-th sample**, throw the rest away.
 
-$$
-y[n] = x[nM] \quad \text{(after filtering)}
-$$
+Skip step 1, and everything between the new limit and the old one folds into your signal —
+permanently.
 
-Skip step 1 and everything between $f_s/(2M)$ and $f_s/2$ folds into your band. Forever.
+### The decimating filter saves work
 
-### The decimating-FIR trick
-
-A naive implementation filters at the input rate and then discards $M-1$ out of every $M$
-outputs — computing results you immediately throw away. A **decimating FIR** only computes
-the outputs it keeps, cutting the work by exactly $M$:
+A simple approach would calculate every filter output, then throw away *M* − 1 of every *M*. A
+**decimating FIR filter** only calculates the outputs it keeps. That is *M* times less work:
 
 $$
-\text{MACs/s} = \frac{N \cdot f_s}{M}
+\text{multiplications per second} = \frac{N \times f_s}{M}
 $$
 
-GNU Radio's Low Pass Filter block does this automatically when you set `decim > 1`. **Always
-use the block's own `decim` parameter** rather than a separate Keep-1-in-N block.
+GNU Radio's filter blocks do this when you set their `decim` setting above 1. **Always use the
+filter's own `decim`**, not a separate "Keep 1 in N" block.
 
-### Interpolation = insert zeros, then filter
+### Interpolation: add zeros, then filter
 
-To increase the rate by $L$: insert $L-1$ zeros between samples, then lowpass at $f_s/(2L)$
-with gain $L$. The zero-stuffing creates $L-1$ spectral images; the filter removes them.
+To **increase** the rate by *L*: put *L* − 1 zeros between samples, then low-pass filter. The
+zeros create unwanted copies of the spectrum; the filter removes them.
 
-### Rational resampling $L/M$
+### Resampling by a fraction L/M
 
-Arbitrary rate changes use interpolate-by-$L$, filter, decimate-by-$M$ — done in a single
-polyphase structure so the zeros are never actually multiplied.
+To change the rate by a fraction, **interpolate by L, filter, then decimate by M** — all in one
+**Rational Resampler** block (Lab 02):
 
 $$
-f_{\text{out}} = f_{\text{in}} \cdot \frac{L}{M}
+f_{\text{out}} = f_{\text{in}} \times \frac{L}{M}
 $$
 
-Always reduce $L/M$ to lowest terms with `gcd`, because the internal filter runs at
-$f_{\text{in}} \cdot L$.
+**Always reduce the fraction to its lowest terms**, because the block works internally at
+*f*ₛ × *L*.
 
-> **Worked example — Lab 03's resampler.**
-> $2{,}000{,}000 \to 384{,}000$. Ratio $= 384000/2000000 = 0.192 = 24/125$.
-> $\gcd(24,125) = 1$, so `interp = 24`, `decim = 125`. Internal rate is
-> $2 \times 10^6 \times 24 = 48$ MSPS — which is why polyphase (not literal zero-stuffing)
-> matters so much.
+> **Example — Lab 03's resampler.** 2,000,000 → 384,000.
+> 384,000 ÷ 2,000,000 = 0.192 = **24/125** (lowest terms). So interpolation = 24,
+> decimation = 125. Internally that is 2,000,000 × 24 = 48 million samples per second — which is
+> why the block uses a clever "polyphase" method that never actually calculates with the zeros.
 
-**Handy helper:**
+A helper to find L and M:
 
 ```bash
 python3 -c "
 from math import gcd
 fin, fout = 2000000, 384000
-g = gcd(int(fin), int(fout))
-print(f'interp={int(fout)//g}  decim={int(fin)//g}')
-"
+g = gcd(fin, fout)
+print(f'interp={fout//g}  decim={fin//g}')"
 ```
 
-### Choosing rates that divide nicely
+✅ `interp=24  decim=125`
 
-Pick your chain so every stage is an integer or a small rational:
+### Plan your rates backwards
+
+Choose sample rates so every step divides nicely:
 
 ```
-2,000,000  ──/125·24──▶  384,000  ──/8──▶  48,000   ✅ clean
-2,000,000  ──────────▶   441,000  ─────▶   44,100   ⚠️  ratio 441/2000, big filters
+2,000,000  ──×24 ÷125──▶  384,000  ──÷8──▶  48,000   ✅ clean
+2,000,000  ────────────▶   441,000  ────▶   44,100   ⚠️ 441/2000 — big, costly filters
 ```
 
-**Design your rates backwards from the audio sink.** 48 kHz audio × 8 = 384 kHz quadrature
-rate; 384 kHz × 125/24 = 2 MSPS at the radio. Everything falls out cleanly.
+**Start from the audio rate and work backwards.** 48 kHz audio × 8 = 384 kHz; × 125/24 =
+2 MSPS at the radio. Everything comes out as whole numbers.
 
 ---
 
-## Part 4 — Bandpass and Frequency-Translating Filters
+## Part 4 — Band-pass and frequency-shifting filters
 
-### Bandpass from lowpass
+### A band-pass filter from a low-pass filter
 
-Multiplying a lowpass impulse response by a cosine shifts its passband:
+Multiply a low-pass filter's taps by a cosine at frequency *f*₀, and its pass region moves up to
+*f*₀. That is how `firdes.band_pass()` works. Lab 04 uses a band-pass filter to pick out the
+19 kHz stereo pilot.
 
-$$
-h_{\text{BP}}[k] = 2 h_{\text{LP}}[k] \cos\!\left(2\pi \frac{f_{\text{center}}}{f_s} k\right)
-$$
-
-This is exactly how `firdes.band_pass()` works, and it is what Lab 04 uses to pull the 19 kHz
-pilot out of the MPX signal.
-
-### Frequency Xlating FIR Filter — the channelizer
-
-This is the block that makes multi-channel receivers possible, and Lab 06 is built on it. It
-performs three operations in one pass:
-
-1. **Mix** the input down by $-f_{\text{offset}}$: $x[n] \cdot e^{-j 2\pi f_{\text{offset}} n / f_s}$
-2. **Filter** with lowpass taps
-3. **Decimate** by $M$
+<details>
+<summary><b>Going deeper:</b> the formula</summary>
 
 $$
-y[n] = \sum_k h[k] \; x[nM - k] \; e^{-j 2\pi f_{\text{offset}} (nM-k)/f_s}
+h_{\text{BP}}[k] = 2\,h_{\text{LP}}[k] \cos\!\left(2\pi \frac{f_{\text{center}}}{f_s} k\right)
 $$
 
-The efficiency win: the mixer is folded into the taps, so it costs nothing extra, and the
-whole thing runs at the **output** rate.
+A **complex** band-pass filter (`firdes.complex_band_pass`) multiplies by
+$e^{j2\pi f_{\text{center}} k / f_s}$ instead, and so passes only the positive frequency.
+Lab 04 uses this for the pilot.
+</details>
 
-**Why this matters.** Tune the SDR once to the middle of a band, then select any channel
-inside that band purely in software — instantly, with no hardware retune and no PLL settling
-time. That is the essence of software-defined radio.
+### The Frequency Xlating FIR Filter — tuning in software
+
+This block (Lab 05 and Lab 06) does three things in one step:
+
+1. **Shift** the chosen frequency (`center_freq`) down to 0 Hz.
+2. **Filter** with low-pass taps.
+3. **Decimate** by *M*.
+
+It is efficient because the shift is built into the taps (so it costs nothing extra) and it
+only calculates the outputs it keeps.
+
+**Why it matters:** tune the radio once to the middle of a band. Then pick **any** channel inside
+that band in software — instantly, with no hardware retuning. This is the heart of
+software-defined radio.
 
 ```
       2 MHz of spectrum from the SDR
@@ -335,96 +318,113 @@ time. That is the essence of software-defined radio.
    │  ch A     ch B      ch C          │
    └──┬────────┬─────────┬─────────────┘
       │        │         │
-   xlating  xlating   xlating     ← three filters, one tuner
-   filter   filter    filter
+   xlating  xlating   xlating     ← three filters, one tuner:
+   filter   filter    filter        three channels at once
 ```
+
+<details>
+<summary><b>Going deeper:</b> the equation</summary>
+
+$$
+y[n] = \sum_k h[k] \; x[nM - k] \; e^{-j 2\pi f_{\text{offset}} (nM-k)/f_s}
+$$
+</details>
 
 ---
 
-## Part 5 — IIR Filters (and the de-emphasis filter)
+## Part 5 — IIR filters, and de-emphasis
 
-An **Infinite Impulse Response** filter feeds output back into itself:
+An **IIR** (infinite impulse response) filter uses **feedback**: each output depends on
+earlier outputs as well as inputs. It can be much sharper for the same number of coefficients,
+but it does not delay all frequencies equally, and a badly designed one can become unstable.
 
-$$
-y[n] = \sum_{k=0}^{P} b_k x[n-k] - \sum_{k=1}^{Q} a_k y[n-k]
-$$
-
-IIR filters achieve a given selectivity with **far fewer** coefficients than FIR, but they
-are not linear-phase and can be unstable. In this lab we use exactly one: the single-pole
-de-emphasis filter.
-
-The analog RC response $H(s) = \frac{1}{1 + s\tau}$ discretises (impulse invariance) to
+This course uses one IIR filter: the **de-emphasis** filter for FM
+([Fundamentals 04 §6](./04_fm_theory.md#6-pre-emphasis-and-de-emphasis)). It is the simplest
+possible IIR filter, with one setting, α:
 
 $$
-H(z) = \frac{\alpha}{1 - (1-\alpha)z^{-1}}, \qquad
-\boxed{\alpha = 1 - e^{-T_s/\tau} = 1 - e^{-1/(f_s \tau)}}
+y[n] = \alpha \, x[n] + (1-\alpha)\, y[n-1], \qquad
+\boxed{\alpha = 1 - e^{-1/(f_s \, \tau)}}
 $$
 
-| $f_s$ | $\tau$ | $\alpha$ |
+In words: each output is mostly the previous output, nudged a little (by α) towards the new
+input. That smooths out fast changes — high frequencies — just like a resistor and capacitor.
+
+| Sample rate | τ | α |
 |---|---|---|
-| 240 kHz | 50 μs | 0.0800 |
-| 240 kHz | 75 μs | 0.0540 |
-| 48 kHz | 50 μs | 0.3408 |
-| 48 kHz | 75 μs | 0.2425 |
+| 240 kHz | 50 µs | 0.0800 |
+| 240 kHz | 75 µs | 0.0540 |
+| 48 kHz | 50 µs | 0.3408 |
+| 48 kHz | 75 µs | 0.2425 |
 
-> ⚠️ **$\alpha$ depends on the sample rate.** If you change the rate at which de-emphasis is
-> applied and keep the old $\alpha$, your treble will be wrong. This is a very common bug in
-> home-made FM receivers.
+> ⚠️ **α depends on the sample rate.** If you move the de-emphasis to a wire with a different
+> rate but keep the old α, the treble will be wrong. This is a common bug in home-made FM
+> receivers.
+
+Calculate them yourself:
 
 ```bash
 python3 -c "
 import math
 for fs in (240000, 48000):
     for tau in (50e-6, 75e-6):
-        print(f'fs={fs:>7}  tau={tau*1e6:>3.0f}us  alpha={1-math.exp(-1/(fs*tau)):.4f}')
-"
+        print(f'fs={fs:>7}  tau={tau*1e6:>3.0f}us  alpha={1-math.exp(-1/(fs*tau)):.4f}')"
 ```
 
 ---
 
-## Part 6 — A Design Checklist
+## Part 6 — A checklist for every new flowgraph
 
-Before you wire up any new chain, fill in this table for every wire:
+Before you build a chain, fill in a table like this for every wire (example: Lab 03):
 
-| # | Wire | Sample rate | Data type | Bandwidth present | Bandwidth wanted |
+| # | Wire | Sample rate | Type | Width present | Width wanted |
 |---|---|---|---|---|---|
-| 1 | SDR → LPF | 2 MSPS | complex | ±1 MHz | ±100 kHz |
-| 2 | LPF → resamp | 2 MSPS | complex | ±100 kHz | — |
-| 3 | resamp → demod | 384 kSPS | complex | ±100 kHz | ✅ fits |
-| 4 | demod → audio | 48 kSPS | float | 0–15 kHz | ✅ fits |
+| 1 | SDR → low-pass filter | 2 MSPS | complex | ±1 MHz | ±100 kHz |
+| 2 | filter → resampler | 2 MSPS | complex | ±100 kHz | — |
+| 3 | resampler → demod | 384 kSPS | complex | ±100 kHz | ✅ fits in ±192 kHz |
+| 4 | demod → audio | 48 kSPS | float | 0–15 kHz | ✅ fits in 0–24 kHz |
 
-Three questions per row:
+Then ask three questions for each row:
 
-1. **Does the wanted bandwidth fit inside ±(rate/2)?** If not, you will alias.
-2. **Is there a filter before every rate reduction?** If not, you will alias.
-3. **Does the data type match on both ends?** GRC catches this one for you; the other two it
-   does not.
+1. **Does the wanted width fit inside ±(rate ÷ 2)?** If not, it will alias.
+2. **Is there a filter before every reduction in rate?** If not, it will alias.
+3. **Do the data types match at both ends?** GRC checks this one for you. It does **not** check
+   the other two.
 
 ---
 
-## 🧠 Self-Check
+## ✅ Summary
 
-1. You sample at 500 kSPS complex. What total bandwidth do you see?
-   **Answer:** 500 kHz, from −250 kHz to +250 kHz relative to the tuned frequency.
+- Sampling makes **copies** of the spectrum every *f*ₛ. Nyquist: real needs *f*ₛ > 2B; **IQ needs
+  *f*ₛ > B**.
+- **Aliasing** cannot be undone. Always filter **before** reducing the sample rate.
+- An **FIR filter** is a weighted average of recent samples. Symmetric taps delay everything by
+  (*N* − 1)/2 samples.
+- **Taps: *N* = A × *f*ₛ / (22 × Δ*f*).** Sharp edges and high rates are expensive.
+- **Decimate** with the filter's own `decim`. **Resample** with the fraction in lowest terms.
+- The **Frequency Xlating FIR Filter** shifts, filters and decimates in one step: software tuning.
+- De-emphasis **α depends on the sample rate**.
 
-2. A 300 kHz tone is present when sampling at 240 kSPS. Where does it appear?
-   **Answer:** $k = \operatorname{round}(300/240) = 1$, so at $300-240 = 60$ kHz.
+## 🧠 Check yourself
 
-3. Design a Hamming lowpass at $f_s = 384$ kHz with a 5 kHz transition. How many taps?
-   **Answer:** $N = 53 \times 384{,}000 / (22 \times 5{,}000) = 185.0 \rightarrow 185$ taps.
-
-4. Convert 1.92 MSPS to 48 kSPS with a rational resampler. What are interp and decim?
-   **Answer:** $48000/1920000 = 1/40$, so `interp = 1`, `decim = 40`.
-
+1. You sample IQ at 500 kSPS. How much spectrum do you see?
+   <details><summary>Answer</summary>500 kHz: from −250 kHz to +250 kHz around the tuned
+   frequency.</details>
+2. A 300 kHz tone is present when you sample at 240 kSPS. Where does it appear?
+   <details><summary>Answer</summary>The nearest whole number to 300/240 is 1, so it appears
+   at 300 − 240 = 60 kHz.</details>
+3. A Hamming low-pass filter at 384 kSPS with a 5 kHz transition. How many taps?
+   <details><summary>Answer</summary>53 × 384,000 / (22 × 5,000) = 185.0 → 185 taps.</details>
+4. Change 1.92 MSPS to 48 kSPS with a Rational Resampler. What are interpolation and decimation?
+   <details><summary>Answer</summary>48,000/1,920,000 = 1/40: interpolation 1, decimation
+   40.</details>
 5. Why must the anti-alias filter come *before* the decimator?
-   **Answer:** Decimation folds everything above the new Nyquist rate into the band
-   irreversibly; once folded, the alias is arithmetically identical to a real signal.
+   <details><summary>Answer</summary>Decimation folds everything above the new limit into the
+   band. Once folded, the false signal is identical to a real one and cannot be
+   removed.</details>
+6. You move de-emphasis from a 240 kHz wire to a 48 kHz wire, but keep α = 0.08. What happens?
+   <details><summary>Answer</summary>At 48 kHz, α = 0.08 means τ ≈ 250 µs instead of 50 µs.
+   The corner frequency falls from about 3.2 kHz to about 640 Hz, so far too much treble is
+   removed: the audio sounds <b>muffled</b>. You need α = 0.3408 at 48 kHz.</details>
 
-6. You move de-emphasis from a 240 kHz wire to a 48 kHz wire and keep $\alpha = 0.08$. What
-   happens?
-   **Answer:** The corner frequency moves up by 5×, so the filter barely cuts treble — the
-   audio sounds bright and hissy. You need $\alpha = 0.3411$ for 50 μs at 48 kHz.
-
----
-
-**Next:** [Fundamentals 06 — Noise, SNR & Gain →](./06_noise_snr_and_gain.md)
+**Next:** [Fundamentals 06 — Noise, SNR and Gain →](./06_noise_snr_and_gain.md)

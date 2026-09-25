@@ -1,436 +1,464 @@
-# 📉 Fundamentals 06 — Noise, SNR, Gain & Dynamic Range
+# 📉 Fundamentals 06 — Noise, Signal Strength and Gain
 
-> **Prerequisite:** Sampling & Filters (Fundamentals 05)
-> **Time to read:** 45 minutes
-> **Used by:** Lab 05, Lab 06, Lab 08, Lab 09
-
----
-
-## Why This Chapter Exists
-
-Every receiver question that starts with *"why can't I hear it?"* is answered here.
-
-- Why does turning the gain up past 50 dB make reception **worse**?
-- What does "sensitivity −110 dBm" actually promise?
-- What SNR do I need before the FM audio becomes listenable?
-- Why does decimating from 2 MSPS to 240 kSPS make a weak station suddenly appear?
-
-These are not opinions. They are arithmetic, and this chapter gives you the arithmetic.
+> **What you will learn:** decibels properly (dB, dBm, dBFS); where noise comes from; noise
+> figure; SNR and how much each mode needs; how to set the **gain** correctly; why you must set
+> the analog bandwidth; processing gain; AGC; squelch; and how to work out a **link budget**.
+> **Before this:** [Fundamentals 05 — Sampling & Filters](./05_sampling_and_filters.md).
+> **Time:** about 45 minutes. **Used by:** Labs 05, 06, 08, 09.
 
 ---
 
-## Part 1 — Decibels, Properly
+## Why this chapter exists
+
+Every question that starts with *"why can't I hear it?"* is answered here:
+
+- Why does turning the gain above about 50 dB make reception **worse**?
+- What does "sensitivity −110 dBm" actually mean?
+- How clean must a signal be before FM sounds good?
+- Why does a weak station suddenly appear when you narrow the filter?
+
+These are not opinions. They are simple arithmetic, and this chapter shows you the arithmetic.
+
+---
+
+## Part 1 — Decibels, properly
 
 ### The definition
 
-A decibel is a **ratio of powers** on a log scale:
+A **decibel** compares two **powers** on a logarithmic scale:
 
 $$
-G_{dB} = 10 \log_{10}\frac{P_2}{P_1}
+\text{dB} = 10 \log_{10}\frac{P_2}{P_1}
 $$
 
-For **voltages or amplitudes**, because $P \propto V^2$:
+For **voltages** or **amplitudes**, use 20 instead of 10 (because power is proportional to
+voltage squared):
 
 $$
-G_{dB} = 20 \log_{10}\frac{V_2}{V_1}
+\text{dB} = 20 \log_{10}\frac{V_2}{V_1}
 $$
 
-> ⚠️ The 10-vs-20 distinction is the single most common mistake in SDR. **Power → 10. Voltage
-> or amplitude → 20.** GNU Radio's FFT sinks display power, so they use 10. AGC references and
-> filter gains are amplitudes, so they use 20.
+> ⚠️ **10 or 20?** This is the most common mistake in SDR.
+> **Power → 10. Voltage or amplitude → 20.**
+> GNU Radio's spectrum displays show **power**, so they use 10. AGC levels and filter gains are
+> **amplitudes**, so they use 20.
 
-### Numbers worth memorising
+### Numbers worth remembering
 
-| Ratio | Power dB | Amplitude dB |
+| Ratio | As power | As amplitude |
 |---|---|---|
-| 2× | 3.01 dB | 6.02 dB |
-| 4× | 6.02 dB | 12.04 dB |
-| 10× | 10 dB | 20 dB |
-| 100× | 20 dB | 40 dB |
-| 1000× | 30 dB | 60 dB |
+| ×2 | 3 dB | 6 dB |
+| ×4 | 6 dB | 12 dB |
+| ×10 | 10 dB | 20 dB |
+| ×100 | 20 dB | 40 dB |
+| ×1000 | 30 dB | 60 dB |
 
-### Absolute units
+### Fixed references: dBm, dBW, dBFS and others
 
-A bare "dB" is a ratio. Add a suffix to make it absolute:
+A plain **dB** is only a comparison. Add letters to compare with a fixed reference:
 
-| Unit | Reference | Used for |
+| Unit | Compared with | Used for |
 |---|---|---|
-| **dBm** | 1 milliwatt | RF power at an antenna or connector |
-| **dBW** | 1 watt | Transmitter power ($0$ dBW $= 30$ dBm) |
-| **dBFS** | ADC full scale | Digital level inside the SDR |
-| **dBc** | The carrier | Spurious and harmonic levels |
-| **dBi** | Isotropic radiator | Antenna gain |
+| **dBm** | 1 milliwatt | Real power at an antenna or connector |
+| **dBW** | 1 watt | Transmitter power (0 dBW = 30 dBm) |
+| **dBFS** | the ADC's maximum ("full scale") | The level inside the SDR |
+| **dBc** | the carrier | How strong unwanted signals are, next to the wanted one |
+| **dBi** | a perfect "isotropic" antenna | Antenna gain |
 
-$$
-P_{dBm} = 10\log_{10}\!\left(\frac{P_{\text{watts}}}{0.001}\right)
-$$
+Some real signal levels:
 
 | Signal | Power | dBm |
 |---|---|---|
-| Strong local FM at your antenna | 1 μW | −30 dBm |
-| Typical usable FM broadcast | 1 pW | −90 dBm |
-| Weak but decodable narrowband | 10 fW | −110 dBm |
+| A strong local FM station at your antenna | 1 µW (a millionth of a watt) | −30 dBm |
+| A normal, usable FM station | 1 pW (a million-millionth) | −90 dBm |
+| A weak but decodable narrow signal | 10 fW | −110 dBm |
 | GPS at the Earth's surface | 0.1 fW | −130 dBm |
 
-### dBFS — the digital side
+### dBFS — levels inside the SDR
 
-Inside GNU Radio, `fc32` samples are floats nominally in $[-1, +1]$. A full-scale sine has
-amplitude 1.0 and RMS $1/\sqrt{2}$, defined as **0 dBFS**. So:
+Inside GNU Radio, IQ samples are numbers between about −1 and +1. **0 dBFS** is defined as a
+full-scale sine wave (amplitude 1.0). Everything else is negative.
+
+> ⚠️ **GNU Radio's spectrum display shows dBFS, not dBm.** To turn dBFS into real power you need
+> a calibration of your receiver, which consumer SDRs do not come with. Use the display to
+> **compare** signals, not to measure their real power.
+
+<details>
+<summary><b>Going deeper:</b> the dBFS formula</summary>
+
+A full-scale sine has amplitude 1.0 and average power ½ (RMS $1/\sqrt2$). So:
 
 $$
-P_{dBFS} = 20 \log_{10}\!\left(\frac{V_{\text{rms}}}{1/\sqrt 2}\right)
-= 10 \log_{10}\!\left(2 \cdot \overline{|x[n]|^2}\right)
+P_{dBFS} = 10 \log_{10}\!\left(2 \cdot \overline{|x[n]|^2}\right)
 $$
 
-Everything you see in a QT GUI Frequency Sink is dBFS-per-FFT-bin, **not** dBm. To convert you
-need the receiver's absolute calibration, which consumer SDRs do not provide. Treat the sink
-as a relative instrument.
+This is the "+3.0103 dB" (10·log₁₀2) you see in the level meters of Labs 05 and 06.
+</details>
 
 ---
 
-## Part 2 — Where Noise Comes From
+## Part 2 — Where noise comes from
 
-### Thermal (Johnson–Nyquist) noise
+### Thermal noise: the floor nothing can go below
 
-Every resistor at temperature $T$ generates noise power in bandwidth $B$:
+Every object warmer than absolute zero makes a tiny, random electrical noise, because its atoms
+are moving. At room temperature this noise is:
 
 $$
-\boxed{N = k T B}
+\boxed{-174 \text{ dBm per Hz of bandwidth}}
 $$
 
-with $k = 1.38 \times 10^{-23}$ J/K. At room temperature ($T_0 = 290$ K):
+**Remember −174 dBm/Hz.** It is the noise floor of the universe at room temperature. No
+receiver can do better.
+
+The wider your bandwidth, the more noise you collect:
+
+$$
+N_{dBm} = -174 + 10\log_{10}(\text{bandwidth in Hz})
+$$
+
+| Bandwidth | 10·log₁₀(B) | Thermal noise |
+|---|---|---|
+| 1 Hz | 0 dB | −174 dBm |
+| 3 kHz (SSB voice) | 34.8 dB | −139.2 dBm |
+| 15 kHz (narrow FM) | 41.8 dB | −132.2 dBm |
+| 200 kHz (FM broadcast) | 53.0 dB | −121 dBm |
+| 2 MHz (the whole SDR span) | 63.0 dB | −111 dBm |
+
+> 💡 **This table explains why filtering helps.** Narrowing from 2 MHz to 15 kHz lets in
+> 10·log₁₀(2,000,000 ÷ 15,000) = **21 dB less noise** — while the wanted signal stays the same.
+> That 21 dB is free. It is why every receiver in this course filters and decimates, and why a
+> station you cannot see on the 2 MHz waterfall can still be clear after the channel filter.
+
+<details>
+<summary><b>Going deeper:</b> where −174 comes from</summary>
+
+Noise power in bandwidth $B$ at temperature $T$ is $N = kTB$, with Boltzmann's constant
+$k = 1.38 \times 10^{-23}$ J/K. At $T_0 = 290$ K:
 
 $$
 kT_0 = 4.00 \times 10^{-21} \text{ W/Hz} = -174 \text{ dBm/Hz}
 $$
+</details>
 
-**−174 dBm/Hz is the number to memorise.** It is the noise floor of the universe at room
-temperature, and no receiver can do better.
+### Noise figure: how much noise the receiver adds
 
-$$
-N_{dBm} = -174 + 10\log_{10}B
-$$
-
-| Bandwidth | $10\log_{10}B$ | Thermal noise floor |
-|---|---|---|
-| 1 Hz | 0 dB | −174 dBm |
-| 3 kHz (SSB) | 34.8 dB | −139.2 dBm |
-| 15 kHz (NBFM) | 41.8 dB | −132.2 dBm |
-| 200 kHz (WBFM) | 53.0 dB | −121 dBm |
-| 2 MHz (full SDR span) | 63.0 dB | −111 dBm |
-
-> **This table explains decimation.** Narrowing your processing bandwidth from 2 MHz to
-> 15 kHz drops the noise you accept by $10\log_{10}(2\times10^6/15\times10^3) = 21$ dB, while
-> leaving your wanted signal untouched. That 21 dB is free SNR. It is why every receiver in
-> this repo decimates aggressively, and why a station invisible on the waterfall can be
-> perfectly audible after the channel filter.
-
-### Noise figure
-
-Real hardware adds its own noise. The **noise factor** $F$ is how much worse the SNR gets:
-
-$$
-F = \frac{\text{SNR}_{\text{in}}}{\text{SNR}_{\text{out}}}, \qquad NF = 10\log_{10}F
-$$
-
-The effective noise floor becomes:
+A real receiver adds its own noise on top. The **noise figure (NF)** says how much, in dB. The
+receiver's real noise floor is:
 
 $$
 \boxed{N_{dBm} = -174 + 10\log_{10}B + NF}
 $$
 
-| Device | Typical NF |
+| Receiver | Typical NF |
 |---|---|
-| Cooled radio-astronomy LNA | 0.3 dB |
-| Good external LNA | 1–2 dB |
-| AD9361 (SignalSDR Pro / B210) front end | 4–8 dB depending on gain and band |
+| Cooled radio-astronomy amplifier | 0.3 dB |
+| Good external low-noise amplifier (LNA) | 1–2 dB |
+| AD9361 (SignalSDR Pro / B210) | 4–8 dB, depending on gain and band |
 | RTL-SDR | 6–10 dB |
-| Same receiver with the gain turned *down* | 20 dB+ |
+| Any receiver with its gain turned right **down** | 20 dB or more |
 
-### Friis: why the first amplifier decides everything
+### The first amplifier decides everything (Friis)
 
-For a cascade of stages with gains $G_i$ (linear) and noise factors $F_i$:
+In a chain of amplifiers, the **first** one's noise counts in full. Every later amplifier's noise
+is divided by all the gain in front of it. So **the first amplifier sets your noise figure.**
+
+> **Example.** The SDR alone: NF = 8 dB. Now put a small LNA (NF 1 dB, gain 20 dB) **at the
+> antenna**, in front of it. The total NF becomes about **1.2 dB** — nearly 7 dB better, from
+> one small part.
+>
+> But put the same LNA at the *other* end of a long cable, and the cable's loss comes first.
+> Then you gain almost nothing.
+
+<details>
+<summary><b>Going deeper:</b> the Friis formula and the numbers</summary>
+
+With linear gains $G_i$ and noise factors $F_i = 10^{NF_i/10}$:
 
 $$
-\boxed{F_{\text{total}} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \cdots}
+F_{\text{total}} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \cdots
 $$
 
-The first stage's noise adds in full; every later stage is divided by all the gain ahead of
-it. **The first amplifier sets your noise figure.**
+LNA: $F_1 = 10^{0.1} = 1.26$, $G_1 = 100$. SDR: $F_2 = 10^{0.8} = 6.31$.
 
-> **Worked example.** SDR alone: $NF = 8$ dB. Add a mast-head LNA with $NF = 1$ dB and
-> $G = 20$ dB in front of it:
-> $F_1 = 10^{0.1} = 1.26$, $G_1 = 100$, $F_2 = 10^{0.8} = 6.31$.
-> $$F_{\text{tot}} = 1.26 + \frac{6.31 - 1}{100} = 1.312 \Rightarrow NF = 1.18\text{ dB}$$
-> Nearly 7 dB of sensitivity, gained by adding one part — **at the antenna**. Put the same
-> LNA at the far end of the coax and the cable loss becomes $F_1$ and you gain almost nothing.
+$$
+F_{\text{total}} = 1.26 + \frac{6.31 - 1}{100} = 1.312 \Rightarrow NF = 1.18\text{ dB}
+$$
+</details>
 
 ---
 
-## Part 3 — SNR and What Each Mode Needs
+## Part 3 — SNR, and how much each mode needs
+
+**SNR** (signal-to-noise ratio) is how far the signal stands above the noise, in dB:
 
 $$
-\text{SNR}_{dB} = P_{\text{signal},dBm} - N_{dBm}
+\text{SNR (dB)} = \text{signal (dBm)} - \text{noise (dBm)}
 $$
 
-| Mode | SNR for usable copy | SNR for good quality |
+| Mode | SNR to understand it | SNR for good quality |
 |---|---|---|
-| WBFM broadcast (mono) | 12 dB | 30 dB |
-| WBFM broadcast (stereo) | 25 dB | 40 dB |
-| NBFM voice | 10 dB | 20 dB |
-| AM voice (airband) | 6 dB | 15 dB |
-| BPSK, uncoded, BER $10^{-3}$ | 7 dB $E_b/N_0$ | 10 dB |
-| ADS-B (Mode S) | 8 dB | 15 dB |
+| FM broadcast, mono | 12 dB | 30 dB |
+| FM broadcast, **stereo** | 25 dB | 40 dB |
+| Narrow FM voice | 10 dB | 20 dB |
+| AM voice (aircraft) | 6 dB | 15 dB |
+| BPSK data, BER 10⁻³ | 7 dB (Eb/N0) | 10 dB |
+| ADS-B | 8 dB | 15 dB |
 
-> **Note the stereo penalty.** The L−R subcarrier sits at 38 kHz where FM's triangular noise
-> spectrum is much worse, and after the stereo matrix its noise adds to the L+R noise. Stereo
-> costs roughly **20 dB** of SNR versus mono. This is exactly why your Lab 04 receiver hisses
-> on distant stations while Lab 01 sounds fine on the same signal, and why commercial radios
-> "blend to mono" when the signal weakens.
+> 💡 **Stereo needs about 20 dB more.** The stereo part (L−R) sits around 38 kHz, where FM noise is
+> much stronger, and the stereo matrix adds that noise to the sound. That is why Lab 04 hisses on
+> a distant station that sounds fine in Lab 01 — and why car radios switch to mono when the
+> signal gets weak.
 
-### FM's quieting threshold
+### FM's threshold
 
-FM has a **capture/threshold effect**. Below about 10 dB carrier-to-noise ratio the
-demodulator output degrades catastrophically (you hear a roar); above it, the output SNR
-improves *faster* than the input:
+FM has a **threshold** at about 10 dB. Below it, the sound collapses into a roar. Above it, the
+output gets clean **faster** than the input improves. For FM broadcast, this "FM improvement"
+is about **+18.8 dB**. That is why FM sounds so much cleaner than AM at the same signal
+strength. The price is bandwidth: FM uses far more of it.
+
+<details>
+<summary><b>Going deeper:</b> the FM improvement formula</summary>
 
 $$
 \text{SNR}_{\text{out}} \approx \text{SNR}_{\text{in}} + 20\log_{10}\!\left(\frac{\Delta f}{f_m}\right) + 4.8 \text{ dB}
 $$
 
-For WBFM broadcast, $\Delta f/f_m = 75/15 = 5$, giving about **+18.8 dB** of FM improvement
-gain. That is why FM broadcast sounds so much cleaner than AM at the same received power —
-and why it needs so much more bandwidth to do it. There is no free lunch; you traded
-bandwidth for SNR.
+For broadcast FM, $\Delta f / f_m = 75/15 = 5$: $20\log_{10}5 + 4.8 = 18.8$ dB.
+</details>
 
 ---
 
-## Part 4 — Gain: the Three Kinds, and How to Set Them
+## Part 4 — Gain: how to set it
 
-The SignalSDR Pro / B210 front end has a **single 0–76 dB gain control** in GNU Radio, but
-internally it drives several stages. What matters is the trade-off it controls:
+The SignalSDR Pro has **one gain setting** in GNU Radio (0–76 dB). Inside, it controls several
+amplifiers. What matters is the balance:
 
 ```
    too little gain              just right              too much gain
  ┌────────────────┐        ┌────────────────┐       ┌────────────────┐
- │ signal buried  │        │ signal well    │       │ front end      │
- │ in ADC noise   │        │ above noise,   │       │ compressed;    │
- │                │        │ far from clip  │       │ spurs & IMD    │
- │ NF is terrible │        │                │       │ everywhere     │
+ │ signal lost in │        │ signal well    │       │ amplifiers     │
+ │ the ADC's own  │        │ above noise,   │       │ overloaded:    │
+ │ noise          │        │ far from the   │       │ false signals  │
+ │                │        │ maximum        │       │ everywhere     │
  └────────────────┘        └────────────────┘       └────────────────┘
 ```
 
-### The procedure that always works
+### A method that always works
 
-1. Set gain to **0 dB**. Look at the QT GUI Frequency Sink.
-2. Raise gain in 5 dB steps. Watch the **noise floor** rise.
-3. Stop as soon as the noise floor starts moving up with the gain. At that point you are
-   noise-limited by the front end, not the ADC — extra gain adds nothing but distortion risk.
-4. Back off 5 dB. That is your operating point. For FM broadcast on a decent antenna this is
-   typically **30–45 dB**.
+1. Set the gain to **0 dB**. Look at the spectrum display.
+2. Raise the gain in **5 dB steps**. Watch the **noise floor** (the grassy line at the bottom).
+3. At first the noise floor hardly moves. **Stop when it starts rising together with the gain.**
+   From that point, you are only amplifying the radio's own noise. More gain just risks
+   overload.
+4. **Turn it back down 5 dB.** That is your setting. For FM with a decent antenna, it is usually
+   **30–45 dB**.
 
-### Set the analog bandwidth, or none of this works
+### Set the analog bandwidth first — or none of this works
 
-Before you tune gain at all, tell the front end how much bandwidth you actually want. In GNU
-Radio that is the USRP Source's **`bw0`** parameter (`set_bandwidth()` in the generated Python).
+Before you touch the gain, tell the radio how wide a signal you want. In the USRP Source, that is
+the **`bw0`** setting (`set_bandwidth()` in Python). **Set it to your sample rate.**
 
-If you leave it unset, the AD9361's baseband filter opens all the way — **56 MHz** on a B210 —
-and you receive 28 times more noise and out-of-band energy than you asked for. Worse, the chip's
-DC-offset and quadrature calibration is tied to that filter setting, so a wide-open filter also
-leaves a large residual **LO leakage spike at 0 Hz**.
+If you leave it empty, the radio's analog filter opens to its widest: **56 MHz**. You then collect
+28 times more noise and unwanted signals than you asked for. Worse, the radio's automatic
+correction of its centre spike works poorly with the filter wide open, so the **centre spike**
+(DC / LO leakage) becomes huge.
 
-Measured on a SignalSDR Pro at 89.9 MHz, 2 MSPS, gain 55 dB (repeated twice):
+Measured on a SignalSDR Pro at 89.9 MHz, 2 MSPS, gain 55 dB, twice:
 
-| `set_bandwidth` | Analog BW | $\lvert DC\rvert / \text{rms}$ | Wanted-signal rms |
+| `bw0` | Analog filter | Centre spike (share of the signal) | Wanted station |
 |---|---|---|---|
-| not called | 56.000 MHz | **0.843** | 0.0160 |
-| called with `samp_rate` | 2.000 MHz | **0.162** | 0.0149 |
+| not set | 56 MHz | **84 %** | 0.0160 |
+| set to `samp_rate` | 2 MHz | **16 %** | 0.0149 |
 
-The wanted signal is essentially unchanged. **All** the extra energy is DC and junk — and it is
-84 % of everything the ADC sees.
+The wanted station is the same. **All** the extra is the spike and junk — 84 % of everything the
+ADC sees.
 
-Why that is catastrophic downstream: an AGC placed after the channel filter normalises *total*
-amplitude. If 84 % of that total is a static DC vector, the AGC scales the wanted signal down
-by roughly $\sqrt{1 - 0.84^2} = 0.54$, and the FM demodulator then measures a small phase
-excursion riding on a large constant vector — which compresses and distorts it.
+**Why that ruins FM:** the FM decoder measures how the IQ arrow turns. A large, still spike is
+added to the small, turning station. Their sum no longer turns cleanly, so the decoded sound is
+squashed and distorted.
 
-In this repo, adding one line to the Lab 01 and Lab 03 flowgraphs changed their measured audio
-SNR on a real station from 34.6 dB to **53.2 dB** and from 19.4 dB to **62.6 dB** respectively.
+Adding this one setting improved the measured audio SNR of Lab 01 from 34.6 to **53.2 dB**, and
+of Lab 03 from 19.4 to **62.6 dB**.
 
-> **Rule: always set the analog bandwidth to your sample rate.** It costs nothing, it is one
-> parameter, and leaving it out can cost you 40 dB.
+> **Rule: always set `bw0` to your sample rate.** One setting, no cost, up to 40 dB better.
 
-### Symptoms of too much gain
+### Signs of too much gain
 
-- The waterfall shows evenly-spaced "ghost" carriers that move when you change gain → **IMD**.
-- The noise floor rises **1 dB for every 1 dB of gain** → you are already front-end-noise-limited
-  and further gain buys nothing. (Measured on a B210 at 1090 MHz: 70 → 76 dB of gain raised the
-  noise floor by exactly 6.0 dB. At that point the limiting factor was the antenna, not the
-  receiver.)
-- A strong local station appears at several frequencies at once → front-end compression.
-- Audio distorts on strong stations but is fine on weak ones → clipping.
-- `uhd` prints `O` (overflow) — that is a *USB* problem, not gain; lower the sample rate.
+| You see | It means |
+|---|---|
+| Evenly spaced "ghost" signals that move when you change the gain | **Intermodulation** — the amplifiers are overloaded and mixing strong signals together |
+| The noise floor rises **1 dB for every 1 dB** of gain | The radio is only hearing itself. More gain cannot help. (Measured at 1090 MHz: 70 → 76 dB of gain raised the noise by exactly 6.0 dB. The antenna was the real problem.) |
+| One strong station appears at several frequencies | The front end is **compressed** (overloaded) |
+| Sound distorts on strong stations only | **Clipping** in the ADC |
+| `O` printed in the terminal | Not a gain problem! That is USB overflow — lower the sample rate |
 
-### 1 dB compression point and dynamic range
+### Dynamic range
 
-An amplifier is linear until it isn't. The **P1dB** point is where output has fallen 1 dB
-below the ideal straight line. **Spurious-free dynamic range (SFDR)** is the window between
-the noise floor and the level where distortion products emerge:
+**Dynamic range** is the gap between the weakest signal you can hear (the noise floor) and the
+strongest you can handle (before overload). For an ideal ADC with *b* bits:
 
 $$
-\text{DR}_{dB} = P_{\text{max}} - N_{\text{floor}}
+\text{SNR}_{ADC} = 6.02\,b + 1.76 \text{ dB}
 $$
 
-An ideal $b$-bit ADC gives:
-
-$$
-\text{SNR}_{ADC} = 6.02b + 1.76 \text{ dB}
-$$
-
-| Bits | Ideal SNR |
+| Bits | Ideal dynamic range |
 |---|---|
 | 8 (RTL-SDR) | 49.9 dB |
-| 12 (AD9361 / SignalSDR Pro) | 74.0 dB |
+| **12 (AD9361, SignalSDR Pro)** | **74.0 dB** |
 | 14 | 86.0 dB |
 | 16 | 98.1 dB |
 
-### Processing gain — buying SNR back with DSP
+---
 
-Filtering to a narrower bandwidth improves SNR by:
+## Part 5 — Processing gain: getting SNR back with software
+
+**Narrowing the bandwidth** in software improves SNR by:
 
 $$
 \boxed{G_p = 10\log_{10}\frac{B_{\text{wide}}}{B_{\text{narrow}}}}
 $$
 
-And an $N$-point FFT spreads noise across $N$ bins, so each bin's noise drops by
-$10\log_{10}N$ relative to the full-band power — which is why a 4096-point FFT reveals
-carriers you cannot see with 256 points. **The signal stays in one bin; the noise splits
-across all of them.**
+The signal stays the same; the noise is cut.
 
-This is also, in one line, the reason spread-spectrum systems (GPS, CDMA) work at all: GPS
-arrives 20 dB *below* the noise floor and is recovered by correlating over a 1023-chip code,
-buying $10\log_{10}(1023) = 30$ dB of processing gain.
+**The same idea explains FFT displays.** An FFT with *N* bins splits the noise into *N* pieces,
+but a pure tone stays in one bin. So a bigger FFT shows weak tones that a small FFT hides. A
+4096-point FFT shows tones that a 256-point FFT cannot.
+
+**And it explains GPS.** GPS signals arrive about 20 dB **below** the noise. The receiver
+correlates each signal with a known 1023-chip code, which gives
+10·log₁₀(1023) = **30 dB** of processing gain — enough to lift the signal above the noise.
 
 ---
 
-## Part 5 — AGC: Automatic Gain Control
+## Part 6 — AGC: automatic gain control
 
-The blocks `analog_agc2_xx` (Labs 03, 06) implement a feedback loop that drives the signal
-amplitude toward a **reference**:
+An **AGC** keeps a signal at a steady level. It measures the output, and turns its own gain up
+or down to bring it towards a target (the **reference**). GNU Radio's block is `AGC2`
+(Labs 03, 06, 08).
 
-$$
-e[n] = \text{reference} - |y[n]|
-$$
-$$
-g[n+1] = g[n] + \mu \, e[n], \qquad y[n] = g[n]\,x[n]
-$$
-
-where $\mu$ is `attack_rate` when the signal is too loud and `decay_rate` when too quiet.
-
-| Parameter | Meaning | Typical |
+| Setting | Meaning | Typical |
 |---|---|---|
-| `reference` | Target output amplitude | 0.5 |
-| `attack_rate` | Loop gain while turning gain **down** | 0.01 (fast) |
-| `decay_rate` | Loop gain while turning gain **up** | 0.001 (slow) |
-| `max_gain` | Clamp, prevents runaway on silence | 65536 |
+| `reference` | Target output level | 0.5 (1.0 before AM Demod — see Lab 06) |
+| `attack_rate` | How fast it turns **down** when too loud | 0.01 (fast) |
+| `decay_rate` | How fast it turns **up** when too quiet | 0.001 (slow) |
+| `max_gain` | The most it may amplify | 65536 |
 
-**Attack fast, decay slow.** Fast attack protects against a sudden strong signal; slow decay
-stops the AGC from "pumping" the noise floor up between words. The time constant is roughly:
+**Attack fast, decay slow.** Fast attack stops a sudden strong signal from clipping. Slow decay
+stops the noise from swelling up in every pause ("pumping").
 
-$$
-\tau \approx \frac{1}{\mu f_s}
-$$
+The time it takes to react is roughly 1 ÷ (rate × sample rate). At 384 kSPS: attack 0.01 →
+about **0.26 ms**; decay 0.001 → about **2.6 ms**.
 
-At $f_s = 384$ kHz with `attack_rate` $= 0.01$: $\tau \approx 260\ \mu\text{s}$. With
-`decay_rate` $= 0.001$: $\tau \approx 2.6$ ms.
-
-> ⚠️ **Never put AGC before the channel filter.** The AGC would be driven by the strongest
-> signal anywhere in the 2 MHz span, not by the station you are listening to — so a strong
-> neighbour would turn *your* station down. Order is always: **filter → AGC → demodulate.**
-
----
-
-## Part 6 — Squelch
-
-Squelch mutes the output when the signal is too weak, so you get silence instead of a roar.
-
-`analog_pwr_squelch_xx` compares a running power estimate against a threshold in dB:
-
-$$
-\bar{P}[n] = (1-\alpha)\bar{P}[n-1] + \alpha |x[n]|^2, \qquad
-\text{open if } 10\log_{10}\bar{P}[n] > \text{threshold}
-$$
-
-| Parameter | Meaning | Notes |
-|---|---|---|
-| `threshold` | dB (relative to full scale) | Typical −50 to −30 |
-| `alpha` | Averaging constant | 0.01; smaller = steadier, slower |
-| `ramp` | Samples to fade in/out | > 0 avoids audible clicks |
-| `gate` | `True` = stop producing samples entirely | Use `False` for audio |
-
-> **`gate` matters more than it looks.** With `gate = True` the block emits *no samples* when
-> closed, which starves the audio sink and can stall the flowgraph. For anything feeding an
-> Audio Sink, use `gate = False` — it emits zeros instead, which is silence.
-
-**Setting the threshold empirically:** tune to an empty frequency, read the power on a QT GUI
-Number Sink fed from a Complex-to-Mag-Squared → Log10 chain, and set the threshold about
-**5 dB above** what you see.
-
----
-
-## Part 7 — The Link Budget
-
-Putting it all together, for any link:
-
-$$
-P_{\text{rx}} = P_{\text{tx}} + G_{\text{tx}} - L_{\text{path}} + G_{\text{rx}} - L_{\text{cable}}
-$$
-
-Free-space path loss:
-
-$$
-\boxed{L_{\text{fs}}(dB) = 20\log_{10}d_{\text{km}} + 20\log_{10}f_{\text{MHz}} + 32.45}
-$$
-
-> **Worked example — can I hear that FM station 30 km away?**
-> - $P_{tx} = 50$ kW ERP $= 77$ dBm
-> - $L_{fs} = 20\log_{10}(30) + 20\log_{10}(100) + 32.45 = 29.5 + 40 + 32.45 = 102$ dB
-> - Antenna gain $G_{rx} = 0$ dBi (telescopic whip), cable loss 1 dB
-> - $P_{rx} = 77 - 102 + 0 - 1 = -26$ dBm
+> ⚠️ **Where the AGC goes matters.**
+> - **After the channel filter**, never before. Otherwise the strongest signal anywhere in the
+>   2 MHz controls the gain, and a strong neighbour turns *your* station down.
+> - **After the squelch**, never before. The AGC lifts plain noise to the reference level, so a
+>   squelch after it would see "a signal" all the time and never mute (Lab 03).
 >
-> Noise floor in 200 kHz with $NF = 8$ dB: $-174 + 53 + 8 = -113$ dBm.
-> **SNR = 87 dB.** Full stereo, no problem. In practice buildings and terrain eat 20–40 dB of
-> that, and you still have 50 dB to spare. This is why FM broadcast is easy — and why ADS-B
-> in Lab 09, at 1090 MHz with a 1 W transmitter 100 km away, is genuinely hard.
+> **The order: channel filter → squelch → AGC → demodulate.**
+
+> 💡 **For FM, the AGC does not change the loudness.** The FM decoder ignores the signal's size.
+> For **AM**, the loudness *is* the signal's size, so there the AGC really matters.
+
+<details>
+<summary><b>Going deeper:</b> the AGC update rule</summary>
+
+$$
+y[n] = g[n]\,x[n], \qquad g[n+1] = g[n] + \mu \,\bigl(\text{reference} - |y[n]|\bigr)
+$$
+
+where $\mu$ is `attack_rate` when $|y| >$ reference, and `decay_rate` otherwise. The time
+constant is about $\tau \approx 1/(\mu f_s)$.
+</details>
 
 ---
 
-## 🧠 Self-Check
+## Part 7 — Squelch
 
-1. What is the thermal noise floor in a 15 kHz channel with a 6 dB noise figure?
-   **Answer:** $-174 + 10\log_{10}(15000) + 6 = -174 + 41.8 + 6 = -126.2$ dBm.
+A **squelch** mutes the output when the signal is too weak, so you hear silence instead of hiss.
 
-2. You decimate from 2 MSPS to 250 kSPS. How much SNR do you gain?
-   **Answer:** $10\log_{10}(2\times10^6 / 250\times10^3) = 9.0$ dB.
+GNU Radio's `Power Squelch` keeps a running average of the power, and opens only when it is above
+the **threshold** (in dB, compared with full scale).
 
-3. Your signal is 4× larger in amplitude than another. How many dB?
-   **Answer:** 12.04 dB (amplitude → 20·log₁₀).
+| Setting | Meaning | Notes |
+|---|---|---|
+| `threshold` | Mute below this (dBFS) | Depends on your gain and antenna — measure it |
+| `alpha` | How quickly the average follows | 0.01; smaller = steadier but slower |
+| `ramp` | Samples to fade in and out | More than 0 avoids clicks |
+| `gate` | True = send **nothing** when muted | Use **False** before an Audio Sink |
 
-4. Why put the LNA at the antenna, not at the receiver?
-   **Answer:** Friis — the first stage sets $NF$. Coax loss ahead of the LNA adds directly to
-   the noise figure and cannot be recovered.
+> ⚠️ **`gate` matters.** With `gate = True`, a closed squelch sends no samples at all. The Audio
+> Sink runs out of data and the flowgraph can stall. With `gate = False` it sends zeros, which is
+> silence.
 
-5. Your AGC "pumps" — the background noise swells between words. Which parameter?
-   **Answer:** `decay_rate` is too high. Lower it so the gain recovers slowly.
-
-6. Why does an FM station sound fine in mono but hiss in stereo?
-   **Answer:** The L−R subcarrier at 38 kHz sits where FM's noise density is much higher, and
-   the matrix adds its noise to the L+R path — roughly a 20 dB SNR penalty.
-
-7. A 12-bit ADC has what ideal SNR, and does more RF gain improve it?
-   **Answer:** $6.02 \times 12 + 1.76 = 74$ dB. More RF gain only helps until the front-end
-   noise dominates the ADC noise; past that it just eats headroom.
+**Setting the threshold:** tune to an empty frequency, read the power on a level meter (Complex
+to Mag² → Moving Average → Log10 → Number Sink, as in Lab 06's S-meter), and set the threshold
+about **5 dB above** that.
 
 ---
 
-**Next:** [Fundamentals 07 — AM & Narrowband FM →](./07_am_and_narrowband_fm.md)
+## Part 8 — The link budget
+
+A **link budget** adds up everything between a transmitter and your receiver:
+
+$$
+P_{\text{received}} = P_{\text{transmitted}} + G_{\text{tx antenna}} - L_{\text{path}} + G_{\text{rx antenna}} - L_{\text{cable}}
+$$
+
+The loss over open space (**free-space path loss**) is:
+
+$$
+\boxed{L_{\text{fs}}\,(\text{dB}) = 20\log_{10}(d \text{ in km}) + 20\log_{10}(f \text{ in MHz}) + 32.45}
+$$
+
+> **Example — can I hear an FM station 30 km away?**
+>
+> | Item | Value |
+> |---|---|
+> | Transmitter: 50 kW | +77 dBm |
+> | Path loss: 20·log₁₀(30) + 20·log₁₀(100) + 32.45 | −102 dB |
+> | Whip antenna (0 dBi), 1 dB cable loss | −1 dB |
+> | **Received** | **−26 dBm** |
+> | Noise in 200 kHz with NF 8 dB: −174 + 53 + 8 | −113 dBm |
+> | **SNR** | **87 dB** |
+>
+> Plenty for stereo. Buildings and hills may take 20–40 dB of that, and you still have 50 dB
+> spare. That is why FM is easy — and why ADS-B (Lab 09), at 1090 MHz from an aircraft 100 km
+> away, is hard.
+
+---
+
+## ✅ Summary
+
+- **Power → 10·log₁₀. Amplitude → 20·log₁₀.** dBm is real power; dBFS is relative to the ADC's
+  maximum.
+- Thermal noise is **−174 dBm/Hz**. Noise grows with bandwidth. **Narrowing the filter is free SNR.**
+- The **first amplifier** sets the noise figure. Put any LNA at the antenna.
+- Set **gain** by raising it until the noise floor starts to rise, then back off 5 dB.
+- **Always set `bw0` = sample rate.**
+- Receiver order: **channel filter → squelch → AGC → demodulate**.
+- A **link budget** tells you, before you start, whether a signal can be received.
+
+## 🧠 Check yourself
+
+1. What is the thermal noise floor in a 15 kHz channel, with a 6 dB noise figure?
+   <details><summary>Answer</summary>−174 + 10·log₁₀(15,000) + 6 = −174 + 41.8 + 6 =
+   −126.2 dBm.</details>
+2. You decimate from 2 MSPS to 250 kSPS (with a proper filter). How much SNR do you gain?
+   <details><summary>Answer</summary>10·log₁₀(2,000,000 / 250,000) = 9.0 dB.</details>
+3. One signal's amplitude is 4 times another's. How many dB?
+   <details><summary>Answer</summary>20·log₁₀(4) = 12.04 dB (amplitude → 20).</details>
+4. Why put an LNA at the antenna, not next to the receiver?
+   <details><summary>Answer</summary>The first stage sets the noise figure. Cable loss in front
+   of the LNA adds directly to the noise figure and cannot be recovered.</details>
+5. Your AGC makes the background noise swell up between words. Which setting do you change?
+   <details><summary>Answer</summary><code>decay_rate</code> is too high. Lower it, so the gain
+   rises more slowly.</details>
+6. You raise the gain by 5 dB and the noise floor also rises by 5 dB. What does that tell you?
+   <details><summary>Answer</summary>The receiver is already limited by its own noise. More gain
+   will not help — improve the antenna, or add an LNA at the antenna.</details>
+7. A 12-bit ADC: what is its ideal dynamic range?
+   <details><summary>Answer</summary>6.02 × 12 + 1.76 = 74 dB.</details>
+
+**Next:** [Fundamentals 07 — AM, SSB and Narrow FM →](./07_am_and_narrowband_fm.md)
