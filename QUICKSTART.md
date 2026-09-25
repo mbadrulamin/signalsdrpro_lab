@@ -18,7 +18,7 @@ Lay these out on the desk:
 |---|---|
 | SignalSDR Pro | with its **microSD card inserted** |
 | USB 3.0 cable (Type-B) | the thick one with a square-ish plug — this carries data |
-| USB-C cable | power |
+| USB-A to USB-C cable | power (Signalens says it must be A-to-C, not C-to-C) |
 | Antenna | anything with an SMA plug. Even a 1 m piece of wire works for FM |
 | A Linux PC | Ubuntu 22.04 or 24.04. 8 GB RAM, a free USB 3.0 port |
 
@@ -63,9 +63,8 @@ Full detail: [Setup 01](./00_setup/01_install_uhd.md) and [Setup 03](./00_setup/
 1. **Power first** — USB-C cable from the SDR to a USB port or a 5 V charger.
 2. **Wait about 30 seconds.** The board is booting Linux from the microSD card. Let it finish.
 3. **Then data** — USB 3.0 Type-B cable from the SDR to a **blue** USB 3.0 port on your PC.
-   Plug it **directly into the computer**. Do not use a USB hub, a docking station or an
-   adapter dongle — many of them cannot carry enough data or power, and then the radio
-   does not appear at all.
+   A port **on the computer itself** is the most reliable. Some hubs, docks and adapters
+   work, but if the radio does not appear, try a port on the computer first.
 4. **Screw the antenna onto the `TX/RX` connector.** Finger-tight. Do not force it.
 
 Now ask the driver whether it can see the radio:
@@ -99,7 +98,8 @@ Work down this list — it is almost always one of the first three:
 | Is the microSD card inserted? | It holds the firmware. Without it, nothing boots |
 | Did you log out and back in? | The group membership does not apply until you do |
 | Is it a **USB 3.0** port? | Blue connector, or marked `SS`. On USB 2.0 the radio may not appear |
-| Is it plugged into a hub, dock or dongle? | Plug it straight into the computer instead |
+| Is it plugged into a hub, dock or adapter? | Try a port on the computer itself |
+| Did you fully power-cycle? | Unplug **both** cables, wait 2 s, plug power first, then data |
 | `lsusb \| grep -i ettus` shows nothing? | Power or cable problem, not software |
 
 Still stuck: [Setup 05 — Troubleshooting](./00_setup/05_troubleshooting.md).

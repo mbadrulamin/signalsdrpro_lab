@@ -1,155 +1,141 @@
-# 🧰 03 — Installing GNU Radio
+# 🧰 Setup 03 — Install GNU Radio
 
-> **Estimated time:** 10–20 minutes  
-> **Difficulty:** Easy  
-> **Prerequisites:** UHD installed
-
----
-
-## What Is GNU Radio?
-
-**GNU Radio** is the leading open-source toolkit for software-defined radio. It provides:
-
-- Hundreds of ready-to-use signal processing **blocks** (filters, modulators, demodulators, visualizers, etc.)
-- A Python and C++ API for building custom radio applications
-- **GNU Radio Companion (GRC)** — a visual block-diagram editor that generates Python code
-
-GNU Radio is the standard in academia, industry, and the hobbyist community. Almost every SDR tutorial you'll ever find assumes GNU Radio.
-
-**Version we target:** GNU Radio 3.10.x (the stable series for Ubuntu 24.04).
+> **What you will do:** install **GNU Radio**, the software you build radios in, and check it
+> works by playing a test tone.
+> **Before this:** [Setup 01 — Install UHD](./01_install_uhd.md).
+> **Time:** about 10–20 minutes. **Difficulty:** easy.
 
 ---
 
-## Method 1 — Install from Ubuntu Repositories (Recommended)
+## 1. What is GNU Radio?
 
-On Ubuntu 24.04, GNU Radio 3.10.9 is available directly from apt:
+**GNU Radio** is free, open-source software for building radios. It gives you:
+
+- hundreds of ready-made **blocks** — filters, decoders, displays, and more,
+- **GNU Radio Companion (GRC)** — a drawing program where you connect blocks with arrows. When
+  you press **Run**, it writes a Python program from your drawing and runs it,
+- a Python and C++ interface, for when you want to write code yourself.
+
+Most SDR tutorials, books and university courses use GNU Radio. This course uses
+**version 3.10**.
+
+---
+
+## 2. Install it (Ubuntu's own packages — recommended)
 
 ```bash
 sudo apt update
 sudo apt install -y gnuradio gnuradio-dev
 ```
 
-### What gets installed
+On Ubuntu 24.04 this installs GNU Radio **3.10.9**. It is built for the UHD 4.6.0 from Ubuntu,
+so if you followed [Setup 01, Option A](./01_install_uhd.md#3-option-a--ubuntus-own-packages-recommended),
+everything matches.
 
-| Component | Description |
+### What you get
+
+| Program | What it is |
 |---|---|
-| `gnuradio-companion` | The visual flowgraph editor (GUI) |
-| `grcc` | Command-line flowgraph compiler |
-| `gnuradio-config-info` | Prints version and build info |
-| Python modules | `gnuradio`, `pmt`, various block libraries |
-| Documentation | Block help, examples |
+| `gnuradio-companion` | GRC, the graphical editor |
+| `grcc` | Turns a `.grc` file into a `.py` file from the command line |
+| `gnuradio-config-info` | Shows the version |
+| `uhd_fft`, `uhd_rx_cfile` | Ready-made tools that use the radio (used in [Setup 04](./04_verify_setup.md)) |
+| Python modules | `gnuradio`, `pmt`, and all the block libraries |
 
-### Verify
+### Check the version
 
 ```bash
 gnuradio-config-info --version
-# Expected: "3.10.9.2" (or similar 3.10.x)
-
-gnuradio-companion --version
-# Expected: "grcc (GNU Radio Companion) 3.10.x.x"
 ```
 
-Launch GRC to test the GUI:
-
-```bash
-gnuradio-companion &
-```
-
-A window should open showing the block library on the left and an empty canvas.
+✅ You should see `3.10.9.2` (or another 3.10.x).
 
 ---
 
-## Method 2 — Install via PyBOMBS (for the latest version)
-
-**PyBOMBS** (Python Build Overlay for GNU Radio) is a package manager that can install GNU Radio from source with custom configuration. Use this if you need features from GNU Radio 3.11 / `main` branch.
+## 3. Useful extras
 
 ```bash
-# Install pybombs
-sudo apt install -y python3-pip git
-pip3 install --user pybombs
+# Qt support for the graphical displays (usually installed already)
+sudo apt install -y python3-pyqt5
 
-# Configure and install GNU Radio
-pybombs recipes add gr-recipes git+https://github.com/gnuradio/gr-recipes.git
-pybombs recipes add gr-etcetera git+https://github.com/gnuradio/gr-etcetera.git
-pybombs prefix init ~/gnuradio-prefix -R gnuradio-default
-pybombs -p ~/gnuradio-prefix install gnuradio
-```
-
-Activate the prefix:
-
-```bash
-. ~/gnuradio-prefix/setup_env.sh
-gnuradio-config-info --version
-```
-
----
-
-## Method 3 — Install from PPA (for Ubuntu 22.04)
-
-If you're on Ubuntu 22.04 and want 3.10 instead of the default 3.10.x:
-
-```bash
-sudo add-apt-repository ppa:gnuradio/gnuradio-releases
-sudo apt update
-sudo apt install -y gnuradio
-```
-
----
-
-## Essential Add-ons
-
-For the best experience, install these optional packages:
-
-```bash
-# QT GUI support (required for all visual sinks)
-sudo apt install -y python3-pyqt5 python3-pyqtgraph
-
-# Audio support
+# sound tools
 sudo apt install -y pulseaudio-utils alsa-utils
 
-# UHD integration (already done in 01)
-sudo apt install -y uhd-host
-
-# Optional: gr-osmosdr (for RTL-SDR, HackRF, BladeRF, etc.)
+# optional: support for other SDRs (RTL-SDR, HackRF, bladeRF...)
 sudo apt install -y gr-osmosdr
 
-# Optional: useful analysis tools
+# optional: a ready-made receiver app, and a tool for studying recordings
 sudo apt install -y gqrx-sdr inspectrum
 ```
 
 ---
 
-## 🧪 Test Your Installation with a Minimal Flowgraph
+## 4. Test it: play a tone
 
-Let's build a 3-block flowgraph that generates a 1 kHz sine wave and plays it through your speakers.
+This proves GNU Radio and your sound card work, before any radio is involved.
 
-1. Launch GRC: `gnuradio-companion`
-2. Drag in these blocks from the left library:
-   - **Analog → Signal Source** (sine wave generator)
-   - **Audio → Sink** (speaker output)
-3. Connect the output of Signal Source to the input of Audio Sink.
-4. Double-click Signal Source and set:
-   - Waveform: Sine
-   - Frequency: 1000
-   - Amplitude: 0.5
-   - Sample Rate: 48000
-5. Double-click Audio Sink:
-   - Sample Rate: 48000
-6. Click the ▶ **Execute** button.
+1. Start GRC:
 
-You should hear a 1 kHz tone. 🎵 If you do, GNU Radio is working perfectly.
+   ```bash
+   gnuradio-companion
+   ```
+
+   A window opens: the **block library** on the right, an empty **canvas** in the middle.
+2. Double-click the **`samp_rate`** variable block (top left of the canvas). Set its value to
+   `48000`. Every new flowgraph has this variable; many blocks use it by default.
+3. Find blocks by pressing **Ctrl+F** and typing their name. Add these two to the canvas:
+   - **Signal Source**
+   - **Audio Sink**
+4. Double-click **Signal Source** and set:
+   - **Output Type:** Float (its port turns orange)
+   - **Waveform:** Sine
+   - **Frequency:** `1000`
+   - **Amplitude:** `0.3`
+   - leave **Sample Rate** as `samp_rate`
+5. Double-click **Audio Sink** and set **Sample Rate** to `48KHz`.
+6. Drag from Signal Source's output (its right side) to Audio Sink's input (its left side).
+   An arrow appears.
+7. Press **F5** (or click ▶). GRC asks you to save first — save it anywhere as `tone.grc`.
+
+🎵 **You should hear a steady 1 kHz tone.** Close the window to stop it.
+
+> 💡 If the arrow is **red**, the port types do not match: Signal Source must be set to
+> **Float** (orange), because Audio Sink needs float.
 
 ---
 
-## 📝 Summary Checklist
+## 5. Other ways to install (advanced)
 
-- [ ] `gnuradio-config-info --version` returns `3.10.x`
-- [ ] `gnuradio-companion` launches and shows the GUI
-- [ ] A minimal tone-generating flowgraph runs
-- [ ] You can hear audio through the Audio Sink
+| Method | When | How |
+|---|---|---|
+| GNU Radio PPA | Ubuntu 22.04, to get a newer 3.10.x | `sudo add-apt-repository ppa:gnuradio/gnuradio-releases`, then `sudo apt install gnuradio`. Check afterwards which UHD it uses ([Setup 06](./06_fix_uhd_version_conflict.md)) |
+| Build from source | You need GNU Radio 3.11 / the newest code, or a non-Ubuntu Linux | Follow the official [installation guide](https://wiki.gnuradio.org/index.php/InstallingGR). Build UHD from source first, so both match |
+| Conda / radioconda | Windows or macOS, or a self-contained setup | [radioconda](https://github.com/ryanvolz/radioconda) |
 
-If any step fails, check [Troubleshooting](./05_troubleshooting.md).
+> ⚠️ **PyBOMBS**, mentioned in older tutorials, is no longer maintained. Don't use it.
 
 ---
 
-**Next:** [04 — Verifying the Full Setup →](./04_verify_setup.md)
+## 🔧 Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `gnuradio-companion: command not found` | The install failed. Run the `apt install` again and read the error |
+| GRC opens but the displays fail with Qt errors | `sudo apt install python3-pyqt5` |
+| No sound, no errors | Check your computer's volume and output device (Settings → Sound) |
+| `aU` printed in the terminal | "Audio underrun": the sound card ran out of samples. Harmless if rare. Check both sample rates are 48000 |
+| The connection arrow is red | The port types do not match (colours must match) |
+
+More: [Setup 05 — Troubleshooting](./05_troubleshooting.md).
+
+---
+
+## ✅ Summary
+
+- Install GNU Radio **from Ubuntu**, like UHD, so both match: `sudo apt install gnuradio`.
+- GRC is the graphical editor. **F5** runs a flowgraph.
+- Port colours show data types: **orange = float**, **blue = complex**. Arrows between
+  different colours turn red.
+- A 1 kHz tone through Audio Sink proves GNU Radio and sound work.
+
+**Next:** [Setup 04 — Check that everything works →](./04_verify_setup.md)

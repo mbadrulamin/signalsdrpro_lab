@@ -228,12 +228,13 @@ python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
 | **Computer** | Ubuntu 24.04 or 22.04 (or DragonOS). At least 8 GB of memory. |
 | **USB ports** | One **USB 3.0** port (usually blue) for data. One more port or a phone charger for power. |
 | **microSD card** | 8 GB or bigger, Class 10. It holds the radio's start-up software. |
-| **Cables** | USB 3.0 Type-B to Type-A (data). USB-C to Type-A (power). |
+| **Cables** | USB 3.0 Type-B to Type-A (data). **USB-A to USB-C** (power — Signalens says it must be A-to-C). |
 | **Antenna** | Anything with an SMA plug that covers 70 MHz – 6 GHz. A telescopic whip is fine to start. |
 
-> ⚠️ **Plug the data cable straight into the computer**, not through a hub or a laptop dock.
-> The SignalSDR Pro needs a lot of data and power. Many hubs and docks cannot supply enough,
-> and then the radio does not appear at all.
+> ⚠️ **If the radio does not appear, plug the data cable straight into the computer.** Some USB
+> hubs, docks and adapters cannot carry USB 3.0 reliably. (This course was tested through a Dell
+> USB-C adapter, which worked — but when it fails, `dmesg` shows
+> `device not accepting address` and the radio never appears.)
 
 ---
 
@@ -241,7 +242,7 @@ python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
 
 | You see | Do this |
 |---|---|
-| `No UHD Devices Found` | Check the power, wait 30 seconds, use a USB 3.0 port on the computer itself. See [Troubleshooting](./00_setup/05_troubleshooting.md). |
+| `No UHD Devices Found` | Check the power, wait 30 seconds, try a USB 3.0 port on the computer itself. See [Troubleshooting](./00_setup/05_troubleshooting.md). |
 | `Could not find path for image: usrp_b200_fw.hex` | Two versions of the driver are installed. Run the fix below. |
 | Only hiss, no station | Move to another frequency, check the antenna is screwed on. |
 | Loud, harsh, distorted sound | Turn the **gain** down. |
