@@ -42,7 +42,7 @@ narrowband or coherent does not, and you must correct with predicted orbital ele
 | **Elektro-L LRIT** | 1691 MHz | BPSK | ⭐⭐⭐⭐ | 🔺📡🔊 | 🟢 Russian geostationary |
 | **FengYun** | 137 MHz, 1.7 GHz | various | ⭐⭐⭐⭐ | ✅/🔺📡 | 🟢 Chinese meteorological series |
 | **Metop AHRPT** | 1701.3 MHz | OQPSK 3.5 Mbit/s | ⭐⭐⭐⭐⭐ | 🔺📡🔊🖥️ | 🟢 Very high rate; needs tracking dish |
-| **NOAA HRPT** | 1698, 1702.5, 1707 MHz | 665 kbit/s | ⭐⭐⭐⭐⭐ | 🔺📡🔊 | 🟢 Full-resolution version of APT |
+| ~~**NOAA HRPT**~~ | ~~1698, 1702.5, 1707 MHz~~ | 665 kbit/s | — | — | ⚰️ **OFF THE AIR** — it came from the same NOAA-15/18/19 satellites, retired in 2025 (see [below](#-a-note-on-noaa-apt)). Metop AHRPT (above) is the L-band target now |
 | **DSCOVR / space weather** | various | telemetry | ⭐⭐⭐⭐⭐ | 🔺📡 | 🟢 Deep-space climate observatory |
 
 ---

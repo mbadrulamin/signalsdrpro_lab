@@ -2,8 +2,8 @@
 
 > **What is actually out there, what it takes to receive it, and where to start.**
 >
-> Labs 01–09 taught you *how* to build a receiver. This part answers the question that
-> naturally follows: **what should I point it at?**
+> The labs taught you *how* to build a receiver (and, in Labs 10 and 12, a transmitter). This
+> part answers the next question: **what should I point it at?**
 
 ---
 
@@ -66,7 +66,7 @@ your skill level and your patience:
 | 01 | [Broadcast & Media](./01_broadcast_and_media.md) | 32 | FM, AM, shortwave, DAB, DVB-T, HD Radio |
 | 02 | [Aviation](./02_aviation.md) | 32 | ADS-B, ACARS, airband, VOR/ILS, CPDLC |
 | 03 | [Maritime](./03_maritime.md) | 26 | AIS, NAVTEX, DSC, EPIRB, radar |
-| 04 | [Satellite & Space](./04_satellite_and_space.md) | 40 | NOAA/Meteor imagery, GOES, Inmarsat, Iridium, cubesats |
+| 04 | [Satellite & Space](./04_satellite_and_space.md) | 40 | Meteor weather images, GOES, Inmarsat, Iridium, cubesats |
 | 05 | [Weather & Environment](./05_weather_and_environment.md) | 29 | Radiosondes, lightning, meteor scatter, ionosondes |
 | 06 | [Land Mobile & Professional](./06_land_mobile_and_professional.md) | 42 | DMR, P25, TETRA, trunking, SCADA, railway |
 | 07 | [Amateur Radio](./07_amateur_radio.md) | 39 | FT8, WSPR, APRS, SSTV, EME, packet |
@@ -131,7 +131,7 @@ You already have the skills. Only the antenna changes.
 | Signal | Why start here |
 |---|---|
 | [FM broadcast + RDS](./01_broadcast_and_media.md) | Labs 01–08 already did it |
-| [NOAA Weather Radio](./06_land_mobile_and_professional.md) | 24/7, strong, trivially found (North America) |
+| [ATIS airport weather](./02_aviation.md) | A looped broadcast from every big airport (KLIA, Subang, Penang…). The easiest airband signal to find |
 | [Airband AM](./02_aviation.md) | Lab 06 handles it; teaches bursty-signal hunting |
 | [Marine VHF](./03_maritime.md) | Same, if you are near water |
 | [Pagers (POCSAG)](./06_land_mobile_and_professional.md) | Simplest real *data* decode there is |
@@ -140,8 +140,8 @@ You already have the skills. Only the antenna changes.
 
 | Signal | Why |
 |---|---|
-| [Meteor-M N2-4 LRPT](./04_satellite_and_space.md) | **A picture of the Earth, taken minutes ago, from a $5 antenna.** (NOAA APT held this spot for 25 years; the last APT satellite was switched off in August 2025) |
-| [ISS SSTV](./04_satellite_and_space.md) | Same skills, more novelty |
+| [ISS SSTV](./04_satellite_and_space.md) | Pictures sent from the space station during special events. **A great confidence builder** |
+| [FM amateur satellites (SO-50, AO-91)](./04_satellite_and_space.md) | Hear a satellite pass overhead on a handheld Yagi |
 | [Radiosondes](./05_weather_and_environment.md) | Balloons launched twice daily worldwide; you can go and find them |
 
 ### Rung 3 — Real data links (⭐⭐⭐)
@@ -158,7 +158,7 @@ You already have the skills. Only the antenna changes.
 
 | Signal | Why |
 |---|---|
-| [Meteor-M LRPT](./04_satellite_and_space.md) | QPSK + Viterbi + image reconstruction |
+| [Meteor-M N2-4 LRPT](./04_satellite_and_space.md) | **A picture of the Earth, taken minutes ago, from a $5 antenna** — QPSK, Viterbi and image rebuilding. (NOAA APT, the old easy route, went off the air in August 2025) |
 | [GOES HRIT](./04_satellite_and_space.md) | Full-disc Earth images, but needs a dish and an LNA |
 | [GPS from scratch](./10_navigation_and_timing.md) | Correlate a signal 20 dB *below* the noise |
 | [Passive radar](./11_radar_and_sensing.md) | Detect aircraft using a broadcast transmitter you do not own |
