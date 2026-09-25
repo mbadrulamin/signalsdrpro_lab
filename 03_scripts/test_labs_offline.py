@@ -30,14 +30,16 @@ sys.path.insert(0, HERE)
 from make_fm_test_iq import make  # noqa: E402
 
 
-def run_lab(lab_py, iq, workdir, sets=()):
+def run_lab(lab_py, iq, workdir, sets=(), seconds=None):
     """Run a lab on IQ samples; return {channel: audio array} and the audio rate."""
     cfile = os.path.join(workdir, 'in.cfile')
     iq.astype(np.complex64).tofile(cfile)
     out = os.path.join(workdir, 'out')
     cmd = [sys.executable, os.path.join(HERE, 'run_offline.py'), os.path.join(LABS, lab_py), cfile, '--out', out]
     for s in sets:
-        cmd += ['--set', s]
+        cmd += ['--set', s.replace('{cfile}', cfile)]
+    if seconds:
+        cmd += ['--seconds', str(seconds)]
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if res.returncode != 0:
         raise RuntimeError(res.stderr[-2000:])
@@ -109,7 +111,25 @@ def lab04_separation(tmp):
     return ok, f'stereo separation: left {sep_l:.1f} dB, right {sep_r:.1f} dB (want > 25 dB each)'
 
 
-TESTS = [lab01_tone, lab02_tone, lab03_squelch, lab04_separation]
+def lab05_retune(tmp):
+    # a recording with one station 300 kHz above centre; the player must find it
+    # with its Offset slider, exactly as a student retunes inside a real capture.
+    # The noise matters: with none, the empty channel still holds a faint leaked
+    # copy of the station, and an FM decoder ignores how faint a signal is.
+    iq = make(rate=2e6, seconds=4, stereo=False, offset=300e3, snr_db=40)
+    on, rate = run_lab('lab05_iq_record_playback/lab05_iq_playback.py', iq, tmp,
+                       sets=['offset_freq=300e3'], seconds=3)
+    off, _ = run_lab('lab05_iq_record_playback/lab05_iq_playback.py', iq, tmp,
+                     sets=['offset_freq=-300e3'], seconds=3)
+    a, b = on[0], off[0]
+    tone_on = tone_level(a, rate, 1000)
+    tone_off = tone_level(b, rate, 1000)
+    ok = rate == 50000 and db(tone_on, tone_off) > 20
+    return ok, (f'audio rate {rate:g} Hz (want 50000); 1 kHz tone at offset +300 kHz is '
+                f'{db(tone_on, tone_off):.0f} dB stronger than at -300 kHz (want > 20)')
+
+
+TESTS = [lab01_tone, lab02_tone, lab03_squelch, lab04_separation, lab05_retune]
 
 
 def main():

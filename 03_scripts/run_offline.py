@@ -12,9 +12,16 @@ Everything in between is the lab's own code, untouched. So this tests the real
 flowgraph, not a copy of it.
 
 Usage:
-    python3 run_offline.py <lab.py> <input.cfile> [--out DIR] [--set name=value ...]
+    python3 run_offline.py <lab.py> <input.cfile> [--out DIR] [--seconds N]
+                           [--set name=value ...]
 
     --set freq=100e6     call the flowgraph's set_freq(100e6) before starting
+    --seconds N          stop after N seconds (for flowgraphs that never end by
+                         themselves, e.g. a File Source with repeat on)
+
+Labs that read a file instead of the radio (the Lab 05 player, the Lab 08 and
+09 "from file" versions) are handled too: every complex File Source is pointed
+at <input.cfile>.
 
 The recorded audio is written to DIR/audio_ch<N>.f32 (float32, one file per
 channel) and the audio sample rate is printed.
@@ -35,6 +42,16 @@ import numpy as np
 from gnuradio import gr, blocks, uhd, audio
 
 
+_real_file_source = blocks.file_source
+
+
+def _redirected_file_source(itemsize, filename, repeat=False, *rest):
+    """Any complex File Source in the lab reads our test file instead."""
+    if itemsize == gr.sizeof_gr_complex and _FakeUSRP.path:
+        filename = _FakeUSRP.path
+    return _real_file_source(itemsize, filename, repeat, *rest)
+
+
 class _FakeUSRP(gr.hier_block2):
     """Looks enough like uhd.usrp_source for a generated flowgraph."""
     path = None
@@ -42,7 +59,7 @@ class _FakeUSRP(gr.hier_block2):
     def __init__(self, *args, **kwargs):
         gr.hier_block2.__init__(self, 'fake_usrp', gr.io_signature(0, 0, 0),
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex))
-        src = blocks.file_source(gr.sizeof_gr_complex, _FakeUSRP.path, False)
+        src = _real_file_source(gr.sizeof_gr_complex, _FakeUSRP.path, False)
         self.connect(src, self)
 
     def __getattr__(self, name):
@@ -90,11 +107,13 @@ def main():
     ap.add_argument('cfile')
     ap.add_argument('--out', default='.')
     ap.add_argument('--set', action='append', default=[], metavar='name=value')
+    ap.add_argument('--seconds', type=float, default=None)
     args = ap.parse_args()
 
     _FakeUSRP.path = os.path.abspath(args.cfile)
     uhd.usrp_source = _FakeUSRP
     audio.sink = _AudioRecorder
+    blocks.file_source = _redirected_file_source
 
     from PyQt5 import Qt
     app = Qt.QApplication.instance() or Qt.QApplication(sys.argv)
@@ -109,7 +128,12 @@ def main():
         getattr(tb, 'set_' + k)(eval(v))
     t0 = time.time()
     tb.start()
-    tb.wait()
+    if args.seconds is None:
+        tb.wait()
+    else:
+        time.sleep(args.seconds)
+        tb.stop()
+        tb.wait()
     dt = time.time() - t0
 
     os.makedirs(args.out, exist_ok=True)

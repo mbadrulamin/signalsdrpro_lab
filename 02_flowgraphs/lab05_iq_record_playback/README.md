@@ -1,10 +1,14 @@
-# 💾 Lab 05 — IQ Recording & Offline Playback
+# 💾 Lab 05 — Record and Play Back Radio
 
-> **Time:** 1 hour
-> **Difficulty:** Intermediate
-> **Theory needed:** [Fundamentals 05 — Sampling & Filters](../../01_fundamentals/05_sampling_and_filters.md), [Fundamentals 06 — Noise & SNR](../../01_fundamentals/06_noise_snr_and_gain.md)
-> **New blocks:** File Sink, File Source, Throttle, Copy, Frequency Xlating FIR Filter, Moving Average, Log10, Number Sink, Note
-> **Flowgraphs:** two — `lab05_iq_record.grc` and `lab05_iq_playback.grc`
+> **What you will build:** two flowgraphs. One **records** the radio signal to a file. The other
+> **plays it back** as a radio — with no radio attached — and can tune to any station inside
+> the recording.
+> **What you will learn:** what is inside an IQ file, why a Throttle block is needed, how to
+> measure signal level, and how software tunes with a **Frequency Xlating FIR Filter**.
+> **Before this:** [Lab 04](../lab04_stereo_wbfm/README.md),
+> [Fundamentals 05 — Sampling & Filters](../../01_fundamentals/05_sampling_and_filters.md),
+> [Fundamentals 06 — Noise & SNR](../../01_fundamentals/06_noise_snr_and_gain.md).
+> **Time:** about 1 hour. **Difficulty:** intermediate. **Needs the radio:** only to record.
 
 ---
 
@@ -12,264 +16,161 @@
 
 Stop needing the radio.
 
-Labs 01–04 all required the SignalSDR Pro to be plugged in, tuned, and receiving. That makes
-experimentation slow and **irreproducible** — the signal changes between runs, so you can never
-tell whether your DSP change helped or the station just got stronger.
+In Labs 01–04 the radio had to be plugged in and receiving. That has two problems:
 
-This lab breaks that dependency. You will:
+- It is slow to experiment: set up, tune, wait.
+- It is **not repeatable.** The signal changes all the time. If the sound gets better after you
+  change a block, you cannot tell if your change helped, or the station just got stronger.
 
-1. **Capture** raw complex baseband from the SDR to a file.
-2. **Replay** it through a full receiver chain with no hardware attached.
-3. **Retune inside the recording** — pick a different station from the *same* file, purely in
-   software, using a Frequency Xlating FIR Filter.
+In this lab you will:
 
-Everything from Lab 06 onward can be developed against a recording. This is how professional
-SDR work is actually done.
+1. **Record** the raw IQ samples from the radio into a file.
+2. **Play** the file back through a receiver, with the radio unplugged.
+3. **Tune inside the recording** — pick a different station from the *same* file, in software.
+
+From Lab 06 on, you can develop everything using a recording. Professionals work this way.
 
 ---
 
-## 📖 Background: What Is in an IQ File?
+## 1. What is inside an IQ file?
 
-A `.iq` file written by `blocks_file_sink` with `type: complex` is the simplest possible
-format:
+The recorder writes the samples exactly as they come from the radio. Each sample is two
+numbers, I and Q ([Fundamentals 02](../../01_fundamentals/02_iq_sampling.md)), each stored as a
+32-bit floating-point number (`float32`):
 
 ```
-byte offset:  0        4        8        12       16      ...
-             ┌────────┬────────┬────────┬────────┬────────┐
-             │  I[0]  │  Q[0]  │  I[1]  │  Q[1]  │  I[2]  │ ...
-             └────────┴────────┴────────┴────────┴────────┘
-              float32   float32  float32  float32
+byte:    0        4        8        12       16      ...
+        ┌────────┬────────┬────────┬────────┬────────┐
+        │  I[0]  │  Q[0]  │  I[1]  │  Q[1]  │  I[2]  │ ...
+        └────────┴────────┴────────┴────────┴────────┘
 ```
 
-Interleaved little-endian `float32`, I first. **8 bytes per sample.** No header, no magic
-number, no metadata. That simplicity is a virtue (every tool reads it) and a trap:
+- **8 bytes per sample** (4 for I, 4 for Q). I comes first.
+- **No header.** Nothing else is in the file. Just the numbers.
 
-> ⚠️ **The file does not know its own sample rate or centre frequency.** If you lose those two
-> numbers, the recording is worthless — you cannot recover them from the samples. **Encode them
-> in the filename.** That is why the default path in both flowgraphs is
-> `capture_100M0_2Msps_fc32.iq`.
+This simple format is good — every SDR tool can read it. But there is a trap:
 
-### File size arithmetic
+> ⚠️ **The file does not record its own sample rate or frequency.** If you forget them, the
+> recording is almost useless, and you cannot work them out from the samples. So **put them in
+> the file name.** That is why the default name is `capture_100M0_2Msps_fc32.iq`:
+> 100.0 MHz, 2 MSPS, format fc32 (complex float32).
+
+### How big will the file be?
 
 $$
-\text{bytes} = f_s \times 8 \times t_{\text{seconds}}
+\text{bytes} = \text{sample rate} \times 8 \times \text{seconds}
 $$
 
 | Sample rate | Per second | Per minute | Per hour |
 |---|---|---|---|
-| 250 kSPS | 2.0 MB | 120 MB | 7.2 GB |
-| 1 MSPS | 8.0 MB | 480 MB | 28.8 GB |
-| **2 MSPS** | **16.0 MB** | **960 MB** | **57.6 GB** |
-| 8 MSPS | 64.0 MB | 3.84 GB | 230 GB |
+| 250 kSPS | 2 MB | 120 MB | 7.2 GB |
+| 1 MSPS | 8 MB | 480 MB | 28.8 GB |
+| **2 MSPS** (this lab) | **16 MB** | **960 MB** | **57.6 GB** |
+| 8 MSPS | 64 MB | 3.84 GB | 230 GB |
 
-**Check your free disk space before you press Execute.** A 2 MSPS capture fills a 100 GB disk
-in under two hours, and GNU Radio will not warn you.
+> ⚠️ **Check your free disk space first.** At 2 MSPS, a 100 GB disk is full in under two hours,
+> and GNU Radio will not warn you.
 
-### Halving the size with `sc16`
+### Making files half the size (`sc16`)
 
-Setting `type: sc16` on the USRP Source gives interleaved `int16` — 4 bytes per sample instead
-of 8. You lose nothing in practice: the AD9361's ADC is 12-bit, so 16-bit integers already
-carry more precision than the hardware produces. The cost is that you must scale by
-$1/32768$ when reading the file back. This lab uses `fc32` for clarity; use `sc16` for long
-captures.
-
----
-
-## 📐 Architecture
-
-### Flowgraph A — the recorder
-
-```
-   ┌──────────────┐
-   │ USRP Source  │  fc32, 2 MSPS
-   └──────┬───────┘
-          │
-          ├──────────────▶ Frequency Sink   ← "is the signal there?"
-          ├──────────────▶ Waterfall Sink   ← "is it bursty?"
-          │
-          ├──▶ Complex→Mag² ──▶ Moving Avg ──▶ Log10 ──▶ Number Sink
-          │                                             ← "am I clipping?"
-          ▼
-   ┌──────────────┐
-   │ Copy         │  enabled = bool(recording)   ← the arm/disarm switch
-   └──────┬───────┘
-          ▼
-   ┌──────────────┐
-   │ File Sink    │  /tmp/capture_100M0_2Msps_fc32.iq
-   └──────────────┘
-```
-
-### Flowgraph B — the player
-
-```
-   ┌──────────────┐
-   │ File Source  │  repeat = True
-   └──────┬───────┘
-          ▼
-   ┌──────────────┐
-   │ Throttle     │  2 MSPS   ← MANDATORY: nothing else paces the graph
-   └──────┬───────┘
-          │
-          ├──────────────▶ Frequency Sink (full 2 MHz span)
-          ▼
-   ┌───────────────────────────┐
-   │ Frequency Xlating FIR     │  mix by -offset, LPF 100 kHz, decim 5
-   │ Filter (ccf)              │  2 MSPS → 400 kSPS
-   └──────┬────────────────────┘
-          │
-          ├──────────────▶ Frequency Sink (selected channel)
-          ▼
-   ┌──────────────┐
-   │ WBFM Receive │  quad_rate 400k, audio_decim 8 → 50 kSPS
-   └──────┬───────┘
-          ▼
-   ┌──────────────┐      ┌────────────┐
-   │ Multiply     │─────▶│ Audio Sink │ 50 kHz
-   │ Const (vol)  │──┐   └────────────┘
-   └──────────────┘  └──▶ Time Sink
-```
-
-### Rate chain
-
-| Wire | Rate | Type | Why |
-|---|---|---|---|
-| File → Throttle | 2 MSPS | complex | Matches the recording |
-| Throttle → Xlating | 2 MSPS | complex | ±1 MHz of spectrum |
-| Xlating → WBFM | 400 kSPS | complex | $2\text{M}/5$; > 200 kHz Carson bandwidth |
-| WBFM → Audio | 50 kSPS | float | $400\text{k}/8$; a rate every sound card supports |
-
-Every division is exact. This is the Fundamentals 05 discipline in practice.
+If you set the USRP Source's output type to `sc16`, each I and Q is a 16-bit whole number
+instead of a 32-bit float: **4 bytes per sample** instead of 8. You lose nothing, because the
+radio's ADC only has 12 bits anyway. The only cost: when you read the file, divide by 32768 to
+get back to the −1…+1 range. This lab uses `fc32` because it is simpler. Use `sc16` for long
+recordings.
 
 ---
 
-## 📋 Block-by-Block
-
-### Recorder
-
-#### `usrp_source` — UHD: USRP Source
-`dev_args: "num_recv_frames=512"` enlarges the driver's receive ring buffer. Recording is one
-of the few situations where a USB hiccup costs you data you can never get back, so give the
-driver room. If you still see `O` characters in the terminal, the host cannot keep up — lower
-`samp_rate` or write to a faster disk (an SSD, or a tmpfs, not a USB stick).
-
-#### `record_gate` — Copy
-A one-line block that does something surprisingly useful. `blocks.copy` with
-`enabled = False` **consumes its input and produces nothing**, so the File Sink downstream
-sees no samples and writes no bytes.
-
-```python
-self.record_gate.set_enabled(bool(self.recording))
-```
-
-Because `recording` is a QT GUI Chooser, you get a live **arm/disarm radio button**: run the
-flowgraph, watch the spectrum, tune, set the gain, and only *then* start writing. Without this
-you would be recording garbage while you fiddle with the tuning slider.
-
-#### `file_sink` — File Sink
-`unbuffered: False` is correct here — buffered writes are far faster, and the OS flushes on
-close. Set `unbuffered: True` only if you intend to kill the process with `SIGKILL` and still
-want the data.
-
-#### The level meter chain
-```
-Complex→Mag²  →  Moving Average  →  Log10  →  Number Sink
-   |x|²          mean over 100k     10·log₁₀(2P)
-```
-
-The `Log10` block computes $n \log_{10}(x) + k$. With `n = 10` and `k = 3.0103`:
-
-$$
-10\log_{10}(\bar P) + 10\log_{10}(2) = 10\log_{10}(2\bar P) = P_{\text{dBFS}}
-$$
-
-which is the dBFS definition from [Fundamentals 06](../../01_fundamentals/06_noise_snr_and_gain.md).
-The factor of two is there because 0 dBFS is defined as a full-scale *sine*, whose mean power
-is $\frac{1}{2}$, not 1.
-
-**Target: −30 to −10 dBFS.** Above −3 dBFS you are clipping and the recording is permanently
-damaged. Below −50 dBFS you are throwing away ADC bits.
-
-> Note the `Moving Average` `scale` parameter is `1.0/100000` — the block sums, it does not
-> average, unless you tell it the scale. Forget this and your meter reads +50 dB.
-
-### Player
-
-#### `throttle` — Throttle
-**The single most important block in this flowgraph.** A File Source with no hardware
-downstream will read the file as fast as the disk allows — hundreds of MSPS — and the flowgraph
-will consume 100 % of a CPU core while the audio sink drowns.
-
-The rule:
-
-> **Every flowgraph needs exactly one rate-limiting element.** Hardware source, hardware sink,
-> or a Throttle. Never zero. Never two.
-
-Here we technically have two (Throttle and Audio Sink), which is tolerated because the audio
-sink is downstream of a decimating chain and merely provides gentle back-pressure. If you
-remove the Audio Sink for a headless test, the Throttle still holds the graph at real time.
-
-#### `chan_filter` — Frequency Xlating FIR Filter
-The star of this lab, and the block Lab 06 is built around. In one pass it:
-
-$$
-y[n] = \sum_k h[k]\;x[nM-k]\;e^{-j2\pi f_{\text{offset}}(nM-k)/f_s}
-$$
-
-1. **Mixes** the input down by `center_freq` (our `offset_freq` slider),
-2. **Low-passes** with `taps`,
-3. **Decimates** by `decim`.
-
-The taps come from a `Low-pass Filter Taps` variable:
-
-```
-gain=1.0, samp_rate=2e6, cutoff=100e3, width=30e3, Hamming
-```
-
-By the tap-count equation from Fundamentals 05:
-
-$$
-N = \frac{53 \times 2{,}000{,}000}{22 \times 30{,}000} = 160.6 \rightarrow 161 \text{ taps}
-$$
-
-Verify it:
+## 2. The recorder
 
 ```bash
-python3 -c "
-from gnuradio.filter import firdes
-from gnuradio.fft import window
-print(len(firdes.low_pass(1.0, 2e6, 100e3, 30e3, window.WIN_HAMMING, 6.76)), 'taps')"
-```
-
-**Drag the `offset_freq` slider and you retune the receiver without touching the radio.** The
-recording is a frozen 2 MHz slice of the spectrum, and you can visit any station inside it.
-
----
-
-## 🧪 Running the Lab
-
-### Step 1 — Record
-
-```bash
-cd 02_flowgraphs/lab05_iq_record_playback
+cd "02_flowgraphs/lab05_iq_record_playback"
 gnuradio-companion lab05_iq_record.grc
 ```
 
-1. Press **F5** (Execute).
-2. Tune `freq` to a spot with several FM stations visible in the spectrum — around 100 MHz is
-   usually busy. **Aim the centre between two stations** so the playback flowgraph has
-   somewhere to tune to.
-3. Adjust `gain` until the Wideband Level reads about **−20 dBFS**.
-4. Flip **Record** to **ON**.
-5. Wait **10 seconds**, then flip it back to **OFF** and close the window.
+```
+   USRP Source (2 MSPS, complex)
+        │
+        ├──▶ Spectrum            "is the signal there?"
+        ├──▶ Waterfall           "does it come and go?"
+        │
+        ├──▶ |x|² ──▶ Moving Average ──▶ 10·log10 ──▶ Number display
+        │                                             "is the level right?"
+        ▼
+   Copy  (on only when Record = ON)
+        ▼
+   File Sink   /tmp/capture_100M0_2Msps_fc32.iq
+```
+
+### Controls
+
+| Control | What it does |
+|---|---|
+| **Centre Frequency** | Where to tune (87.5–108 MHz) |
+| **RF Gain** | Hardware gain (0–76 dB) |
+| **Record** | **OFF** = watch only. **ON** = write to the file |
+
+### The blocks
+
+**USRP Source.** As before, plus `dev_args: "num_recv_frames=512"`. This gives the driver a
+bigger buffer. When recording, a short USB hiccup loses data that you can never get back, so
+extra buffer helps.
+
+**Copy — the record switch.** This block passes samples through when it is **enabled**, and
+passes nothing when it is **disabled**. Its `enabled` setting is `bool(recording)`, linked to
+the **Record** button. So you can run the flowgraph, look at the spectrum, tune, set the gain —
+and only *then* start recording. Without it, you would record everything, including the time
+you spent adjusting.
+
+**File Sink.** Writes the samples to the file. `unbuffered: False` means the computer collects
+data and writes it in big pieces. This is much faster.
+
+**The level meter.** Four blocks that measure how strong the signal is, in **dBFS** (decibels
+compared with the ADC's maximum):
+
+| Block | Does |
+|---|---|
+| Complex to Mag² | power of each sample: I² + Q² |
+| Moving Average (length 100,000, scale 1/100,000) | average power over 0.05 s |
+| Log10 (n = 10, k = 3.0103) | convert to decibels: 10·log₁₀(2 × power) |
+| Number Sink | show it on screen |
+
+> 💡 **Why k = 3.0103?** 0 dBFS is defined as a full-scale sine wave. Its average power is ½,
+> not 1. So we multiply the power by 2 before taking the log, and 10·log₁₀(2) = 3.0103.
+>
+> ⚠️ **Why scale = 1/100,000?** The Moving Average block **adds up** the last N values. It
+> only gives an *average* if you also divide by N. Forget the scale, and the meter reads 50 dB
+> too high.
+
+**What level to aim for:**
+
+| Level | Meaning |
+|---|---|
+| above −3 dBFS | **clipping.** The recording is permanently damaged. Lower the gain |
+| **−30 to −10 dBFS** | **good** |
+| below −50 dBFS | too weak. You are wasting ADC resolution. Raise the gain |
+
+### Step 1 — Record
+
+1. Press **F5**.
+2. Tune **Centre Frequency** so you see **several** FM stations on the spectrum. Around 100 MHz
+   is usually busy. Put the centre **between** two stations, so there are stations on both
+   sides.
+3. Adjust **RF Gain** until the level display reads about **−20 dBFS**.
+4. Switch **Record** to **ON**.
+5. Wait **10 seconds**. Switch it back to **OFF**. Close the window.
+
+Check the file:
 
 ```bash
 ls -lh /tmp/capture_100M0_2Msps_fc32.iq
-# should be ~160 MB for 10 seconds at 2 MSPS
 ```
 
-### Step 2 — Verify the file in NumPy
+It should be about **160 MB** (10 s × 16 MB/s).
 
-Before trusting any flowgraph, look at the data directly:
+### Step 2 — Look at the file with Python
+
+Before trusting a recording, look at the numbers:
 
 ```bash
 python3 - <<'PY'
@@ -282,115 +183,197 @@ print(f"mean power   : {10*np.log10(2*np.mean(np.abs(x)**2)):.1f} dBFS")
 print(f"peak         : {20*np.log10(np.max(np.abs(x))):.1f} dBFS")
 print(f"DC offset    : {np.mean(x):.5f}")
 clip = np.mean(np.abs(x) > 0.99)
-print(f"clipped      : {clip*100:.4f} %  {'⚠️ TOO HIGH' if clip > 1e-4 else 'OK'}")
+print(f"clipped      : {clip*100:.4f} %  {'TOO HIGH' if clip > 1e-4 else 'OK'}")
 PY
 ```
 
-A healthy capture has mean power around −20 dBFS, peak below −1 dBFS, and essentially zero
-clipped samples. A small DC offset is normal for a direct-conversion receiver like the AD9361
-— it shows up as a spike at exactly 0 Hz in the playback spectrum. (The `Correct IQ` block
-removes it if it bothers you.)
+A good recording shows: mean power around **−20 dBFS**, peak below **−1 dBFS**, and almost
+**0 %** clipped. A small DC offset is normal — it is the centre spike you have seen on every
+spectrum.
 
-### Step 3 — Play it back, with no hardware
+---
+
+## 3. The player
 
 ```bash
 gnuradio-companion lab05_iq_playback.grc
 ```
 
-**Unplug the SDR first** to prove the point. Press F5. You should hear the station that was at
-the centre of your recording.
+```
+   File Source (repeat = on)
+        │
+   Throttle (2 MSPS)              ← keeps it at real-time speed
+        │
+        ├──▶ Spectrum: the whole 2 MHz recording
+        │
+   Frequency Xlating FIR Filter   ← shift by −offset, filter to 100 kHz, keep 1 in 5
+        │   2 MSPS → 400 kSPS
+        ├──▶ Spectrum: just the chosen station
+        │
+   WBFM Receive (÷8)                400 kSPS → 50 kSPS
+        │
+   Volume ──▶ Audio Sink (50 kHz)
+        └───▶ Audio waveform display
+```
 
-Now drag **Offset from centre**. As you sweep through ±900 kHz you will land on the other
-stations in the capture — same file, different radio.
+### Controls
 
-### Step 4 — The experiment that proves the point
+| Control | What it does |
+|---|---|
+| **Offset from centre** | Which station to play, measured from the recording's centre (−900 to +900 kHz) |
+| **Volume** | Loudness |
 
-Run the playback flowgraph twice with two different `cutoff_freq` values in `chan_taps` — say
-100 kHz and 50 kHz — and listen to the *same ten seconds of audio* both times. With a live
-radio you could never make that comparison honestly, because the signal would have changed.
+### Sample rates at each step
 
-That is what recordings are for.
+| Between | Rate | Why |
+|---|---|---|
+| File → Throttle | 2 MSPS | the rate it was recorded at |
+| Throttle → Xlating filter | 2 MSPS | the whole ±1 MHz |
+| Xlating filter → WBFM | 400 kSPS | 2,000,000 ÷ 5. More than the ~200 kHz an FM station needs |
+| WBFM → Audio | 50 kSPS | 400,000 ÷ 8 |
+
+Every step divides by a whole number. No resampler needed.
+
+### The blocks
+
+**File Source.** Reads the file. `repeat = True` means it starts again at the end, so the
+10-second recording plays forever.
+
+**Throttle — keeps real-time speed.** A file has no clock. Without a Throttle, GNU Radio would
+read the file **as fast as the computer can** — hundreds of millions of samples per second.
+One CPU core would run at 100 %, and the displays would freeze.
+
+The Throttle holds the flow to 2 million samples per second, using the computer's clock.
+
+> 💡 **The rule:** every flowgraph needs something that sets its speed. That is either real
+> hardware (a radio or a sound card) or a Throttle. A flowgraph with no hardware at all **must**
+> have a Throttle.
+>
+> This player has two speed-setters: the Throttle (the computer's clock) and the Audio Sink (the
+> sound card's clock). These two clocks are never *exactly* equal, so once in a while you may
+> see `aU` or `aO` in the terminal. That is harmless. If you remove the Audio Sink (for example
+> to test without sound), the Throttle alone keeps real-time speed.
+
+**Frequency Xlating FIR Filter — tuning in software.** The most important block in this lab.
+"Xlating" is short for "translating", meaning shifting. It does three jobs in one:
+
+1. **Shift** — moves the chosen station (`offset_freq`) to the centre (0 Hz).
+2. **Filter** — keeps ±100 kHz around the new centre, removes the rest.
+3. **Decimate** — keeps 1 sample in 5: 2 MSPS → 400 kSPS.
+
+**Drag the Offset slider, and you retune the radio without touching any hardware.** The
+recording is a frozen 2 MHz slice of the spectrum. You can visit any station inside it.
+
+The filter's taps come from a **Low-Pass Filter Taps** variable: gain 1, sample rate 2 MHz,
+cutoff 100 kHz, transition width 30 kHz, Hamming window. That gives **161 taps**. Check it
+yourself:
+
+```bash
+python3 -c "
+from gnuradio.filter import firdes
+from gnuradio.fft import window
+print(len(firdes.low_pass(1.0, 2e6, 100e3, 30e3, window.WIN_HAMMING, 6.76)), 'taps')"
+```
+
+[Fundamentals 05](../../01_fundamentals/05_sampling_and_filters.md) shows how to predict that
+number.
+
+<details>
+<summary><b>Going deeper:</b> the xlating filter as one equation</summary>
+
+$$
+y[n] = \sum_k h[k]\;x[nM-k]\;e^{-j2\pi f_{\text{offset}}(nM-k)/f_s}
+$$
+
+where $h$ are the taps and $M = 5$ is the decimation. The block is fast because it only
+calculates the outputs it keeps (every 5th), and it folds the frequency shift into the taps.
+</details>
+
+### Step 3 — Play it back with no radio
+
+1. **Unplug the radio**, to prove the point.
+2. Press **F5**. You should hear the station nearest the centre of your recording.
+3. Drag **Offset from centre**. As you move through ±900 kHz, you land on the other stations in
+   the recording. Same file, different station.
+
+### Step 4 — The experiment that shows why recordings matter
+
+Play the recording twice: once with the filter cutoff at 100 kHz, once at 50 kHz (change
+`chan_taps`). Listen to the **same ten seconds** each time.
+
+With a live radio you could never make this comparison fairly, because the signal would change
+between the two tests. With a recording, the only thing that changed is your filter.
 
 ---
 
-## 🐛 Troubleshooting
+## 4. Test it without a recording
 
-### "The playback audio is a chipmunk / a drone"
-`samp_rate` in the playback flowgraph does not match the recording. The file has no idea what
-rate it was captured at; you must tell it. Check the filename.
+No radio yet? Make a test station and play it through the real player:
 
-### "One CPU core is pinned at 100 % and the audio stutters"
-The Throttle is missing, disabled, or set to the wrong rate. Nothing else in the playback
-flowgraph limits the rate.
+```bash
+cd 03_scripts
+python3 make_fm_test_iq.py /tmp/capture_100M0_2Msps_fc32.iq --mono --seconds 10
+```
 
-### "The file is 0 bytes"
-You never flipped **Record** to **ON**, or the path is not writable. `/tmp` always is.
-
-### "`O` characters stream past in the terminal while recording"
-USB or disk overflow — the host cannot absorb 16 MB/s. In order of effectiveness: record to an
-SSD or tmpfs, lower `samp_rate`, switch the USRP Source to `sc16`, close other applications.
-
-### "Recording sounds fine but the spectrum has a big spike at exactly the centre"
-That is the LO leakage / DC offset of the direct-conversion front end, not a station. It is a
-property of the hardware, and it is why you should never centre-tune *directly* on the signal
-you care about — offset by a few hundred kHz and use the xlating filter to come back. This is
-standard practice and Lab 06 does it by default.
-
-### "Playback works but the spectrum looks mirrored"
-You read the file as `float32` pairs in the wrong order somewhere, or a tool interpreted it as
-`Q,I`. GNU Radio always writes `I,Q`.
+Then open `lab05_iq_playback.grc` and press **F5**. You should hear a steady 1000 Hz + 1700 Hz
+tone chord.
 
 ---
 
-## ❓ Questions to Ponder
+## 🔧 Troubleshooting
 
-1. **Why does the recording contain no metadata, when SigMF exists?**
-   Because `blocks_file_sink` predates SigMF and writes bare samples. SigMF (`.sigmf-data` plus
-   a `.sigmf-meta` JSON) fixes exactly this problem and is worth adopting for anything you keep.
-   For a lab, the filename convention is enough.
-
-2. **The xlating filter mixes, filters and decimates. Could you do those as three separate
-   blocks?**
-   Yes — Signal Source + Multiply, then Low Pass Filter with `decim`. It would produce identical
-   output and cost several times more CPU, because the mixer would run at the full input rate
-   instead of being folded into the taps.
-
-3. **Why is the anti-alias filter's cutoff 100 kHz when the output rate is 400 kSPS?**
-   Nyquist for the output is 200 kHz, so 100 kHz leaves a 100 kHz guard band — the transition
-   region (30 kHz wide) finishes well before anything can fold. Setting the cutoff to 190 kHz
-   would technically fit but would alias the transition skirt.
-
-4. **You recorded at 40 dB gain. Can you "turn the gain down" in playback?**
-   Only in the trivial sense of scaling the samples. If the front end was compressing at 40 dB,
-   that distortion is baked in permanently. **Gain is a record-time decision.**
+| Problem | Cause and fix |
+|---|---|
+| Playback sounds like a chipmunk, or a slow drone | The player's `samp_rate` does not match the recording. The file cannot tell you — check the file name |
+| One CPU core at 100 %, audio stutters | The Throttle is missing, disabled, or set to the wrong rate |
+| The file is 0 bytes | **Record** was never switched ON, or the folder is not writable (`/tmp` always is) |
+| `O` printed while recording | The computer cannot save 16 MB/s fast enough. Record to an SSD, lower `samp_rate`, use `sc16`, close other programs |
+| A big spike at exactly the centre | The radio's own leak (DC offset), not a station. This is why Lab 06 tunes beside the station |
+| The spectrum looks mirrored (left and right swapped) | Something read the file as Q,I instead of I,Q. GNU Radio always writes I first |
 
 ---
 
-## 📚 Key Takeaways
+## ✅ Summary
 
-- **An IQ file is just interleaved float32 I,Q.** No header. The filename is the metadata.
-- **Throttle every flowgraph that has no hardware in it.** Exactly one rate limiter, always.
-- **The Frequency Xlating FIR Filter is how software radios tune.** Mix, filter, decimate — one
-  block, one pass, output rate.
-- **Recordings make experiments repeatable.** You cannot do controlled DSP comparisons against
-  a live signal.
-- **Set gain before you record.** Everything downstream is software and reversible; the front
-  end is not.
+- An IQ file is just I, Q, I, Q… as `float32`. **No header** — put the rate and frequency in
+  the file name.
+- 2 MSPS fills **16 MB every second**. Check disk space.
+- A flowgraph with no hardware **must** have a **Throttle**.
+- The **Frequency Xlating FIR Filter** shifts, filters and decimates in one block. It is how
+  software radios tune.
+- **Recordings make tests repeatable.** Set the gain correctly before you record — it cannot be
+  fixed afterwards.
 
----
+## 🧠 Check yourself
 
-## 🚀 What's Next?
+1. You find an old file `capture.iq` with no other notes. What two numbers are you missing?
+   <details><summary>Answer</summary>The sample rate and the centre frequency. The file
+   does not contain them.</details>
+2. How big is a 30-second recording at 2 MSPS in fc32 format?
+   <details><summary>Answer</summary>2,000,000 × 8 × 30 = 480,000,000 bytes, about
+   480 MB.</details>
+3. What happens if you delete the Throttle and the Audio Sink from the player?
+   <details><summary>Answer</summary>Nothing sets the speed, so the file is read as fast as
+   possible and one CPU core runs at 100 %.</details>
+4. You recorded at a gain that was too high, and the recording is clipped. Can you fix it by
+   turning the volume down during playback?
+   <details><summary>Answer</summary>No. The clipping happened in the ADC, before recording.
+   It is permanent. Gain must be set correctly before recording.</details>
+5. The xlating filter's output rate is 400 kSPS, but its cutoff is only 100 kHz. Why not a
+   cutoff of 190 kHz?
+   <details><summary>Answer</summary>The filter needs room to go from "pass" to "block" (the
+   30 kHz transition). The limit after decimation is 200 kHz. A 190 kHz cutoff plus the
+   transition would go past 200 kHz, and that part would alias. 100 kHz is also all an FM
+   station needs.</details>
 
-Lab 06 uses the frequency-translating filter you just met to build a **multimode receiver** —
-AM, NBFM and WBFM, with a channel selector, S-meter and squelch. And because of this lab, you
-can develop it entirely against a recording.
-
-**Next:** [Lab 06 — Multimode Receiver →](../lab06_multimode_receiver/README.md)
+**Next:** [Lab 06 — One Radio, Many Modes →](../lab06_multimode_receiver/README.md)
 
 ---
 
 ## 📖 References
 
-1. GNU Radio Wiki: [File Sink](https://wiki.gnuradio.org/index.php/File_Sink) · [Frequency Xlating FIR Filter](https://wiki.gnuradio.org/index.php/Frequency_Xlating_FIR_Filter)
-2. [The SigMF specification](https://github.com/sigmf/SigMF) — metadata done properly
-3. Ettus Research: [USRP B210 Manual](https://files.ettus.com/manual/page_usrp_b200.html)
+1. GNU Radio Wiki: [File Sink](https://wiki.gnuradio.org/index.php/File_Sink) ·
+   [Frequency Xlating FIR Filter](https://wiki.gnuradio.org/index.php/Frequency_Xlating_FIR_Filter)
+2. [SigMF](https://github.com/sigmf/SigMF) — a standard way to store the missing information
+   (rate, frequency, time) in a small file next to the recording
+3. [USRP B210 manual](https://files.ettus.com/manual/page_usrp_b200.html)
