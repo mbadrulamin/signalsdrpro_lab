@@ -1,231 +1,225 @@
-# 🔒 Fundamentals 09 — Synchronization: PLLs, Costas Loops & Timing Recovery
+# 🔒 Fundamentals 09 — Synchronisation: PLLs, Costas Loops and Timing
 
-> **Prerequisite:** Digital Modulation (Fundamentals 08)
-> **Time to read:** 50 minutes
-> **Used by:** Lab 04 (retroactively!), Lab 07, Lab 08
+> **What you will learn:** the three things every digital receiver must lock on to; the feedback
+> loop that does it; **loop bandwidth**; the PLL; the Costas loop; symbol timing recovery; the
+> right order of blocks; and how to diagnose problems from the constellation display.
+> **Before this:** [Fundamentals 08 — Digital Modulation](./08_digital_modulation.md).
+> **Time:** about 50 minutes. **Used by:** Lab 04 (looking back), Labs 07 and 08.
 
 ---
 
-## Why This Chapter Exists
+## Why this chapter exists
 
-In Lab 04 you dropped a **PLL Refout** block into the flowgraph, set a bandwidth of `0.001`,
-and it worked. You did not know *why* 0.001, or what would have happened at 0.1, or what to do
-when it refuses to lock.
+In Lab 04 you used a **PLL Refout** block with a loop bandwidth of `0.05`, and it worked. But why
+0.05? What would 0.5 do? What do you do when it will not lock?
 
-Synchronization is the part of a digital receiver that people skip and then spend a week
-debugging. There are exactly **three** things a receiver must synchronise, and every one of
-them is a feedback loop with the same structure:
+Synchronisation is the part of a receiver that people skip — and then spend a week debugging. A
+digital receiver must lock on to **three** things. Each is solved by the same kind of feedback
+loop:
 
-| # | Problem | Symptom if wrong | Solution |
+| # | What must be found | If it is wrong, the constellation… | Solved by |
 |---|---|---|---|
-| 1 | **Carrier frequency** | Constellation spins into a ring | Costas loop / FLL |
-| 2 | **Carrier phase** | Constellation rotated at a fixed angle | Costas loop |
-| 3 | **Symbol timing** | Constellation smeared radially; eye closed | Symbol Sync (M&M, Gardner) |
+| 1 | **Carrier frequency** | spins into a **ring** | Costas loop (or an FLL) |
+| 2 | **Carrier phase** | is **rotated** by a fixed angle | Costas loop |
+| 3 | **Symbol timing** | is **smeared** along lines; the eye is closed | Symbol Sync |
 
-Get all three and the constellation snaps into tight dots. This chapter is how.
+Get all three right, and the constellation snaps into tight dots.
 
 ---
 
-## Part 1 — The Universal Feedback Loop
+## Part 1 — One feedback loop, used everywhere
 
-Every synchroniser in this chapter is the same three boxes:
+Every block in this chapter is built from the same three parts:
 
 ```
              ┌──────────────┐
-  input ────▶│   Error      │──── e[n] ───┐
-        ┌───▶│  Detector    │             │
-        │    └──────────────┘             ▼
-        │                          ┌─────────────┐
-        │                          │ Loop Filter │
-        │                          │ (PI: α, β)  │
-        │                          └──────┬──────┘
-        │                                 │
+  input ────▶│   Error      │──── error ───┐
+        ┌───▶│  detector    │              │
+        │    └──────────────┘              ▼
+        │                           ┌─────────────┐
+        │                           │ Loop filter │
+        │                           │ (α and β)   │
+        │                           └──────┬──────┘
         │    ┌──────────────┐              │
-        └────┤  Controlled  │◀─────────────┘
-             │  Oscillator  │
-             │ (NCO / interp)│
+        └────┤ Adjustable   │◀─────────────┘
+             │ oscillator   │
              └──────────────┘
 ```
 
-1. **Error detector** — measures how wrong we currently are. This is the only box that changes
-   between applications.
-2. **Loop filter** — a proportional-plus-integral (PI) controller. The proportional term
-   reacts to phase error; the integral term accumulates and eliminates *frequency* error.
-3. **Controlled oscillator** — applies the correction.
+1. **Error detector** — measures how wrong we are right now. This is the only part that changes
+   from one block to another.
+2. **Loop filter** — decides how much to correct. It has two parts: α corrects the **phase**
+   now; β slowly builds up a correction for the **frequency**.
+3. **Adjustable oscillator** — applies the correction (a numbered oscillator, "NCO", or a timing
+   interpolator).
+
+Think of steering a car to stay in the middle of a lane. You look at how far off you are (error),
+decide how much to turn (loop filter), and turn the wheel (oscillator). Turn too hard, and you
+zig-zag. Turn too gently, and you drift off before you correct.
+
+### The one setting that matters: loop bandwidth
+
+You do not choose α and β yourself. You choose:
+
+- **Loop bandwidth** *B* — how quickly the loop reacts, as a fraction of the sample rate (a small
+  number like 0.01).
+- **Damping** ζ — how smoothly it settles. GNU Radio uses ζ = 1/√2 ≈ 0.707, which is almost
+  always right.
+
+### The trade-off behind every loop
 
 $$
-\text{PI: } \quad \phi_{\text{acc}}[n+1] = \phi_{\text{acc}}[n] + \beta \, e[n]
-$$
-$$
-\phi[n+1] = \phi[n] + \phi_{\text{acc}}[n+1] + \alpha \, e[n]
-$$
-
-### The two gains, from two design parameters
-
-You never choose $\alpha$ and $\beta$ directly. You choose:
-
-- **$\zeta$ — damping factor.** $\zeta = 1/\sqrt{2} \approx 0.707$ is critically damped and
-  almost always right. Below 0.5 the loop rings; above 2 it crawls.
-- **$B_n$ — loop bandwidth**, normalised to the sample rate (so a dimensionless number like
-  0.01).
-
-Then, with $\theta = \frac{B_n}{\zeta + 1/(4\zeta)}$ and $\Delta = 1 + 2\zeta\theta + \theta^2$:
-
-$$
-\alpha = \frac{4\zeta\theta}{\Delta}, \qquad \beta = \frac{4\theta^2}{\Delta}
+\boxed{\text{wide loop} \Rightarrow \text{locks fast, but noisy}}
+\qquad
+\boxed{\text{narrow loop} \Rightarrow \text{smooth, but locks slowly — or never}}
 $$
 
-This is precisely what GNU Radio's `control_loop::set_loop_bandwidth()` computes. Every loop
-block in GNU Radio — Costas, Symbol Sync, PLL, FLL — inherits it.
+A wide loop follows the signal quickly — but it also follows the **noise**, so its output
+wobbles (called **jitter**). A narrow loop ignores the noise, but may be too slow to catch a
+large frequency error. **Choosing between these is loop design.**
+
+| Where | Loop bandwidth used | Why |
+|---|---|---|
+| FM stereo pilot (Lab 04) | 0.05 | The pilot is very steady and strong; a clean ±500 Hz filter comes first |
+| BPSK link (Lab 07) | 0.010 (slider) | Must follow a frequency error and clock drift, in noise |
+| RDS (Lab 08) | 0.010 (slider) | A weak signal, but steady: narrow is good |
+| At Eb/N0 = 2 dB (Lab 07, Exercise 3) | 0.045 **fails**, 0.010 works | At low SNR a wide loop follows the noise and loses lock |
+
+**A practical method:** start wide to lock on quickly, then narrow it to track cleanly. Labs 07
+and 08 put the loop bandwidth on a slider, so you can watch the constellation tighten and loosen.
+
+<details>
+<summary><b>Going deeper:</b> how GNU Radio turns the bandwidth into α and β</summary>
+
+GNU Radio's loops (Costas, PLL, FLL) all use the same `control_loop` code:
+
+$$
+\alpha = \frac{4\zeta B}{1 + 2\zeta B + B^2}, \qquad
+\beta = \frac{4B^2}{1 + 2\zeta B + B^2}
+$$
+
+and update, each sample:
+
+$$
+\text{freq} \leftarrow \text{freq} + \beta\, e, \qquad \text{phase} \leftarrow \text{phase} + \text{freq} + \alpha\, e
+$$
+
+Check it against a real block:
 
 ```bash
 python3 -c "
-import math
-def gains(bw, zeta=0.707):
-    t = bw/(zeta + 1/(4*zeta)); d = 1 + 2*zeta*t + t*t
-    return 4*zeta*t/d, 4*t*t/d
-for bw in (0.001, 0.01, 0.045, 0.1):
-    a,b = gains(bw); print(f'Bn={bw:<6} alpha={a:.6f}  beta={b:.8f}')
-"
+from gnuradio import digital
+for bw in (0.001, 0.01, 0.045):
+    c = digital.costas_loop_cc(bw, 2); z = c.get_damping_factor()
+    d = 1 + 2*z*bw + bw*bw
+    print(f'bw={bw:<6} GNU Radio alpha={c.get_alpha():.6f} beta={c.get_beta():.8f} | '
+          f'formula alpha={4*z*bw/d:.6f} beta={4*bw*bw/d:.8f}')"
 ```
 
-### The one trade-off that governs all of them
-
-$$
-\boxed{\text{wide loop} \Rightarrow \text{fast lock, noisy tracking}}
-$$
-$$
-\boxed{\text{narrow loop} \Rightarrow \text{slow lock, clean tracking, may never acquire}}
-$$
-
-The loop's own output noise (jitter) is proportional to $B_n / \text{SNR}$, while its ability
-to acquire a frequency offset $\Delta f$ requires roughly $B_n > \Delta f / f_s$. Those two
-requirements pull in opposite directions, and choosing between them **is** loop design.
-
-| Application | Typical $B_n$ | Why |
-|---|---|---|
-| FM stereo pilot (Lab 04) | 0.001 | Pilot is rock-steady; want minimum jitter |
-| RDS carrier (Lab 07) | 0.005 | Weak subcarrier, still steady |
-| Costas on a clean link (Lab 08) | 0.02–0.06 | Must chase real oscillator drift |
-| Symbol timing (Lab 08) | 0.045 | Clock offsets are larger than you expect |
-
-**Practical acquisition strategy:** start wide to acquire, then narrow to track. Some GNU
-Radio blocks let you retune `loop_bw` at runtime — Lab 08 puts it on a slider so you can watch
-the constellation tighten and loosen in real time.
+The two columns agree exactly. (Some textbooks first convert *B* with
+θ = *B* / (ζ + 1/4ζ). GNU Radio's `control_loop` does **not**; Symbol Sync uses its own timing
+loop.)
+</details>
 
 ---
 
-## Part 2 — The Classical PLL
+## Part 2 — The PLL
 
-The error detector is simply the phase difference between input and NCO:
-
-$$
-e[n] = \arg\bigl(x[n]\bigr) - \phi_{\text{NCO}}[n]
-$$
-
-or, avoiding the `arg` computation, $e[n] = \Im\{x[n] \cdot e^{-j\phi_{\text{NCO}}[n]}\}$,
-which for small errors $\approx |x| \sin(\Delta\phi) \approx |x|\Delta\phi$.
+A **PLL** (phase-locked loop) makes its own clean tone and keeps adjusting it to match an incoming
+tone. Its error detector is simply the **phase difference** between the input and its own tone.
 
 ### GNU Radio's three PLL blocks
 
-| Block | Output | Use |
+| Block | Outputs | Use it to |
 |---|---|---|
-| `analog_pll_refout_cc` | Clean complex sinusoid at the locked frequency | **Regenerate a carrier** — Lab 04's pilot |
-| `analog_pll_carriertracking_cc` | The input, phase-corrected | Coherent AM / DSB demodulation |
-| `analog_pll_freqdet_cf` | The instantaneous frequency | An alternative FM demodulator |
+| **PLL Refout** | a clean tone at the locked frequency | **rebuild a carrier** — Lab 04's 19 kHz pilot |
+| **PLL Carrier Tracking** | the input, with its phase corrected | coherent AM or DSB decoding |
+| **PLL Freq Det** | the frequency it measures | another way to decode FM |
 
-Parameters: `w` = loop bandwidth (normalised), `max_freq` / `min_freq` = the search range in
-radians/sample.
+Settings: `w` = loop bandwidth; `max_freq` and `min_freq` = the search range, in **radians per
+sample**:
 
 $$
-\omega_{\text{rad/sample}} = \frac{2\pi f_{\text{Hz}}}{f_s}
+\omega = \frac{2\pi \times f_{\text{Hz}}}{f_s}
 $$
 
-> **Worked example — Lab 04's pilot PLL.** We want to lock 19 kHz at $f_s = 240$ kHz, allowing
-> ±100 Hz of drift:
-> $$\omega_{\text{center}} = \frac{2\pi \times 19000}{240000} = 0.4974 \text{ rad/sample}$$
-> $$\omega_{\pm} = \frac{2\pi \times 100}{240000} = 0.0026$$
-> so `max_freq = 0.5000`, `min_freq = 0.4948`. **A tight search range is the single most
-> effective cure for a PLL that locks to the wrong thing.**
+> **Example — Lab 04's pilot PLL.** Lock to 19 kHz at *f*ₛ = 240 kHz, searching ±500 Hz:
+>
+> $$\omega_{\max} = \frac{2\pi \times 19500}{240000} = 0.5105, \qquad \omega_{\min} = \frac{2\pi \times 18500}{240000} = 0.4843$$
+>
+> **A narrow search range is the best cure for a PLL that locks onto the wrong thing.**
 
-### Lock detection
+### Knowing when it is locked
 
-A PLL that has lost lock produces confident garbage. Detect it: correlate the input with the
-NCO output over a window and threshold the magnitude. If the pilot vanishes (mono station),
-lock is lost — and a good receiver mutes the stereo path rather than emitting noise.
+A PLL that has lost lock still outputs a tone — but the wrong one. A good receiver checks: it
+compares the input with the PLL's tone over a short time. If they do not match, it is not locked.
+For stereo, a real radio then switches to mono (Lab 04 does not — see its Section 6).
 
 ---
 
-## Part 3 — Costas Loop: Carrier Recovery Without a Carrier
+## Part 3 — The Costas loop: a carrier with no carrier
 
-BPSK and QPSK are suppressed-carrier: there is nothing for a plain PLL to lock to, because the
-data flips the phase by 180° constantly. The **Costas loop** removes the data first.
+BPSK and QPSK have **no carrier** to lock to: the data keeps flipping the phase by 180°. A plain
+PLL is confused. The **Costas loop** has an error detector that **removes the data first**.
 
-### BPSK Costas (order 2)
-
-$$
-e[n] = \Re\{y[n]\} \cdot \Im\{y[n]\}
-$$
-
-where $y[n]$ is the phase-corrected sample. Why this works: write $y = A e^{j(\pm\pi \cdot b + \Delta\phi)}$.
-
-- $\Re\{y\}\Im\{y\} = \frac{A^2}{2}\sin(2(\pm\pi b + \Delta\phi)) = \frac{A^2}{2}\sin(2\Delta\phi)$
-
-The data term $\pm\pi b$ enters doubled, i.e. as $\pm 2\pi$ — which is **invisible**. The data
-cancels itself out and only the phase error remains.
-
-### QPSK Costas (order 4)
+### For BPSK (order 2)
 
 $$
-e[n] = \operatorname{sgn}(\Re\{y\})\cdot\Im\{y\} - \operatorname{sgn}(\Im\{y\})\cdot\Re\{y\}
+e = \text{Re}\{y\} \times \text{Im}\{y\}
 $$
 
-The hard decisions strip the QPSK modulation the same way.
+Why this works: flipping the phase by 180° changes the sign of **both** Re and Im, so their
+product does not change. The data cancels out, and only the phase error is left.
 
-### The price: phase ambiguity
+### For QPSK (order 4)
 
-Order 2 has a **180° ambiguity**; order 4 has a **90° ambiguity**. The loop is equally stable
-at each. This is not a bug you can fix in the loop — it is a consequence of the modulation
-being symmetric. The two cures:
+$$
+e = \text{sign}(\text{Re}\{y\}) \cdot \text{Im}\{y\} - \text{sign}(\text{Im}\{y\}) \cdot \text{Re}\{y\}
+$$
 
-1. **Differential encoding** (Fundamentals 08) — ambiguity cancels, costs 3 dB.
-2. **A known sync word** — correlate, and rotate the constellation to whichever of the $M$
-   hypotheses makes the sync word appear.
+The sign decisions remove the QPSK data in the same way.
 
-ADS-B uses a preamble (option 2). RDS uses differential encoding (option 1). Lab 08 lets you
-try both.
+### The price: which way up?
+
+Because the data cancels, the loop is equally happy at several angles: order 2 (BPSK) at 0° or
+**180°**; order 4 (QPSK) at 0°, 90°, 180° or 270°. The loop cannot tell which is right. Two cures:
+
+1. **Differential encoding** ([Fundamentals 08 §5](./08_digital_modulation.md#part-5--differential-encoding))
+   — the problem cancels out; the BER roughly doubles (about 0.5 dB). RDS uses this (Lab 08).
+2. **A known pattern** — send a known sync word, and rotate the constellation until the sync word
+   comes out right. Many digital TV and Wi-Fi systems do this with known "pilot" symbols.
+
+Lab 07 shows you the problem and cure 1 (its Exercise 4).
 
 ### GNU Radio's Costas Loop block
 
-```
-digital_costas_loop_cc:
-  w     = loop bandwidth (normalised, e.g. 0.045)
-  order = 2 (BPSK) | 4 (QPSK) | 8 (8PSK)
-```
+| Setting | Meaning |
+|---|---|
+| `w` | loop bandwidth (e.g. 0.010) |
+| `order` | **2** for BPSK, **4** for QPSK, 8 for 8PSK |
 
-Optional outputs `frequency`, `phase`, `error` are wonderful debugging tools — wire
-`frequency` to a QT GUI Time Sink and you can *watch* the loop acquire.
+It also has optional outputs: **frequency**, phase and error. Connect **frequency** to a time
+plot, and you can **watch the loop lock** — the best debugging tool you have (Lab 07 does this).
 
 ---
 
-## Part 4 — Symbol Timing Recovery
+## Part 4 — Symbol timing recovery
 
-The transmitter's clock and the receiver's clock are never identical. Two errors result:
+The transmitter's clock and the receiver's clock are never exactly the same. So:
 
-- **Timing offset** $\tau$ — we are sampling at the wrong point within each symbol.
-- **Clock frequency offset** $\epsilon$ — the sampling instant slowly slides, so even a
-  perfect initial $\tau$ decays.
+- the receiver may sample at the **wrong moment** inside each symbol, and
+- even if it starts right, the sampling moment slowly **drifts**.
 
-Both are fatal: sampling away from the peak of the pulse both reduces amplitude and picks up
-ISI from neighbouring symbols.
+Sampling away from the centre of each pulse makes the symbol weaker **and** mixes in parts of its
+neighbours (ISI).
 
 ### The eye diagram
 
-Overlay the waveform on a 2-symbol window. The eye's **widest opening** is the correct
-sampling instant.
+Draw every two-symbol stretch of the signal on top of each other. The picture looks like an eye.
+**The widest point of the eye is the right moment to sample.**
 
 ```
-   good timing, high SNR         bad timing / low SNR
+   good timing, clean signal       bad timing, or noisy
    ╲                    ╱         ╲   ╱╲   ╱
     ╲                  ╱           ╲ ╱  ╲ ╱
      ╲________________╱             X    X
@@ -234,120 +228,126 @@ sampling instant.
    ╱      ← open →      ╲            closed
 ```
 
-GNU Radio has a **QT GUI Eye Sink** — use it. Lab 08 includes one.
+GNU Radio has a **QT GUI Eye Sink**. Lab 07 uses one.
 
 ### Timing error detectors
 
-| TED | Needs carrier lock? | Samples/symbol | Notes |
-|---|---|---|---|
-| **Mueller & Müller** | Yes | 1 (decision-directed) | Very efficient; the default |
-| **Gardner** | **No** | 2 | Works before carrier recovery — very useful |
-| Zero crossing | Yes | 2 | Simple, needs transitions |
-| Early-late | Yes | ≥ 2 | Intuitive, more computation |
+| Method | Needs the carrier locked first? | Notes |
+|---|---|---|
+| **Mueller & Müller** | yes | efficient; uses decisions about which symbol was sent |
+| **Gardner** | **no** | works **before** carrier lock — very useful |
+| Zero crossing | yes | simple; needs frequent changes in the data |
+| Early–late | yes | easy to understand, more work |
 
-**Mueller & Müller:**
+**Gardner** looks at the sample **half-way between** two symbols. If the timing is right, and the
+symbol changed, that middle sample is near zero. It only uses sizes and signs, not the carrier
+phase — so timing can be found **before** the carrier. That order is much easier to debug.
+Labs 07 and 08 use Gardner.
+
+<details>
+<summary><b>Going deeper:</b> the two formulas</summary>
+
+Mueller & Müller:
 
 $$
-e[n] = \Re\{\hat{a}[n-1]^* \, y[n] - \hat{a}[n]^* \, y[n-1]\}
+e[n] = \text{Re}\{\hat{a}[n-1]^* \, y[n] - \hat{a}[n]^* \, y[n-1]\}
 $$
 
-**Gardner** (the one to reach for when things will not lock):
+Gardner:
 
 $$
-e[n] = \Re\bigl\{\bigl(y[n] - y[n-1]\bigr)^* \, y[n - \tfrac{1}{2}]\bigr\}
+e[n] = \text{Re}\bigl\{\bigl(y[n] - y[n-1]\bigr)^* \, y[n - \tfrac{1}{2}]\bigr\}
 $$
-
-Gardner uses the *midpoint* sample and is completely independent of carrier phase — so you can
-recover timing first, then carrier. That ordering is usually the easier one to debug.
+</details>
 
 ### GNU Radio's Symbol Sync block
 
-```
-digital_symbol_sync_xx:
-  ted_type    = digital.TED_MUELLER_AND_MULLER  (or TED_GARDNER)
-  sps         = input samples per symbol (e.g. 4)
-  loop_bw     = 0.045
-  damping     = 1.0
-  max_dev     = 1.5     ← clamp on the timing correction
-  osps        = 1       ← output samples per symbol
-  resamp_type = digital.IR_PFB_MF   ← polyphase matched filter (best)
-  pfb_mf_taps = your RRC taps
-```
+| Setting | Typical | Meaning |
+|---|---|---|
+| `ted_type` | `digital.TED_GARDNER` | which timing error detector |
+| `sps` | 4 | input samples per symbol (may be a fraction, like 4.21 in Lab 08) |
+| `loop_bw` | 0.010 | loop bandwidth |
+| `damping` | 1.0 | |
+| `max_dev` | 1.5 | the largest timing correction allowed |
+| `osps` | 1 | output samples per symbol |
+| `resamp_type` | `digital.IR_PFB_MF` | a polyphase **matched filter** — the best choice |
+| `pfb_mf_taps` | your RRC taps (made 32× finer — see Lab 07) | |
 
-Using `IR_PFB_MF` with your RRC taps folds the matched filter **into** the interpolator, so
-one block does matched filtering and timing recovery together. That is both faster and more
-accurate than doing them separately.
+With `IR_PFB_MF`, the block does the **matched filtering and** the timing recovery together. That
+is faster and more accurate than two separate blocks.
 
 ---
 
-## Part 5 — Putting It in the Right Order
-
-The canonical receiver chain, and the order matters:
+## Part 5 — The right order
 
 ```
 IQ in
   │
   ▼
-[ AGC ]              normalise amplitude — loops assume unit-ish scale
+[ AGC ]                          bring the level to about 1 — the loops expect it
   │
   ▼
-[ Coarse freq correction / FLL ]   pull |Δf| below the Costas capture range
+[ rough frequency correction ]   (optional) bring a big frequency error within the Costas range
   │
   ▼
-[ Symbol Sync + matched filter ]   Gardner TED works without carrier lock
+[ Symbol Sync + matched filter ] Gardner works without carrier lock
   │
   ▼
-[ Costas Loop ]                    now fine phase & frequency, 1 sample/symbol
+[ Costas Loop ]                  now fix phase and frequency, one sample per symbol
   │
   ▼
 [ Slicer / Constellation Decoder ]
   │
   ▼
-[ Differential decode ] → bits
+[ Differential decoder ] → bits
 ```
 
-### Debugging by looking at the constellation
+### Diagnose from the constellation
 
 This table will save you hours:
 
-| What you see | Diagnosis | Fix |
+| What you see | What is wrong | Try |
 |---|---|---|
-| Solid ring | Frequency offset, Costas not locked | Widen `w`; add FLL; check `sps` |
-| Rotated but tight dots | Static phase offset | Normal — differential decode or sync word |
-| Radial smear (dots into lines) | Timing error | Check `sps`, widen Symbol Sync `loop_bw` |
-| Fuzzy blob | Low SNR | More gain / better antenna / narrower filter |
-| Dots at the right places, occasional jumps | Cycle slips — loop too wide | Narrow `w` |
-| Two dots when you expect four | Wrong Costas `order` | Set `order = 4` for QPSK |
-| Everything at the origin | No signal, or squelched | Check upstream |
+| A **ring** | frequency error; Costas not locked | widen `w`; add a rough frequency correction; check `sps` |
+| Tight dots, but **rotated** | a fixed phase error | normal before Costas; after it, check `order` |
+| Dots **smeared into lines** from the centre | timing error | check `sps`; widen Symbol Sync's `loop_bw` |
+| A fuzzy **cloud** | too much noise | better antenna, more gain, narrower filter |
+| Good dots that sometimes **jump** | "cycle slips" — the loop is too wide | narrow `w` |
+| **Two** dots where you expect **four** | wrong Costas `order` | set `order = 4` for QPSK |
+| Everything at the **centre** | no signal, or muted | check the blocks before |
 
 ---
 
-## 🧠 Self-Check
+## ✅ Summary
 
-1. What loop bandwidth would you choose to track a very stable 19 kHz pilot, and why?
-   **Answer:** Very narrow, ~0.001. The pilot does not move, so minimise jitter; acquisition
-   speed is irrelevant for a continuous broadcast.
+- A digital receiver must find **frequency**, **phase** and **timing**.
+- Each is found by a **feedback loop**: error detector → loop filter → adjustable oscillator.
+- **Loop bandwidth** is the key setting: wide = fast but noisy; narrow = clean but slow.
+- A **PLL** follows a real tone (the Lab 04 pilot). A **Costas loop** follows a carrier that is not
+  sent, by removing the data first — which leaves a 180° (or 90°) ambiguity.
+- **Gardner** timing recovery works before carrier lock, so do timing first.
+- **The constellation tells you what is wrong.** Learn the table in Part 5.
 
-2. Why can a plain PLL not lock to a BPSK signal?
-   **Answer:** The data flips the carrier phase by 180° at the symbol rate, so the average
-   phase carries no information. A Costas loop removes the modulation first.
+## 🧠 Check yourself
 
-3. Your QPSK constellation is a rotating ring. Two possible causes?
-   **Answer:** (a) Costas loop bandwidth too narrow to capture the frequency offset;
-   (b) `order` set to 2 instead of 4, so the error detector is wrong.
+1. What loop bandwidth suits a very steady tone, and why?
+   <details><summary>Answer</summary>Narrow. The tone does not move, so speed does not matter;
+   a narrow loop gives the least jitter.</details>
+2. Why can a plain PLL not lock onto BPSK?
+   <details><summary>Answer</summary>The data keeps flipping the phase by 180°, so there is no
+   steady phase to follow. A Costas loop removes the data first.</details>
+3. Your QPSK constellation is a turning ring. Give two possible causes.
+   <details><summary>Answer</summary>(a) The Costas loop is too narrow to catch the frequency
+   error. (b) Its <code>order</code> is 2 instead of 4.</details>
+4. Why does Gardner not need the carrier to be locked?
+   <details><summary>Answer</summary>It only compares sizes and signs of samples between
+   symbols, which do not depend on the carrier's phase.</details>
+5. What does a 90° ambiguity mean for your data?
+   <details><summary>Answer</summary>Your bits may come out in any of four rotations. Fix it
+   with differential encoding or a known sync word.</details>
+6. In GNU Radio, a Costas loop with bandwidth 0.001 and ζ = 0.707: what are α and β?
+   <details><summary>Answer</summary>d = 1 + 2(0.707)(0.001) + 0.001² = 1.001415.
+   α = 4 × 0.707 × 0.001 / d ≈ 2.824 × 10⁻³; β = 4 × 0.001² / d ≈ 3.99 × 10⁻⁶. (Check with
+   <code>digital.costas_loop_cc(0.001, 2).get_alpha()</code>.)</details>
 
-4. Why does Gardner's TED not need carrier lock?
-   **Answer:** It compares energy at the midpoint versus the transition, which is a magnitude
-   relationship independent of the constellation's absolute phase.
-
-5. What does a 90° phase ambiguity mean practically?
-   **Answer:** Your decoded bits may be one of four rotations of the truth. Resolve with
-   differential encoding or a known sync word.
-
-6. Loop bandwidth 0.001 with $\zeta = 0.707$ — what are $\alpha$ and $\beta$?
-   **Answer:** $\theta = 0.001/(0.707+0.3536) = 9.43\times10^{-4}$, giving
-   $\alpha \approx 2.66\times10^{-3}$, $\beta \approx 3.55\times10^{-6}$.
-
----
-
-**Next:** [Fundamentals 10 — Error Detection & Framing →](./10_error_detection_and_framing.md)
+**Next:** [Fundamentals 10 — Error Detection and Framing →](./10_error_detection_and_framing.md)

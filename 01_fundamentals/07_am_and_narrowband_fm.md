@@ -1,312 +1,305 @@
-# 🛩️ Fundamentals 07 — AM, SSB & Narrowband FM
+# 🛩️ Fundamentals 07 — AM, SSB and Narrow FM
 
-> **Prerequisite:** FM Theory (Fundamentals 04), Noise & SNR (Fundamentals 06)
-> **Time to read:** 40 minutes
-> **Used by:** Lab 06
+> **What you will learn:** the other voice modes — **AM**, **DSB**, **SSB** and **narrow FM** —
+> how each one looks on the waterfall, how an SDR decodes each one, and why aircraft still use AM.
+> **Before this:** [Fundamentals 04 — FM](./04_fm_theory.md) and
+> [06 — Noise and SNR](./06_noise_snr_and_gain.md).
+> **Time:** about 40 minutes. **Used by:** Lab 06.
 
 ---
 
-## Why This Chapter Exists
+## Why this chapter exists
 
-Fundamentals 04 taught you one modulation: wideband FM. That is a single point in a large
-design space. This chapter fills in the rest of the **analog** space — AM, DSB, SSB, and
-narrowband FM — because Lab 06 builds a receiver that demodulates *all* of them, and because
-the interesting signals on the air are mostly not broadcast FM:
+Fundamentals 04 covered one mode: wide FM, for broadcast radio. But most of the interesting
+voice signals on the air use other modes. Lab 06 builds a receiver for several of them.
 
-| Band | Mode | What's there |
+| Band | Mode | What is there |
 |---|---|---|
-| 118–137 MHz | **AM** | Aircraft ↔ tower voice |
-| 144–148 MHz | **NBFM**, SSB | Amateur 2 m |
-| 156–162 MHz | **NBFM** | Marine VHF |
-| 162.400–162.550 MHz | **NBFM** | NOAA weather radio |
-| 380–470 MHz | **NBFM** | Business, PMR446, amateur 70 cm |
-| 3–30 MHz | **SSB**, AM, CW | Shortwave, amateur HF |
+| 118–137 MHz | **AM** | Aircraft talking to control towers |
+| 144–148 MHz | **Narrow FM**, SSB | Amateur radio, "2 m" band |
+| 156–162 MHz | **Narrow FM** | Marine radio (channel 16 = 156.800 MHz) |
+| 380–470 MHz | **Narrow FM** | Business radio, walkie-talkies, amateur "70 cm" |
+| 3–30 MHz | **SSB**, AM, Morse | Shortwave and amateur HF — *below the SignalSDR Pro's 70 MHz limit; needs an upconverter* |
 
-> ⚖️ **Legal note.** Receiving is legal in most countries, but *acting on*, recording, or
-> retransmitting some of these (especially aircraft, marine distress, and any encrypted or
-> public-safety traffic) is restricted, and rules vary a lot by jurisdiction. Check your local
-> regulations. Everything in this lab is receive-only.
+> ⚖️ **The law.** Listening is allowed in most places. But recording, sharing or acting on some
+> of these (especially aircraft, marine distress, and emergency services) may be restricted.
+> Check the rules where you live ([Malaysia reference](../05_reference/04_malaysia.md)). Everything
+> in this course only receives.
 
 ---
 
-## Part 1 — Amplitude Modulation, Revisited
+## Part 1 — AM (amplitude modulation)
 
-### The equation
+### How it works
+
+The sound changes the **size** of the carrier. A small, steady part stays the carrier; the
+sound rides on top:
 
 $$
 s_{AM}(t) = A_c \bigl[1 + m \cdot x(t)\bigr] \cos(2\pi f_c t)
 $$
 
-where $x(t)$ is the audio normalised to $[-1, +1]$ and $m$ is the **modulation index**.
+- *x*(*t*) is the sound, scaled to between −1 and +1.
+- *m* is the **modulation index** (how deep the modulation is), from 0 to 1.
 
-### Spectrum
+### What it looks like on a spectrum
 
-Expand with the product-to-sum identity. For a single tone $x(t) = \cos(2\pi f_m t)$:
-
-$$
-s_{AM}(t) = A_c\cos(2\pi f_c t)
-+ \frac{A_c m}{2}\cos\bigl(2\pi (f_c\!+\!f_m)t\bigr)
-+ \frac{A_c m}{2}\cos\bigl(2\pi (f_c\!-\!f_m)t\bigr)
-$$
+An AM signal has three parts: the **carrier** in the middle, and two **sidebands** — mirror
+images of the sound — on each side:
 
 ```
         carrier
            │
-   LSB  ───┼───  USB
+   LSB  ───┼───  USB          LSB = lower sideband, USB = upper sideband
     ▁▁▂▃  ███  ▃▂▁▁
-  ────────┼────────────  f
+  ────────┼────────────  frequency
         f_c
-   ◄── B = 2·f_m ──►
+   ◄── width = 2 × highest audio frequency ──►
 ```
 
-**Bandwidth:** $B_{AM} = 2 f_m$. Airband voice is limited to about 3 kHz, so an airband
-channel is ~6–8 kHz wide (channels are spaced 25 kHz, or 8.33 kHz in Europe).
+**Width = 2 × the highest sound frequency.** Aircraft voice goes up to about 3 kHz, so an aircraft
+channel is about 6–8 kHz wide. (Channels are 25 kHz apart, or 8.33 kHz apart in Europe.)
 
-### Power efficiency — AM's fatal flaw
+### AM's big weakness: wasted power
 
-Total power splits between carrier and sidebands:
+Most of the power goes into the carrier, which carries **no information**. Even at full
+modulation (*m* = 1), only **one third** of the power is in the sidebands (the part carrying the
+sound):
 
-$$
-P_{\text{total}} = \underbrace{\frac{A_c^2}{2}}_{\text{carrier}} + \underbrace{\frac{A_c^2 m^2}{4}}_{\text{both sidebands}}
-$$
+| *m* | Share of power carrying sound | Notes |
+|---|---|---|
+| 0.5 | 11 % | typical for broadcasting |
+| 1.0 | 33 % | the maximum possible |
+| more than 1 | — | **over-modulation**: badly distorted |
+
+This waste is why DSB and SSB (Part 2) were invented.
+
+<details>
+<summary><b>Going deeper:</b> the power formula</summary>
+
+For a single tone, the carrier has power $A_c^2/2$ and the two sidebands together $A_c^2 m^2/4$:
 
 $$
 \eta = \frac{P_{\text{sidebands}}}{P_{\text{total}}} = \frac{m^2}{2 + m^2}
 $$
+</details>
 
-| $m$ | Efficiency | Comment |
-|---|---|---|
-| 0.5 | 11.1 % | Typical conservative broadcast |
-| 1.0 | 33.3 % | **The theoretical maximum** |
-| > 1.0 | — | **Overmodulation** — envelope goes negative, severe distortion |
+### Why aircraft still use AM today
 
-At best, **two thirds of an AM transmitter's power carries no information at all.** The
-carrier is pure overhead. That single fact motivates DSB-SC and SSB.
+Three good reasons, all about safety:
 
-### Why airband still uses AM in 2026
+1. **You can hear two at once.** If two aircraft talk at the same time, FM would lock onto the
+   stronger one and the weaker would **disappear silently** (the capture effect). AM plays
+   **both**, with a whistle — so the controller knows something went wrong.
+2. **It fades gently.** AM slowly gets noisier as the signal gets weaker. FM falls off a cliff.
+3. **Simple receivers.** An AM detector is a diode and a capacitor. Simple equipment is easier to
+   certify as safe.
 
-Three genuinely good reasons, all about safety:
+### Decoding AM, method 1: the envelope
 
-1. **No capture effect.** If two aircraft transmit at once, an FM receiver locks to the
-   stronger and the weaker vanishes silently. An AM receiver plays *both*, producing an
-   audible heterodyne whistle — the controller hears that something went wrong.
-2. **Graceful degradation.** AM fades into noise smoothly. FM falls off a cliff at threshold.
-3. **Simple, provable receivers.** An envelope detector is a diode and a capacitor. Certifying
-   that is far cheaper than certifying a PLL.
-
-### Demodulation method 1: envelope detection
+The sound is the **size** of the signal. In IQ terms, that is the length of the arrow
+([Fundamentals 02](./02_iq_sampling.md)):
 
 $$
-\hat{x}(t) = |s_{\text{baseband}}(t)| = \sqrt{I^2 + Q^2}
+\text{audio} = \sqrt{I^2 + Q^2} \quad \text{(then remove the constant carrier level)}
 $$
 
-In GNU Radio this is **Complex to Mag**, then remove the DC (the carrier) with a subtract or a
-high-pass. Advantages: dead simple, no carrier recovery, immune to frequency offset.
-Disadvantage: it is nonlinear, so noise and signal intermodulate — about 3 dB worse than
-coherent detection at low SNR.
+In GNU Radio: **Complex to Mag**, then remove the constant (DC) part. The **AM Demod** block does
+all of this, plus an audio filter. (It removes the carrier by subtracting exactly 1.0, so the
+signal must arrive with the carrier at 1.0 — see Lab 06.)
 
-The block `analog_am_demod_cf` does envelope detection plus an audio lowpass in one step.
+**Good:** very simple, and **not affected by small tuning errors** — the arrow's length does not
+change when it rotates.
+**Bad:** in very weak signals, about 3 dB worse than method 2.
 
-### Demodulation method 2: coherent detection
+### Decoding AM, method 2: coherent detection
 
-Multiply by a locally regenerated carrier of exactly the right frequency **and phase**:
-
-$$
-s(t)\cdot 2\cos(2\pi f_c t) = A_c[1 + m x(t)](1 + \cos(4\pi f_c t)) \xrightarrow{\text{LPF}} A_c[1 + m x(t)]
-$$
-
-3 dB better in noise, but it needs a PLL locked to the carrier — and a phase error $\phi$
-costs you $\cos\phi$ in amplitude. Lab 06 uses envelope detection; Lab 07 uses coherent
-detection for RDS, where there is no choice.
-
-### Frequency offset in AM: it doesn't matter (much)
-
-If your tuning is off by $\Delta f$, the envelope detector still works — the whole complex
-baseband just rotates, and $|\cdot|$ is rotation-invariant. This is a real practical
-advantage. A coherent detector, by contrast, produces a $\cos(2\pi \Delta f t)$ fade.
+Multiply by a copy of the carrier made in the receiver, with exactly the right frequency **and
+phase**. It is 3 dB better in noise, but needs a PLL to make that copy, and any phase error
+makes the sound weaker. Lab 06 uses method 1. Stereo (Lab 04) and RDS (Lab 08) need method 2,
+because their carriers are not sent at all (next section).
 
 ---
 
-## Part 2 — DSB-SC and SSB
+## Part 2 — DSB-SC and SSB: not wasting power
 
-### DSB-SC: delete the carrier
+### DSB-SC: remove the carrier
+
+**DSB-SC** (double sideband, suppressed carrier) sends only the two sidebands — no carrier:
 
 $$
 s_{DSB}(t) = x(t)\cos(2\pi f_c t)
 $$
 
-100 % of the power is now in the sidebands. The cost: an envelope detector no longer works,
-because the envelope $|x(t)|$ loses the sign of $x(t)$. You **must** use coherent detection,
-which means recovering a carrier that was deliberately not transmitted.
+Now **all** the power carries sound. The cost: the envelope method no longer works (the envelope
+loses the sign of the sound). You **must** use coherent detection — and rebuild a carrier that
+was never sent.
 
-You have already met DSB-SC: the **L−R stereo subcarrier in Lab 04** is DSB-SC at 38 kHz, and
-the 19 kHz pilot exists precisely to let you regenerate the suppressed carrier. **RDS in Lab
-07 is DSB-SC too.** This is not an exotic mode — it is everywhere.
+**You have already met DSB-SC:** the **L−R stereo signal** in Lab 04 (at 38 kHz), and **RDS** in
+Lab 08 (at 57 kHz). The 19 kHz pilot exists so receivers can rebuild those missing carriers.
 
-### SSB: delete one sideband as well
+### SSB: remove one sideband too
 
-The two sidebands of a DSB signal are mirror images: they carry identical information. Throw
-one away:
+The two sidebands are **mirror images**: they carry the same information. So throw one away.
+**SSB** (single sideband) sends only the upper (**USB**) or the lower (**LSB**) sideband:
 
-$$
-s_{SSB}(t) = x(t)\cos(2\pi f_c t) \mp \hat{x}(t)\sin(2\pi f_c t)
-$$
-
-where $\hat{x}(t)$ is the **Hilbert transform** of $x(t)$ (every frequency component shifted
-by −90°). Minus gives USB, plus gives LSB.
-
-| Mode | Bandwidth | Power efficiency |
+| Mode | Width | Power carrying sound |
 |---|---|---|
-| AM | $2f_m$ | ≤ 33 % |
-| DSB-SC | $2f_m$ | 100 % |
-| **SSB** | $f_m$ | **100 %** |
+| AM | 2 × audio | 33 % at most |
+| DSB-SC | 2 × audio | 100 % |
+| **SSB** | **1 × audio** | **100 %** |
 
-SSB is the most spectrally efficient analog voice mode ever deployed: half the bandwidth and
-three times the useful power of AM, i.e. roughly a **9 dB** advantage. This is why every HF
-amateur and maritime voice link uses it.
+SSB uses half the bandwidth of AM and puts all its power into the sound — roughly a **9 dB**
+advantage. That is why amateur and marine shortwave voice uses SSB.
 
-### The SDR way to receive SSB
+### How an SDR receives SSB — the easy way
 
-Here is the elegant part. In IQ, a Hilbert transform is unnecessary — **you just filter one
-side of zero**:
+With IQ, the two sides of 0 Hz are separate ([Fundamentals 02](./02_iq_sampling.md)). So to
+receive USB, you simply **keep only the positive side**:
 
 ```
-  Complex baseband after tuning to the suppressed carrier:
+  After tuning to where the carrier would be:
 
      LSB          USB
    ▓▓▓▓▓▓░░░░│░░░░▓▓▓▓▓▓
   -3k     -300  +300   +3k     Hz
 
-  For USB: bandpass +300 Hz … +3000 Hz  (asymmetric — only possible with complex signals!)
-  For LSB: bandpass −3000 Hz … −300 Hz
+  USB: keep +300 Hz … +3000 Hz      ← a filter on ONE side of zero:
+  LSB: keep −3000 Hz … −300 Hz         only possible with IQ!
 ```
 
-Then take the real part. An asymmetric filter around DC is meaningless for a real signal but
-perfectly natural for a complex one. This is one of the clearest demonstrations of why
-Fundamentals 02 mattered.
+Then take the real part. That is the whole SSB receiver. A filter on one side of zero makes no
+sense for ordinary (real) signals, but is natural for IQ.
+
+<details>
+<summary><b>Going deeper:</b> the SSB equation</summary>
+
+$$
+s_{SSB}(t) = x(t)\cos(2\pi f_c t) \mp \hat{x}(t)\sin(2\pi f_c t)
+$$
+
+where $\hat{x}(t)$ is the **Hilbert transform** of the audio (every frequency shifted by −90°).
+Minus gives USB, plus gives LSB. The IQ receiver above avoids calculating it.
+</details>
 
 ---
 
-## Part 3 — Narrowband FM
+## Part 3 — Narrow FM
 
-### Same equation, different deviation
+### The same as FM broadcast, with a smaller swing
 
-$$
-s_{FM}(t) = A\cos\!\left(2\pi f_c t + 2\pi \Delta f \int_0^t x(\tau)d\tau\right)
-$$
-
-The **modulation index** is what separates NBFM from WBFM:
+Narrow FM (**NBFM**) works exactly like the FM in [Fundamentals 04](./04_fm_theory.md). The only
+difference is the **deviation** — how far the frequency swings. The **modulation index** β
+compares the swing with the highest audio frequency:
 
 $$
-\boxed{\beta = \frac{\Delta f}{f_m}}
+\boxed{\beta = \frac{\Delta f}{f_m}} \qquad \text{(deviation ÷ highest audio frequency)}
 $$
 
-| Mode | $\Delta f$ | $f_m$ | $\beta$ | Carson BW |
+| Mode | Deviation | Audio up to | β | Width (Carson) |
 |---|---|---|---|---|
-| **NBFM** (voice) | 5 kHz | 3 kHz | 1.67 | 16 kHz |
-| **NBFM** (2.5 kHz dev) | 2.5 kHz | 3 kHz | 0.83 | 11 kHz |
-| **WBFM** (broadcast) | 75 kHz | 15 kHz | 5.0 | 180 kHz |
+| **NBFM** voice | 5 kHz | 3 kHz | 1.67 | 16 kHz |
+| **NBFM** (narrower) | 2.5 kHz | 3 kHz | 0.83 | 11 kHz |
+| **WBFM** broadcast | 75 kHz | 15 kHz | 5.0 | 180 kHz |
 
-Carson's rule, again: $B \approx 2(\Delta f + f_m) = 2 f_m(\beta + 1)$.
+(Carson's rule: width ≈ 2 × (deviation + highest audio frequency).)
 
-### Why $\beta$ decides everything
+### Why β matters
 
-Recall from Fundamentals 06 that FM's noise advantage is
+The bigger β is, the more FM cleans up the noise
+([Fundamentals 06 §3](./06_noise_snr_and_gain.md#part-3--snr-and-how-much-each-mode-needs)):
 
-$$
-G_{FM} \approx 20\log_{10}\beta + 4.8 \text{ dB}
-$$
-
-| Mode | $\beta$ | FM gain |
+| Mode | β | Noise improvement from FM |
 |---|---|---|
-| NBFM | 1.67 | 9.2 dB |
-| WBFM | 5.0 | 18.8 dB |
+| NBFM | 1.67 | about 9 dB |
+| WBFM | 5.0 | about 19 dB |
 
-**WBFM buys ~10 dB more SNR by spending 11× the bandwidth.** Broadcasters have spectrum and
-want fidelity; a handheld radio has neither. Neither choice is wrong — they optimise different
-things. This trade is the central engineering decision in every communication system.
+**Wide FM gets about 10 dB cleaner sound by using 11 times more bandwidth.** A broadcaster has
+plenty of bandwidth and wants quality. A walkie-talkie has little bandwidth and only needs
+understandable speech. Both choices are right for their job. Trading bandwidth for quality is
+the central decision in every radio system.
 
-### Demodulating NBFM
+### Decoding narrow FM
 
-Identical to WBFM — quadrature demod — but the gain constant differs. GNU Radio's
-`analog_quadrature_demod_cf` computes:
-
-$$
-y[n] = \text{gain}\cdot\arg\bigl(s[n]\,s^*[n-1]\bigr)
-$$
-
-For the output to be the audio scaled to $\pm 1$, set:
+Exactly the same as wide FM: the **Quadrature Demod** block measures how fast the IQ arrow
+turns. Only its **gain** setting changes. For the audio to come out between −1 and +1:
 
 $$
-\boxed{\text{gain} = \frac{f_s}{2\pi \Delta f}}
+\boxed{\text{gain} = \frac{f_s}{2\pi \Delta f}} \qquad \text{(sample rate ÷ (2π × deviation))}
 $$
 
-| $f_s$ | $\Delta f$ | gain |
+| Sample rate | Deviation | Gain |
 |---|---|---|
 | 48 kHz | 5 kHz | 1.528 |
 | 384 kHz | 75 kHz | 0.815 |
 | 240 kHz | 75 kHz | 0.509 |
 
-> **The most common NBFM bug** is leaving the WBFM gain in place. The audio still works — FM
-> demod is scale-invariant in *quality* — but it comes out ~15× too loud or too quiet, and
-> people go looking for a broken filter instead of a wrong constant.
+> ⚠️ **The most common narrow-FM mistake** is keeping the wide-FM gain. The sound still works —
+> FM quality does not depend on the gain — but it comes out about **15 times** too loud or too
+> quiet. People then search for a broken filter, when the problem is one number.
 
-The block `analog_nbfm_rx` wraps quad demod + de-emphasis + audio filtering, taking
-`max_dev` directly. Lab 06 uses it.
+The **NBFM Receive** block does the demodulation, de-emphasis and audio filtering in one step.
+You give it `max_dev` (the deviation) directly. Lab 06 uses it.
 
-### CTCSS — the sub-audible tone squelch
+### CTCSS — the low hum
 
-Most NBFM services transmit a continuous low-frequency tone (67.0 – 250.3 Hz) below the voice
-band, so a receiver can stay silent unless the *right* tone is present. If your NBFM audio has
-a persistent low hum, that is CTCSS — high-pass at 300 Hz to remove it.
+Many narrow-FM radios send a steady, very low tone (67–250 Hz) under the voice. A receiver can
+stay silent unless it hears the *right* tone, so a group only hears its own radios. This is
+called **CTCSS**. If you hear a low hum on narrow FM, it is probably CTCSS. A high-pass filter
+at 300 Hz removes it.
 
 ---
 
-## Part 4 — Choosing a Demodulator: the decision table
+## Part 4 — Which decoder? A decision table
 
-| If the signal… | Mode | Demodulator | GNU Radio block |
+| If the signal… | It is probably | Decode with | GNU Radio block |
 |---|---|---|---|
-| has a strong steady carrier and its envelope carries audio | AM | Envelope | `analog_am_demod_cf` |
-| is symmetric with no visible carrier | DSB-SC | Coherent (PLL) | `analog_pll_carriertracking_cc` + multiply |
-| occupies only one side and sounds like ducks when mistuned | SSB | Filter one side, take real | Freq-xlating filter + `blocks_complex_to_real` |
-| has constant amplitude and ~12 kHz width | NBFM | Quadrature | `analog_nbfm_rx` |
-| has constant amplitude and ~180 kHz width | WBFM | Quadrature | `analog_wfm_rcv` |
+| has a strong, steady carrier line in the middle | AM | the envelope | AM Demod |
+| is symmetric, with **no** carrier line | DSB-SC | coherent (PLL) | PLL Carrier Tracking + Multiply |
+| is only on one side, and sounds like a duck when mistuned | SSB | filter one side, take the real part | Freq Xlating filter + Complex to Real |
+| is a steady block about 12–16 kHz wide | narrow FM | quadrature demod | NBFM Receive |
+| is a steady block about 200 kHz wide | wide FM | quadrature demod | WBFM Receive |
 
-### Reading the waterfall
+### Recognising them on the waterfall
 
 ```
-AM:      ▁▁▂▅█████▅▂▁▁     bright vertical carrier line, symmetric skirts
-DSB-SC:  ▁▁▅███ ███▅▁▁     symmetric, gap in the middle
-SSB:     ▁▁▁▁▁▁████▅▂▁     all energy on one side, ragged (speech-shaped)
-NBFM:    ▁▂▅█████▅▂▁       constant-width block, no bright centre line
-WBFM:    ▂▅███████████▅▂   ~200 kHz wide, visible pilot spike at ±19 kHz in MPX
+AM:      ▁▁▂▅█████▅▂▁▁     a bright line in the middle (the carrier), even on both sides
+DSB-SC:  ▁▁▅███ ███▅▁▁     even on both sides, a gap in the middle
+SSB:     ▁▁▁▁▁▁████▅▂▁     only on one side, uneven (shaped like speech)
+NBFM:    ▁▂▅█████▅▂▁       a block of constant width, no bright centre line
+WBFM:    ▂▅███████████▅▂   about 200 kHz wide
 ```
+
+[Signal identification](../05_reference/02_signal_identification.md) has many more examples.
 
 ---
 
-## 🧠 Self-Check
+## ✅ Summary
 
-1. An AM transmitter runs 100 W at $m = 0.8$. How much power carries information?
-   **Answer:** $\eta = 0.64/(2+0.64) = 24.2\%$, so 24.2 W.
+- **AM** changes the size of the carrier. Simple and safe, but wastes at least two thirds of its
+  power. Aircraft use it so two stations can be heard at once.
+- Decode AM with the **envelope** (the arrow's length). It ignores small tuning errors.
+- **DSB-SC** and **SSB** remove the wasted parts. They need a rebuilt carrier. In an SDR, SSB is
+  just "keep one side of zero".
+- **Narrow FM** is FM with a small swing (±5 kHz). Same decoder, different **gain**:
+  *f*ₛ ÷ (2π × deviation).
 
-2. NBFM with $\Delta f = 5$ kHz and $f_m = 3$ kHz. Carson bandwidth?
-   **Answer:** $2(5+3) = 16$ kHz.
+## 🧠 Check yourself
 
-3. You have a quadrature demod at $f_s = 96$ kHz for a $\Delta f = 5$ kHz NBFM signal. Gain?
-   **Answer:** $96000/(2\pi \times 5000) = 3.056$.
-
-4. Why does airband use AM, when FM would sound better?
-   **Answer:** Simultaneous transmissions must both be audible — FM's capture effect would
-   silently hide one aircraft. Safety beats fidelity.
-
-5. Why can't an envelope detector demodulate DSB-SC?
-   **Answer:** The envelope is $|x(t)|$, which loses the sign of $x(t)$ — every negative
-   excursion is folded positive.
-
-6. How do you receive USB in an SDR without a Hilbert transform?
-   **Answer:** Tune to the suppressed carrier and bandpass only the positive-frequency side
-   (+300 to +3000 Hz) of the complex baseband, then take the real part.
-
----
+1. An AM transmitter uses 100 W at *m* = 0.8. How much power carries the sound?
+   <details><summary>Answer</summary>0.64 ÷ (2 + 0.64) = 24.2 %, so 24.2 W.</details>
+2. Narrow FM with 5 kHz deviation and audio up to 3 kHz. How wide is it?
+   <details><summary>Answer</summary>2 × (5 + 3) = 16 kHz.</details>
+3. A Quadrature Demod at 96 kHz for narrow FM with 5 kHz deviation. What gain?
+   <details><summary>Answer</summary>96,000 ÷ (2π × 5,000) = 3.056.</details>
+4. Why do aircraft use AM, when FM would sound better?
+   <details><summary>Answer</summary>If two transmit at once, both must be heard. FM's
+   capture effect would silently hide one. Safety matters more than sound quality.</details>
+5. Why can't the envelope method decode DSB-SC?
+   <details><summary>Answer</summary>The envelope is the size of the sound, |x(t)|. It loses
+   the sign, so every negative part comes out positive.</details>
+6. How does an SDR receive USB without complicated maths?
+   <details><summary>Answer</summary>Tune to where the carrier would be, keep only the positive
+   side (+300 to +3000 Hz) of the IQ signal, and take the real part.</details>
 
 **Next:** [Fundamentals 08 — Digital Modulation →](./08_digital_modulation.md)
