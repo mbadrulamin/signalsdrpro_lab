@@ -22,9 +22,9 @@ Double-click the file, or:
 xdg-open "06_training/intro_to_sdr.html"
 ```
 
-It is a **single self-contained HTML file**. No reveal.js, no CDN, no fonts to fetch, no build
-step — it runs from a USB stick on a machine that has never seen the internet, which is the
-point. Venue wifi is never in the critical path.
+It is **one HTML file with everything inside it**. It needs no internet, no extra downloads and no
+installation — it runs from a USB stick on a computer that has never been online. So a bad venue
+Wi-Fi cannot stop your talk.
 
 ### Keys
 
@@ -36,7 +36,7 @@ point. Venue wifi is never in the critical path.
 | <kbd>O</kbd> | Overview grid of all 63 slides — click any to jump |
 | <kbd>F</kbd> | Fullscreen |
 | <kbd>B</kbd> | Black the screen (during a live demo, so nobody reads ahead) |
-| <kbd>T</kbd> | **Light theme** — insurance for a bright room with a weak projector |
+| <kbd>T</kbd> | **Light theme** — for a bright room or a weak projector |
 | <kbd>P</kbd> | Pause / resume the timer |
 | <kbd>12</kbd> <kbd>enter</kbd> | Jump to slide 12 |
 | <kbd>H</kbd> | Show / hide the key list |
@@ -119,9 +119,8 @@ Diagrams are inline SVG using the deck's CSS variables (`var(--accent)`, `var(--
 they follow the light/dark toggle automatically. The slide area is a fixed 1280×720 coordinate
 space scaled to fit the display, so layout is identical on every projector.
 
-> The entrance animation deliberately animates **transform only, never opacity** — a browser
-> with a stalled animation clock must never be able to leave a slide invisible in front of an
-> audience.
+> The slide entrance animation only **moves** the slide; it never fades it in. So even if a
+> browser's animation gets stuck, a slide can never be left invisible in front of an audience.
 
 ### Printing to PDF
 
