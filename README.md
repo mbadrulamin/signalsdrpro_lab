@@ -1,234 +1,210 @@
-# 📡 SignalSDR Pro Lab — A Complete SDR Learning Journey
+# 📡 SignalSDR Pro Lab — Learn Software-Defined Radio from Zero
 
-> **Your comprehensive laboratory for learning Software-Defined Radio using the SignalSDR Pro (by Signalens) emulating a USRP B210, with GNU Radio.**
-
----
-
-## 🚨 Quick Fix: "Could not find path for image" Error
-
-If you're seeing this error when running GNU Radio flowgraphs:
-
-```
-[WARNING] [B200] EnvironmentError: IOError: Could not find path for image: usrp_b200_fw.hex
-```
-
-**But** `uhd_find_devices` works fine, you have a **UHD version conflict**.
-
-### ⚡ Quick Fix (Terminal & GUI Launcher)
-
-```bash
-# Automated fix:
-cd "/home/ubuntu/GNU Radio/signalsdrpro_lab/00_setup"
-./fix_uhd_version_conflict.sh
-```
-
-Or manually create system symlinks:
-```bash
-sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/images
-sudo ln -sfn /usr/share/uhd/4.10.0/images /usr/share/uhd/4.6.0/images
-echo 'UHD_IMAGES_DIR="/usr/share/uhd/4.10.0/images"' | sudo tee -a /etc/environment
-```
-
-**Full explanation:** [Fix UHD Version Conflict](./00_setup/06_fix_uhd_version_conflict.md)
+> A step-by-step course for the **SignalSDR Pro** (made by Signalens) using **GNU Radio**.
+> You start knowing nothing about radio. You finish able to build a TV transmitter.
 
 ---
 
-## 🎯 What Is This Project?
+## 👋 What is this?
 
-This lab is a carefully structured learning path that takes you from **zero knowledge** to being able to build, understand, and modify sophisticated SDR flowgraphs. We use:
+A **software-defined radio (SDR)** is a radio where the computer does most of the work.
+The hardware catches radio waves and turns them into numbers. Software then turns those
+numbers into sound, pictures or data.
 
-- **Hardware:** SignalSDR Pro (Signalens) — configured to emulate a **USRP B210**
-- **Software:** **GNU Radio 3.10** (the leading open-source SDR toolkit)
-- **Driver:** **UHD** (USRP Hardware Driver) by Ettus Research
-- **OS:** Ubuntu 24.04 LTS (works on any modern Linux)
+This means **one device can be many radios**. Today it is an FM radio. Tomorrow it tracks
+aircraft. Next week it is a television transmitter. You only change the software.
 
-The SignalSDR Pro is a compact, credit-card-sized SDR built around the **Analog Devices AD9361** transceiver chip and a **Xilinx Zynq** FPGA. Thanks to its flexible firmware (loaded from an SD card), it can pretend to be a USRP B210 — the gold-standard hobbyist SDR — which means **all the existing UHD + GNU Radio tutorials and code work on it directly**.
+This repository teaches you how to do that, one small step at a time.
 
----
-
-## 📚 Learning Path (Read in Order)
-
-### ⏱️ Brand new? — [**Your First 30 Minutes**](./QUICKSTART.md)
-Plug the radio in and hear a real station today. No theory, no flowgraphs, just proof that the
-whole chain works. Everything else is easier once you have heard something.
-
----
-
-### Start Here — Introduction to SDR
-**[📻 Introduction to Software-Defined Radio](./01_fundamentals/00_introduction_to_sdr.md)** —
-what SDR is, why it exists, a full tour of the SignalSDR Pro hardware with block diagram, the
-software landscape, how this radio compares with the alternatives, and **frequency allocation in
-Malaysia**. Assumes nothing. Read this before the setup guide.
+| You will use | What it is |
+|---|---|
+| **SignalSDR Pro** | The radio hardware. It pretends to be a well-known radio called the **USRP B210**, so lots of existing software works with it. |
+| **GNU Radio 3.10** | Free software for building radios. You connect blocks on screen, like drawing a diagram. |
+| **UHD** | The driver. It lets GNU Radio talk to the radio over USB. |
+| **Ubuntu Linux** | The operating system. Version 24.04 (22.04 also works). |
 
 ---
 
-### Part 0 — Setup (Do this first!)
-Everything here is required before you can run any flowgraph.
+## 🚀 Start here — three steps
 
-| # | Document | What You'll Learn |
+| Step | Page | Time |
 |---|---|---|
-| 01 | [Installing UHD Driver](./00_setup/01_install_uhd.md) | What UHD is, how to install it, what `uhd_images_downloader` does |
-| 02 | [Flashing the B210 Firmware](./00_setup/02_flash_b210_firmware.md) | SD card prep, jumper settings, power/data cables, boot sequence |
-| 03 | [Installing GNU Radio](./00_setup/03_install_gnuradio.md) | Getting GRC (GNU Radio Companion) working |
-| 04 | [Verifying the Setup](./00_setup/04_verify_setup.md) | `uhd_find_devices`, `uhd_usrp_probe`, first signal |
-| 05 | [Troubleshooting](./00_setup/05_troubleshooting.md) | Common pitfalls with SignalSDR Pro + UHD |
-| 06 | [Fix UHD Version Conflict](./00_setup/06_fix_uhd_version_conflict.md) | **CRITICAL:** Fix for dual UHD versions (Terminal & GUI Launcher) |
+| **1** | **[Your First 30 Minutes](./QUICKSTART.md)** — plug in, install, and hear a real FM station. No theory. | 30 min |
+| **2** | **[Introduction to SDR](./01_fundamentals/00_introduction_to_sdr.md)** — what you just did, and why it works. | 45 min |
+| **3** | **[Lab 01](./02_flowgraphs/lab01_simple_wbfm/README.md)** — build that FM radio yourself, from three blocks. | 30 min |
 
-### Part 1 — Fundamentals (Theory from Zero)
-You cannot build good SDR systems without understanding these.
+After that, follow the learning path below in order.
 
-**Read 01–04 before Lab 01.** Documents 05–11 are referenced by the labs that need them, and
-each lab's header tells you which.
+> 💡 **Stuck on a word?** Every term used in this repository is explained in the
+> **[Glossary](./05_reference/01_glossary.md)**. Keep it open in another tab.
 
-| # | Document | What You'll Learn | Needed by |
+---
+
+## 🗺️ The learning path
+
+The course has six parts. Do Part 0 once. Then move between Part 1 (theory) and Part 2 (labs).
+Each lab tells you which theory page to read before it.
+
+```
+  Part 0  Setup          install and test          ── once
+     │
+  Part 1  Fundamentals   the ideas you need        ─┐
+     │                                              ├─ take turns
+  Part 2  Labs           build real radios         ─┘
+     │
+  Part 4  Applications   589 more things to try
+  Part 5  Reference      look things up
+  Part 6  Teaching       run a class with this
+```
+
+### Part 0 — Setup
+
+Do this before any lab. Most people only need pages 01, 03 and 04.
+
+| # | Page | What it covers |
+|---|---|---|
+| 01 | [Install the UHD driver](./00_setup/01_install_uhd.md) | The software that talks to the radio |
+| 02 | [Prepare the SignalSDR Pro](./00_setup/02_flash_b210_firmware.md) | The microSD card, the switches, the cables, the start-up order |
+| 03 | [Install GNU Radio](./00_setup/03_install_gnuradio.md) | The software you build radios in |
+| 04 | [Check that everything works](./00_setup/04_verify_setup.md) | Three commands that prove the setup is good |
+| 05 | [Troubleshooting](./00_setup/05_troubleshooting.md) | Fixes for common problems |
+| 06 | [Fix the "two UHD versions" problem](./00_setup/06_fix_uhd_version_conflict.md) | Only if you see `Could not find path for image` |
+
+### Part 1 — Fundamentals (the theory)
+
+Short chapters that explain the ideas. **Read 00–04 before Lab 01.** Read the others when a
+lab asks for them.
+
+| # | Page | In one line | Needed by |
 |---|---|---|---|
-| **00** | **[Introduction to SDR](./01_fundamentals/00_introduction_to_sdr.md)** | **What SDR is, the hardware, the tools, Malaysian spectrum** | **Everyone** |
-| 01 | [Signals & Systems Basics](./01_fundamentals/01_signals_basics.md) | Time vs frequency, amplitude, phase, bandwidth | Lab 01 |
-| 02 | [IQ Sampling](./01_fundamentals/02_iq_sampling.md) | Why SDRs use I/Q, complex numbers, negative frequencies | Lab 01 |
-| 03 | [RF Basics](./01_fundamentals/03_rf_basics.md) | What is RF, spectrum, mixers, filters | Lab 01 |
-| 04 | [FM Modulation Theory](./01_fundamentals/04_fm_theory.md) | How FM works, deviation, bandwidth, Carson's rule | Lab 01 |
-| 05 | [Sampling, Filters & Resampling](./01_fundamentals/05_sampling_and_filters.md) | Nyquist, aliasing, FIR design, the tap-count equation, decimation, xlating filters | Labs 05–09 |
-| 06 | [Noise, SNR, Gain & Dynamic Range](./01_fundamentals/06_noise_snr_and_gain.md) | kTB, noise figure, Friis, dBm/dBFS, AGC, squelch, link budgets | Labs 05, 06, 08, 09 |
-| 07 | [AM, SSB & Narrowband FM](./01_fundamentals/07_am_and_narrowband_fm.md) | Envelope vs coherent detection, DSB-SC, SSB in IQ, modulation index | Lab 06 |
-| 08 | [Digital Modulation](./01_fundamentals/08_digital_modulation.md) | Constellations, RRC pulse shaping, Eb/N0, BER, PPM | Labs 07–09 |
-| 09 | [Synchronization](./01_fundamentals/09_synchronization.md) | PLLs, Costas loops, timing recovery, loop bandwidth | Labs 07, 08 |
-| 10 | [Error Detection & Framing](./01_fundamentals/10_error_detection_and_framing.md) | GF(2) arithmetic, CRC, self-synchronising codes, FEC | Labs 08, 09 |
-| 11 | [OFDM & Modern Broadcast Systems](./01_fundamentals/11_ofdm_and_broadcast_systems.md) | Orthogonality, the cyclic prefix, pilots, PAPR, LDPC+BCH | Lab 10 |
-| 12 | [Video Over The Air](./01_fundamentals/12_video_over_the_air.md) | MPEG-2 transport streams, PCR clock recovery, I/P/B frames, why acquisition is the expensive part, the one-decibel cliff | Labs 11, 12 |
+| **00** | **[Introduction to SDR](./01_fundamentals/00_introduction_to_sdr.md)** | **What an SDR is, the SignalSDR Pro, the software, Malaysian radio bands** | **Everyone** |
+| 01 | [Signals basics](./01_fundamentals/01_signals_basics.md) | What a signal is: frequency, amplitude, phase, bandwidth, decibels | Lab 01 |
+| 02 | [IQ sampling](./01_fundamentals/02_iq_sampling.md) | Why an SDR gives you *two* numbers per sample, called I and Q | Lab 01 |
+| 03 | [RF basics](./01_fundamentals/03_rf_basics.md) | Radio waves, the spectrum, and how a radio tunes | Lab 01 |
+| 04 | [How FM works](./01_fundamentals/04_fm_theory.md) | How music rides on a radio wave, and how we get it back | Lab 01 |
+| 05 | [Sampling and filters](./01_fundamentals/05_sampling_and_filters.md) | Keeping the signal you want and throwing away the rest | Labs 05–09 |
+| 06 | [Noise, gain and signal strength](./01_fundamentals/06_noise_snr_and_gain.md) | Why "more gain" is not always better | Labs 05, 06, 08, 09 |
+| 07 | [AM, SSB and narrow FM](./01_fundamentals/07_am_and_narrowband_fm.md) | The other voice modes: aircraft, marine, amateur | Lab 06 |
+| 08 | [Digital modulation](./01_fundamentals/08_digital_modulation.md) | How radios send ones and zeros | Labs 07–09 |
+| 09 | [Synchronisation](./01_fundamentals/09_synchronization.md) | How a receiver locks on to a transmitter's timing | Labs 07, 08 |
+| 10 | [Error detection](./01_fundamentals/10_error_detection_and_framing.md) | How a receiver knows the data arrived correctly | Labs 08, 09 |
+| 11 | [OFDM and digital TV](./01_fundamentals/11_ofdm_and_broadcast_systems.md) | How TV and Wi-Fi send many signals side by side | Lab 10 |
+| 12 | [Video over the air](./01_fundamentals/12_video_over_the_air.md) | How a video file becomes a TV broadcast, and back | Labs 11, 12 |
 
-### Part 2 — Hands-On Flowgraphs (Progressive Labs)
-Each lab builds on the previous one. **Do not skip.**
+### Part 2 — The labs (hands-on)
 
-| Lab | Flowgraph | Concept | Blocks | Hardware? |
-|---|---|---|---|---|
-| 01 | [Simplest WBFM Receiver](./02_flowgraphs/lab01_simple_wbfm/README.md) | Minimum viable FM radio. 3 blocks total. | 7 | yes |
-| 02 | [Enhanced WBFM + Visualization](./02_flowgraphs/lab02_enhanced_wbfm/README.md) | Spectrum, waterfall, resampling, GUI sliders. | 13 | yes |
-| 03 | [Advanced WBFM with AGC & Squelch](./02_flowgraphs/lab03_advanced_wbfm/README.md) | Real receiver: filtering, AGC, squelch, volume. | 18 | yes |
-| 04 | [Stereo WBFM — Full MPX Decoding](./02_flowgraphs/lab04_stereo_wbfm/README.md) | Manual stereo: pilot, PLL, L+R, L−R, de-emphasis. | 30 | yes |
-| 05 | [IQ Recording & Playback](./02_flowgraphs/lab05_iq_record_playback/README.md) | Capture to disk, replay, retune inside a recording. | 19 | record only |
-| 06 | [Multimode Receiver](./02_flowgraphs/lab06_multimode_receiver/README.md) | AM / NBFM / WBFM, channel selection, S-meter, squelch. | 35 | yes |
-| 07 | [BPSK Link Simulation](./02_flowgraphs/lab07_bpsk_link_sim/README.md) | A full digital link with **measured BER vs theory**. | 34 | **none** |
-| 08 | [RDS Decoder](./02_flowgraphs/lab08_rds_decoder/README.md) | Station name & RadioText off the 57 kHz subcarrier. | 34 | optional |
-| 09 | [ADS-B Aircraft Receiver](./02_flowgraphs/lab09_adsb_receiver/README.md) | 1090 MHz Mode S: identity, altitude, position. | 14 | optional |
-| 10 | [**DVB-T2 Television Transmitter**](./02_flowgraphs/lab10_dvbt2_tx_rx/README.md) | Build a TV transmitter. OFDM, LDPC+BCH, received by a real TV. | 31 | 🚨 **transmits** |
-| 11 | [**Television Receiver: Scan, Tune, Watch**](./02_flowgraphs/lab11_tv_receiver/README.md) | The receive chain. Band scanner, channel list, MER, live picture. | 38 | yes |
-| 12 | [**Full-Duplex Video Link**](./02_flowgraphs/lab12_fullduplex_tv/README.md) | Transmit a video file and receive it back on the same radio, at once. | 49 | 🚨 **transmits** |
+Each lab adds **one or two new ideas** to the one before. Please do them in order.
 
-**Labs 07, 08b and 09b run with no radio attached.** Labs 08 and 09 each ship a second
-flowgraph that reads a recorded or synthetic IQ file, so you can build and debug the whole
-decoder before you ever fight an antenna.
+| Lab | What you build | New idea | Needs the radio? |
+|---|---|---|---|
+| 01 | [The simplest FM radio](./02_flowgraphs/lab01_simple_wbfm/README.md) | Three blocks make a radio | ✅ yes |
+| 02 | [FM radio with a spectrum display](./02_flowgraphs/lab02_enhanced_wbfm/README.md) | Seeing signals; sliders; changing sample rate | ✅ yes |
+| 03 | [An FM radio that sounds good](./02_flowgraphs/lab03_advanced_wbfm/README.md) | Filters, automatic volume, mute when no signal | ✅ yes |
+| 04 | [Stereo FM](./02_flowgraphs/lab04_stereo_wbfm/README.md) | Separating left and right channels by hand | ✅ yes |
+| 05 | [Record and play back radio](./02_flowgraphs/lab05_iq_record_playback/README.md) | Save the radio signal to a file, replay it later | only to record |
+| 06 | [One radio, many modes](./02_flowgraphs/lab06_multimode_receiver/README.md) | AM, narrow FM and wide FM; a signal meter | ✅ yes |
+| 07 | [A digital link, simulated](./02_flowgraphs/lab07_bpsk_link_sim/README.md) | Sending bits; counting errors | ❌ no |
+| 08 | [Read a station's name (RDS)](./02_flowgraphs/lab08_rds_decoder/README.md) | Decoding hidden data inside an FM broadcast | optional |
+| 09 | [Track aircraft (ADS-B)](./02_flowgraphs/lab09_adsb_receiver/README.md) | Decoding aircraft position messages at 1090 MHz | optional |
+| 10 | [**Build a TV transmitter**](./02_flowgraphs/lab10_dvbt2_tx_rx/README.md) | Digital TV (DVB-T2) that a real TV can receive | 🚨 **transmits** |
+| 11 | [**Build a TV receiver**](./02_flowgraphs/lab11_tv_receiver/README.md) | Scan for channels, tune, and watch | ✅ yes |
+| 12 | [**Send and receive video at once**](./02_flowgraphs/lab12_fullduplex_tv/README.md) | Transmit and receive on one radio at the same time | 🚨 **transmits** |
 
-### The arc
+> 💡 **No radio yet?** Labs 07, 08 and 09 can run with **no radio attached**. Labs 08 and 09
+> each include a second version that reads a recorded file instead of the antenna.
+
+**How the labs build on each other:**
 
 ```
-  01 ─▶ 02 ─▶ 03 ─▶ 04        analog: one signal, growing sophistication
-                    │
-                    ▼
-                   05         stop needing the radio
-                    │
-                    ▼
-                   06         one tuner, many channels and many modes
-                    │
-                    ▼
-                   07         cross into digital, in a controlled simulation
-                    │
-                    ▼
-                   08         apply it to real data hidden in an FM broadcast
-                    │
-                    ▼
-                   09         a different band, a different modulation, aircraft
-                    │
-                    ▼
-                   10         stop receiving and TRANSMIT: OFDM, LDPC, a real TV
-                    │
-                    ▼
-                   11         build the other half: demodulate TV, scan a band,
-                    │         put a moving picture on the screen
-                    ▼
-                   12         both at once on one radio: your own video,
-                              transmitted and received simultaneously
+  01 → 02 → 03 → 04     FM radio: from 3 blocks to full stereo
+                  │
+                 05     record the signal, so you can work without the radio
+                  │
+                 06     one radio for many kinds of signal
+                  │
+                 07     digital signals, in a safe simulation
+                  │
+                 08     real digital data hidden inside FM
+                  │
+                 09     a new band and a new signal: aircraft
+                  │
+                 10     now TRANSMIT: a digital TV station
+                  │
+                 11     receive TV: scan, tune, watch
+                  │
+                 12     transmit and receive together, on one radio
 ```
 
-> 🚨 **Labs 10 and 12 transmit.** They are the only labs that radiate, they use licensed
-> broadcast spectrum, and they must be done in a Faraday cage or over a cable into a dummy
-> load. Their defaults are inert — amplitude and gain both start at zero — but the
-> responsibility is yours. Lab 12's own measurements show why a cable is not merely the safe
-> option but the *better-performing* one.
+> 🚨 **Labs 10 and 12 transmit radio waves.** They use TV frequencies that are licensed to
+> broadcasters. Only do them inside a **shielded box (Faraday cage)** or with a **cable and an
+> attenuator** instead of an antenna. Both labs start with the power set to zero, but you are
+> responsible for what you transmit. Read each lab's safety section first.
 
 ### Part 4 — The Applications Catalogue
-What else is out there. **589 signals and projects** across 16 domains, each with frequency,
-modulation, difficulty, the hardware it needs, and which labs prepare you for it.
 
-| # | Domain | Highlights |
+Ideas for what to do next: **589 signals and projects** in 16 areas. Each entry lists the
+frequency, how hard it is, what extra hardware it needs, and which labs prepare you for it.
+
+| # | Area | Examples |
 |---|---|---|
-| — | **[Catalogue index & difficulty ladder](./04_applications/README.md)** | Spectrum map, what to build first, antenna reference, law & ethics |
-| 01 | [Broadcast & Media](./04_applications/01_broadcast_and_media.md) | FM, AM, shortwave, DAB, DVB-T |
-| 02 | [Aviation](./04_applications/02_aviation.md) | ADS-B, ACARS, airband, VOR/ILS |
-| 03 | [Maritime](./04_applications/03_maritime.md) | AIS, NAVTEX, DSC, EPIRB |
-| 04 | [Satellite & Space](./04_applications/04_satellite_and_space.md) | Meteor LRPT, GOES, Inmarsat, cubesats |
-| 05 | [Weather & Environment](./04_applications/05_weather_and_environment.md) | Radiosondes, lightning, meteor scatter |
-| 06 | [Land Mobile & Professional](./04_applications/06_land_mobile_and_professional.md) | DMR, P25, TETRA, pagers, SCADA |
-| 07 | [Amateur Radio](./04_applications/07_amateur_radio.md) | FT8, WSPR, APRS, SSTV, EME |
-| 08 | [IoT, ISM & Short Range](./04_applications/08_iot_ism_and_short_range.md) | LoRa, TPMS, smart meters, BLE, Zigbee |
-| 09 | [Cellular](./04_applications/09_cellular.md) | GSM, LTE, 5G NR, NB-IoT |
-| 10 | [Navigation & Timing](./04_applications/10_navigation_and_timing.md) | GPS/GNSS, time stations, NDBs |
-| 11 | [Radar & Sensing](./04_applications/11_radar_and_sensing.md) | Passive radar, FMCW, Doppler |
-| 12 | [Science & Radio Astronomy](./04_applications/12_science_and_radio_astronomy.md) | Hydrogen line, Jupiter, pulsars |
-| 13 | [Security Research](./04_applications/13_security_research.md) | Protocol RE, fingerprinting, defence |
-| 14 | [Test & Measurement](./04_applications/14_test_measurement_and_infrastructure.md) | Spectrum monitoring, DF, EMC |
-| 15 | [Transmit Projects](./04_applications/15_transmit_projects.md) | Beacons, custom links, MIMO |
-| 16 | [Oddities & Historical](./04_applications/16_oddities_and_historical.md) | Numbers stations, NDBs, weatherfax |
-
-> **Not all of it is FM radio.** Labs 01–09 lean heavily on the FM broadcast band because it is
-> strong, legal everywhere and layers beautifully (mono → stereo → RDS data). Part 4 is the map
-> of everything else — and your SignalSDR Pro reaches most of it.
-
----
-
-### Part 6 — Teaching It
-Delivering this material to a room rather than reading it alone.
-
-| File | Use it when… |
-|---|---|
-| [4-hour session plan](./06_training/SESSION_PLAN.md) | You are teaching this. Design rationale, per-slide speaker notes, demo risk plan, cut order. |
-| [Introduction to SDR — slide deck](./06_training/intro_to_sdr.html) | 63 slides, speaker notes and pacing timer built in. One self-contained file; no internet needed. |
-
-Aimed at a **beginner-to-intermediate** audience — people who have used radio as operators but
-have never seen an SDR. Four hours: the two ideas that must land, a radio brought up from cold,
-one flowgraph built live, eight labs demonstrated, and a television station.
-
----
+| — | **[Start here: index and difficulty ladder](./04_applications/README.md)** | What to try first, the law, antennas |
+| 01 | [Broadcast and media](./04_applications/01_broadcast_and_media.md) | FM, AM, shortwave, digital radio, TV |
+| 02 | [Aviation](./04_applications/02_aviation.md) | Aircraft tracking, airband voice |
+| 03 | [Maritime](./04_applications/03_maritime.md) | Ship tracking (AIS), marine weather |
+| 04 | [Satellites and space](./04_applications/04_satellite_and_space.md) | Weather satellite pictures, small satellites |
+| 05 | [Weather and environment](./04_applications/05_weather_and_environment.md) | Weather balloons, lightning, meteors |
+| 06 | [Land mobile and professional](./04_applications/06_land_mobile_and_professional.md) | Digital two-way radio, pagers |
+| 07 | [Amateur (ham) radio](./04_applications/07_amateur_radio.md) | FT8, APRS, slow-scan TV pictures |
+| 08 | [IoT and short range](./04_applications/08_iot_ism_and_short_range.md) | LoRa, tyre sensors, weather stations |
+| 09 | [Cellular](./04_applications/09_cellular.md) | 2G, 4G, 5G |
+| 10 | [Navigation and timing](./04_applications/10_navigation_and_timing.md) | GPS, time signals |
+| 11 | [Radar and sensing](./04_applications/11_radar_and_sensing.md) | Passive radar, Doppler |
+| 12 | [Science and radio astronomy](./04_applications/12_science_and_radio_astronomy.md) | Hearing the Milky Way's hydrogen |
+| 13 | [Security research](./04_applications/13_security_research.md) | Understanding wireless protocols safely |
+| 14 | [Test and measurement](./04_applications/14_test_measurement_and_infrastructure.md) | Using the SDR as a lab instrument |
+| 15 | [Transmit projects](./04_applications/15_transmit_projects.md) | Beacons, your own links |
+| 16 | [Oddities and history](./04_applications/16_oddities_and_historical.md) | Numbers stations, weather fax |
 
 ### Part 5 — Reference
-Lookup material, not meant to be read front to back.
 
-| # | Document | Use it when… |
-|---|---|---|
-| 01 | [Glossary](./05_reference/01_glossary.md) | An acronym stops you. **202 terms**, plain English first |
-| 02 | [Signal Identification](./05_reference/02_signal_identification.md) | "What *is* that thing on my waterfall?" |
-| 03 | [Antennas](./05_reference/03_antennas.md) | **Always.** The cheapest part that matters most |
-| 04 | [Malaysia](./05_reference/04_malaysia.md) | Local bands, law, licensing, community — plus a measured FM band survey |
+For looking things up, not for reading from start to end.
 
----
-
-### Part 3 — Scripts & Tools
-| Script | Purpose |
+| Page | Open it when… |
 |---|---|
-| [validate_flowgraph.py](./03_scripts/validate_flowgraph.py) | Validate `.grc` files against the **installed** GNU Radio block library — block ids, parameter expressions, port types, connections. `--compile` also generates the Python. |
-| [simulate_bpsk_ber.py](./03_scripts/simulate_bpsk_ber.py) | Run Lab 07's link at a sweep of Eb/N0 and compare the measured BER against closed-form theory. |
-| [simulate_rds_decode.py](./03_scripts/simulate_rds_decode.py) | Generate a synthetic FM+RDS signal with known contents for Lab 08, and self-test the RDS codec. |
-| [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Generate a synthetic 1090 MHz capture for Lab 09, and self-test the Mode S decoder against published reference frames. |
-| [make_test_ts.py](./03_scripts/make_test_ts.py) | Generate a standards-valid MPEG-2 transport stream (PAT/PMT/SDT/NIT) for Labs 10–12. No ffmpeg required. |
-| [make_video_ts.py](./03_scripts/make_video_ts.py) | Turn a video file into a CBR transport stream sized exactly for a **DVB-T or DVB-T2** mode, with encoder settings a consumer television will accept. `--list-modes` prints the derived bit-rate table; `--verify` recovers the true rate from the PCR. |
-| [dvbt_chain.py](./03_scripts/dvbt_chain.py) | The DVB-T modulator and demodulator as reusable blocks, plus MER and transport-stream probes. Run it directly for a loopback self-test and an SNR sweep. |
-| [scan_tv_band.py](./03_scripts/scan_tv_band.py) | Scan the television band and classify each channel — DVB-T2 (P1), DVB-T (cyclic prefix), bursty carrier, or empty. `--selftest` reproduces the false positive that motivated its veto tests. |
-| [tv_playout.py](./03_scripts/tv_playout.py) | Continuous television playout: loops the **video** inside ffmpeg and feeds a modulator through a FIFO, so the transport-stream clock never restarts. Use this instead of looping a finished `.ts`. |
-| [verify_tv_link.py](./03_scripts/verify_tv_link.py) | Transmit a known transport stream, receive it on the same radio, and compare byte for byte. 🚨 transmits. |
-| [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Verify a DVB-T2 waveform: bandwidth, cyclic prefix, symbol period, P1 preamble, frame period, PAPR. |
-| [make_diagrams.py](./03_scripts/make_diagrams.py) | Regenerate the introduction's four SVG figures. Self-checks that nothing overflows its viewBox. |
-| [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Mathematical verification of Lab 04's stereo matrix. |
+| [Glossary](./05_reference/01_glossary.md) | A word or acronym stops you. **202 terms**, explained simply. |
+| [Signal identification](./05_reference/02_signal_identification.md) | You see something on the screen and want to know what it is. |
+| [Antennas](./05_reference/03_antennas.md) | Always. The antenna matters more than anything else you can buy. |
+| [Malaysia](./05_reference/04_malaysia.md) | You want local frequencies, the law, licences and clubs. |
 
-Run everything at once:
+### Part 6 — Teaching this course
+
+| Page | Use it when… |
+|---|---|
+| [4-hour session plan](./06_training/SESSION_PLAN.md) | You are teaching a class. Timings, speaker notes, what to do if a demo fails. |
+| [Slide deck](./06_training/intro_to_sdr.html) | 63 slides with speaker notes and a timer. Opens in any browser, no internet needed. |
+
+### Part 3 — Scripts and tools
+
+Helper programs in [`03_scripts/`](./03_scripts/). You do not need these to start. The labs
+tell you when to use them.
+
+| Script | What it does |
+|---|---|
+| [validate_flowgraph.py](./03_scripts/validate_flowgraph.py) | Checks that a `.grc` flowgraph is correct for the installed GNU Radio. `--compile` also turns it into Python. |
+| [simulate_bpsk_ber.py](./03_scripts/simulate_bpsk_ber.py) | Runs Lab 07 at many noise levels and compares the error count with theory. |
+| [simulate_rds_decode.py](./03_scripts/simulate_rds_decode.py) | Makes a test FM signal with known RDS data for Lab 08, and tests the decoder. |
+| [simulate_adsb_decode.py](./03_scripts/simulate_adsb_decode.py) | Makes a test aircraft signal for Lab 09, and tests the decoder against known messages. |
+| [make_test_ts.py](./03_scripts/make_test_ts.py) | Makes a simple test TV stream for Labs 10–12. No extra software needed. |
+| [make_video_ts.py](./03_scripts/make_video_ts.py) | Turns your own video file into a TV stream a real TV will accept. Needs `ffmpeg`. |
+| [dvbt_chain.py](./03_scripts/dvbt_chain.py) | The DVB-T transmitter and receiver as reusable parts, plus a self-test. |
+| [scan_tv_band.py](./03_scripts/scan_tv_band.py) | Scans the TV band and tells you which channels have a TV signal. |
+| [tv_playout.py](./03_scripts/tv_playout.py) | Plays a video in a loop, non-stop, like a real TV station. |
+| [verify_tv_link.py](./03_scripts/verify_tv_link.py) | Sends a test stream and checks every byte came back correctly. 🚨 transmits. |
+| [analyze_dvbt2.py](./03_scripts/analyze_dvbt2.py) | Measures a DVB-T2 signal file and checks it matches the standard. |
+| [make_diagrams.py](./03_scripts/make_diagrams.py) | Redraws the pictures used in the Introduction. |
+| [simulate_stereo_decode.py](./03_scripts/simulate_stereo_decode.py) · [_pure](./03_scripts/simulate_stereo_decode_pure.py) | Checks the maths of Lab 04's stereo decoder. |
+
+To run all the self-tests at once:
 
 ```bash
 cd 03_scripts
@@ -240,342 +216,91 @@ python3 simulate_bpsk_ber.py    --calibrate --ebno 2 4 6
 
 ---
 
-## 🛠️ System Requirements
+## 🛠️ What you need
 
-| Item | Recommendation |
+| Item | Recommended |
 |---|---|
-| **OS** | Ubuntu 24.04 LTS (Noble), 22.04 LTS, or DragonOS |
-| **RAM** | ≥ 8 GB (waterfall sinks use lots of memory) |
-| **USB** | USB 3.0 port for data (Type-B), USB 2.0 for power (Type-C) |
-| **SD card** | ≥ 8 GB, Class 10, for the SignalSDR Pro boot image |
-| **Cables** | USB-B to USB-A 3.0 (data), USB-C to USB-A (power) |
-| **Antenna** | Any 70 MHz – 6 GHz antenna (telescopic, SMA dipole, etc.) |
+| **Computer** | Ubuntu 24.04 or 22.04 (or DragonOS). At least 8 GB of memory. |
+| **USB ports** | One **USB 3.0** port (usually blue) for data. One more port or a phone charger for power. |
+| **microSD card** | 8 GB or bigger, Class 10. It holds the radio's start-up software. |
+| **Cables** | USB 3.0 Type-B to Type-A (data). USB-C to Type-A (power). |
+| **Antenna** | Anything with an SMA plug that covers 70 MHz – 6 GHz. A telescopic whip is fine to start. |
+
+> ⚠️ **Plug the data cable straight into the computer**, not through a hub or a laptop dock.
+> The SignalSDR Pro needs a lot of data and power. Many hubs and docks cannot supply enough,
+> and then the radio does not appear at all.
 
 ---
 
-## 📦 What's In the Box
+## 🆘 Common first problems
+
+| You see | Do this |
+|---|---|
+| `No UHD Devices Found` | Check the power, wait 30 seconds, use a USB 3.0 port on the computer itself. See [Troubleshooting](./00_setup/05_troubleshooting.md). |
+| `Could not find path for image: usrp_b200_fw.hex` | Two versions of the driver are installed. Run the fix below. |
+| Only hiss, no station | Move to another frequency, check the antenna is screwed on. |
+| Loud, harsh, distorted sound | Turn the **gain** down. |
+
+**The fix for `Could not find path for image`:**
+
+```bash
+cd "00_setup"
+./fix_uhd_version_conflict.sh
+```
+
+The full explanation is in [Setup 06](./00_setup/06_fix_uhd_version_conflict.md).
+
+---
+
+## 🔬 Is it tested?
+
+Yes. Every flowgraph is checked automatically, and most labs were run on a real
+SignalSDR Pro receiving real stations.
+
+- **All 17 flowgraphs** pass the automatic checks against the installed GNU Radio.
+- **Labs 01, 03, 04, 05, 06 and 08** were run on real hardware, receiving BFM 89.9 MHz in
+  Kuala Lumpur.
+- **Labs 10, 11 and 12** sent and received digital TV. A real TV found the station and played
+  the video. Lab 12 sent **79 million bytes** of video and received every single byte correctly.
+
+We also wrote down what is **not** tested yet, and the lessons we learned from real hardware
+that simulation could not show us. Read them in **[VERIFICATION.md](./VERIFICATION.md)**.
+
+---
+
+## 📁 What is in each folder
 
 ```
 signalsdrpro_lab/
-├── README.md                       ← You are here
-├── QUICKSTART.md                   ← 30 minutes to your first station
-├── images/                         ← original SVG diagrams
-├── 00_setup/                       ← Environment setup
-│   ├── 01_install_uhd.md
-│   ├── 02_flash_b210_firmware.md
-│   ├── 03_install_gnuradio.md
-│   ├── 04_verify_setup.md
-│   ├── 05_troubleshooting.md
-│   ├── 06_fix_uhd_version_conflict.md  ← UHD version mismatch guide
-│   └── fix_uhd_version_conflict.sh     ← Automated fix script
-├── 01_fundamentals/                ← Theory
-│   ├── 00_introduction_to_sdr.md       ← START HERE
-│   ├── images/                         ← original SVG diagrams
-│   ├── 01_signals_basics.md            ┐
-│   ├── 02_iq_sampling.md               │ read before Lab 01
-│   ├── 03_rf_basics.md                 │
-│   ├── 04_fm_theory.md                 ┘
-│   ├── 05_sampling_and_filters.md      ┐
-│   ├── 06_noise_snr_and_gain.md        │
-│   ├── 07_am_and_narrowband_fm.md      │ read as the labs call for them
-│   ├── 08_digital_modulation.md        │
-│   ├── 09_synchronization.md           │
-│   ├── 10_error_detection_and_framing.md │
-│   ├── 11_ofdm_and_broadcast_systems.md   │
-│   └── 12_video_over_the_air.md           ┘
-├── 02_flowgraphs/                  ← Hands-on labs
-│   ├── lab01_simple_wbfm/
-│   ├── lab02_enhanced_wbfm/
-│   ├── lab03_advanced_wbfm/
-│   ├── lab04_stereo_wbfm/
-│   ├── lab05_iq_record_playback/       ← record + playback flowgraphs
-│   ├── lab06_multimode_receiver/
-│   ├── lab07_bpsk_link_sim/            ← no hardware needed
-│   ├── lab08_rds_decoder/              ← live + from-file flowgraphs
-│   ├── lab09_adsb_receiver/            ← live + from-file flowgraphs
-│   ├── lab10_dvbt2_tx_rx/              ← 🚨 TRANSMITS: generate / tx / analyse
-│   ├── lab11_tv_receiver/              ← flowgraph + full receiver station GUI
-│   └── lab12_fullduplex_tv/            ← 🚨 TRANSMITS: TX and RX at the same time
-├── 03_scripts/
-│   ├── validate_flowgraph.py           ← deep .grc validation
-│   ├── simulate_bpsk_ber.py            ← BER vs theory
-│   ├── simulate_rds_decode.py          ← RDS signal generator + self-test
-│   ├── simulate_adsb_decode.py         ← ADS-B generator + self-test
-│   ├── make_test_ts.py                 ← MPEG-2 transport stream generator
-│   ├── make_video_ts.py                ← video → CBR transport stream (needs ffmpeg)
-│   ├── dvbt_chain.py                   ← DVB-T modem library + loopback self-test
-│   ├── scan_tv_band.py                 ← television band scanner + classifier
-│   ├── verify_tv_link.py               ← 🚨 over-the-air link proof, byte for byte
-│   ├── make_diagrams.py                ← regenerates the introduction's figures
-│   ├── analyze_dvbt2.py                ← DVB-T2 waveform verification
-│   ├── simulate_stereo_decode.py
-│   └── simulate_stereo_decode_pure.py
-├── 04_applications/                ← What else is out there (589 entries)
-    ├── README.md                       ← index, difficulty ladder, spectrum map
-    ├── 01_broadcast_and_media.md
-    ├── 02_aviation.md
-    ├── 03_maritime.md
-    ├── 04_satellite_and_space.md
-    ├── 05_weather_and_environment.md
-    ├── 06_land_mobile_and_professional.md
-    ├── 07_amateur_radio.md
-    ├── 08_iot_ism_and_short_range.md
-    ├── 09_cellular.md
-    ├── 10_navigation_and_timing.md
-    ├── 11_radar_and_sensing.md
-    ├── 12_science_and_radio_astronomy.md
-    ├── 13_security_research.md
-    ├── 14_test_measurement_and_infrastructure.md
-    ├── 15_transmit_projects.md
-│   └── 16_oddities_and_historical.md
-└── 05_reference/                   ← Lookup material
-    ├── 01_glossary.md                  ← 202 terms
-    ├── 02_signal_identification.md
-    ├── 03_antennas.md
-    └── 04_malaysia.md
+├── README.md              ← you are here
+├── QUICKSTART.md          ← your first 30 minutes
+├── VERIFICATION.md        ← what was tested, how, and what we learned
+├── STYLE_GUIDE.md         ← how pages in this repo are written
+├── 00_setup/              ← Part 0: install and test
+├── 01_fundamentals/       ← Part 1: theory, chapters 00–12
+├── 02_flowgraphs/         ← Part 2: the labs, one folder each
+├── 03_scripts/            ← Part 3: helper and test programs
+├── 04_applications/       ← Part 4: 589 things to try next
+├── 05_reference/          ← Part 5: glossary, antennas, Malaysia
+├── 06_training/           ← Part 6: slides and plan for teaching
+└── images/                ← diagrams used by the pages
 ```
 
-Each lab folder contains a `README.md`, one or more `.grc` flowgraphs, and the `.py` that
-`grcc` generates from them (byte-for-byte what GRC produces when you press F5).
+Each lab folder has:
 
-
----
-
-## 🔬 About Verification
-
-Claims in this repository are checked, and the checks are in the repo so you can re-run them.
-
-### What is verified, and how
-
-| Level | What it proves | How to run it |
-|---|---|---|
-| **Structural** | The `.grc` YAML is well-formed and self-consistent | `validate_flowgraph.py --structural-only` |
-| **Deep** | Every block id, parameter expression and port type is valid against the **installed** GNU Radio 3.10 block library | `validate_flowgraph.py <dir>` |
-| **Compile** | `grcc` generates Python, and that Python compiles | `validate_flowgraph.py <dir> --compile` |
-| **Numerical** | The DSP produces the mathematically correct answer | the `simulate_*.py` scripts |
-| **Execution** | The generated flowgraph actually runs and produces the right output | headless runs against synthetic captures |
-| **Hardware** | The shipped flowgraph works on a real radio, on real signals | headless runs against a live SignalSDR Pro |
-
-All 12 flowgraphs pass structural + deep + compile. Labs 01, 03, 04, 05, 06 and 08 have
-additionally been run against live RF.
-
-### Results measured on real hardware
-
-Every lab below was run against a **live SignalSDR Pro (B210, serial 194431, internal GPSDO)**
-on a real FM broadcast — **BFM 89.9 MHz** — with the shipped flowgraphs, not reimplementations.
-Audio SNR is measured as the in-band (0.1–5 kHz) peak minus the out-of-band (0.40–0.48 × rate)
-mean of the demodulated output.
-
-| Lab | Measurement | Result |
-|---|---|---|
-| 01 | Audio SNR, 1 MSPS, tuned directly | **53.2 dB** |
-| 03 | Audio SNR, 2 MSPS, LPF + resampler + AGC + squelch | **62.6 dB** |
-| 04 | Pilot PLL lock frequency | **18999.79 Hz** (target 19000, 11 ppm) |
-| 04 | Recovered 38 kHz subcarrier purity | **47.8 dB** above its neighbourhood |
-| 04 | L/R correlation after the stereo matrix | **0.78** (genuine separation) |
-| 05 | Record 6 s → play back through the shipped playback flowgraph | **79.7 dB** audio SNR |
-| 06 | Audio SNR, offset-tuned (DC spike dodged) | **75.7 dB** |
-| 06 | Audio SNR, tuned directly onto the station | **66.9 dB** |
-| 08 | RDS groups decoded in 30 s | **287** = 9.6/s vs 11.4/s theoretical max (**84 %**) |
-| 08 | RDS control run on an empty channel | **0 groups from 11,766 alignment attempts** |
-| 09 | ADS-B frames at 1090 MHz | **0** — see below |
-| 11 | DVB-T loopback, transport stream in vs out | **0 mismatches in 4,201,236 bytes** |
-| 11 | Lock threshold, 16QAM CR 2/3 (standard says 13.5 dB) | **perfect at 13 dB, broken at 12 dB** |
-| 11 | Receiver throughput, locked / unlocked (needs 9.14) | **16.4 / 1.55 MSPS** |
-| 11 | UHF band scan, channels 21–48, FM whip | **no television found**; one bursty carrier on ch22 |
-| 10 | DVB-T2 in the broadcast mode (32K/256QAM/CR2⁄3/GI1⁄128/PP7) | **5/5 structural checks pass** |
-| 10 | Video multiplex rate vs the modulator's own rate | **40.000737 vs 40.000738 Mbit/s (0.0000 %)** |
-| 10 | 32K chain throughput / underflows after start-up | **7.8× real time**, 0 in 70 s |
-| 10 | **A real television locked to it and played the video** | reported by the lab's owner |
-| 10 | Continuous playout across 4.2 video laps | **0 backward PCR jumps** in 83.9 s |
-| 12 | Full duplex 40 s of 1080p video: packets decoded | **422,304**, 0 sync errors, **0 continuity errors** |
-| 12 | Video recovered over the air, byte for byte | **79,357,996 bytes, 0 mismatches — 100.000000 %** |
-| 12 | Frames decoded out of the received stream | **975 video frames + 39.45 s of audio** |
-| 12 | Service name recovered from the SDT, over the air | **`SDR LAB TV`** |
-
-### What the hardware taught us that simulation could not
-
-**1. A one-line bug in Labs 01–04, worth up to 43 dB.**
-The USRP Source blocks in Labs 01–04 never set the analog filter bandwidth. Without it, the
-AD9361 defaults to **56 MHz**, and LO/DC leakage swamps the wanted signal. Measured at 89.9 MHz,
-gain 55, repeated twice:
-
-| `set_bandwidth` | Analog BW | \|DC\|/rms | Wanted-signal rms |
-|---|---|---|---|
-| not called | 56.000 MHz | **0.843** | 0.0160 |
-| called with `samp_rate` | 2.000 MHz | **0.162** | 0.0149 |
-
-The wanted signal is unchanged; the extra energy is pure DC and out-of-band junk. Downstream,
-the AGC then normalises mostly DC, and the FM demodulator sees a tiny phase excursion riding on
-a large static vector. Adding `bw0: samp_rate`:
-
-| Lab | Before | After |
-|---|---|---|
-| 01 | 34.6 dB | **53.2 dB** (+18.6) |
-| 03 | 19.4 dB | **62.6 dB** (+43.2) |
-
-Labs 05–09 already set it. With the fix, the labs now improve monotonically —
-01 (53.2) → 03 (62.6) → 06 (75.7) — which is what the pedagogy claims and what simulation
-could never have shown.
-
-**2. The DC-spike penalty is 8.8 dB, measured.**
-Lab 06 tuned 200 kHz off and translated back in software scored **75.7 dB**; the same lab tuned
-directly onto the station scored **66.9 dB**. That is the justification for Lab 06's default
-`offset_freq = −200 kHz`, no longer a rule of thumb but a number.
-
-**3. Lab 08 decodes real RDS — and the station scrolls its PS.**
-BFM 89.9 transmits a *dynamic* Programme Service name, so the 8-character field never settles:
-
-```
-seg0 'BU'  seg1 'SI'  seg2 'NE'  seg3 'SS'   ->  "BUSINESS"
-seg0 'BF'  seg1 'M '  seg2 '89'  seg3 '.9'   ->  "BFM 89.9"
-seg0 'FI'  seg1 'NA'  seg2 'NC'  seg3 'E '   ->  "FINANCE "
-```
-
-287 CRC-valid groups in 30 s, PI constant at `0x6000` throughout. The control run on an empty
-channel produced **zero** groups from 11,766 alignment attempts, which is the CRC doing exactly
-its job. Of five stations surveyed, only 89.9 MHz carries decodable RDS here.
-
-A useful negative lesson came first: a crude spectral test on the 57 kHz band showed only
-+1.9 dB and led to a premature "no RDS in this band" conclusion. **The decoder is far more
-sensitive than an eyeball on a spectrum**; trust the CRC, not the FFT.
-
-**4. Lab 09 receives nothing, for exactly the reason its troubleshooting says.**
-Zero ADS-B frames on either antenna port. Raising the gain from 70 to 76 dB raised the noise
-floor by 6.0 dB (0.0674 → 0.1279) — a 1:1 track, so the receiver is front-end-noise-limited and
-more gain cannot help. The antenna is an FM-band whip, roughly ten wavelengths long at
-1090 MHz. **This is the first item in Lab 09's troubleshooting list, confirmed.** Build the
-69 mm quarter-wave.
-
-**5. Two correlation detectors agreed, and both were wrong.**
-Scanning the UHF band, channel 22 scored **P1 13.9×** and **cyclic prefix 31.4×** — both far
-over threshold, both saying "digital television". It is a *bursty* carrier: 4 ms pulses, 7.6 %
-duty cycle, energy off-centre. A correlator asked "does this repeat at lag *L*?" sees a burst
-overlap itself at **whatever** lag you test, so it fires at every lag. Correlation detectors are
-blind to burstiness by construction.
-
-Two cheap non-correlation tests veto it: real DVB-T scored **31 dB** of spectral shoulder
-against channel 22's **1.2 dB**, and broadcasting has a 0 % burst fraction against its 7.6 %.
-`scan_tv_band.py --selftest` now reproduces the false positive synthetically and asserts that
-the classifier refuses it. Pairs with lesson 3: there, an FFT said "nothing" and the CRC was
-right; here two correlators said "television" and the spectrum was right. **Ask which way a
-given detector can be fooled, and pair it with one that fails the other way.**
-
-**6. A tone is not a signal: 42 dB of tone was −1.4 dB of television.**
-Lab 12's first over-the-air attempt decoded nothing, yet a CW tone at identical settings rose
-**42 dB** out of the noise. Both facts were true. A tone concentrates its power in one 2.2 kHz
-FFT bin; DVB-T spreads the same power over 7.6 MHz — about 3,400 bins, or **35 dB** of
-dilution. Subtract that and the 8.4 dB the tone had in hand, and 42 dB becomes −1.4 dB. The
-measured in-band rise was **+0.92 dB**, against the 13 dB the demodulator needs.
-
-More receive gain cannot fix this — it lifts signal and noise together. Nineteen more decibels
-of *transmit* gain could, and did: in-band rise **16.5 dB**, shoulder **21.3 dB**, instant
-lock. The lesson generalises well beyond television: **when you test a wideband link with a
-narrowband probe, subtract the processing gain before believing the result.**
-
-**7. A perfect bit pipe is not a working television service.**
-The first long DVB-T2 transmission looked *high quality but sluggish* on a real set — not broken
-up, not pixelated, just never quite smooth, with every byte arriving intact. The cause was
-looping the finished `.ts` file. A transport stream carries its own clock, and at each wrap the
-PCR jumped **backwards by 208.86 seconds** with no discontinuity flag; the television's clock
-recovery never got a stable reference again. Over 26 minutes it happened 7.5 times.
-
-The fix is structural: loop the *input* and let the muxer keep counting upwards, which is what
-real playout does. Verified across 4.2 laps — **0 backward PCR jumps** in 83.9 s.
-
-Labs 11 and 12 had already proved this chain delivers 79 MB byte-identical with zero errors.
-That was necessary and nowhere near sufficient: **broadcasting is a timing system that happens
-to carry bits**, and no amount of byte-level verification would ever have caught this. It took
-pointing it at a television.
-
-### Known issue
-
-`set_mode()` on Lab 06 raises `IndexError: input_index must be < ninputs` if called **before**
-`start()`, because a Selector's input count is not resolved until the flowgraph is flattened.
-This does not affect normal GUI use — you change modes while it runs — but it will bite you if
-you drive the flowgraph programmatically. Start the flowgraph first, then set the mode.
-
-### Still not verified
-
-- **The television result is a user report, not an instrument reading.** A consumer set did find
-  the service and play the video at high quality — but nothing here recorded it, and "smooth" or
-  "sluggish" is a judgement no script made. The fix for the judder is verified by measurement;
-  it has not been watched.
-- **Nobody has watched the picture live.** Labs 11–12 were verified by decoding frames and audio
-  out of the received stream and by `cmp` against the source, not by a person watching `ffplay`.
-- **No real broadcast television has been decoded here.** The band is empty at this location
-  with this antenna, so every decode in Labs 11–12 came from our own transmitter.
-  DVB-T2 reception is not merely untested — no open-source real-time DVB-T2 receiver exists.
-- **Lab 12 never introduced a frequency offset.** Transmitting and receiving on one radio means
-  both ends share a reference oscillator, so the synchroniser is handed a problem no real
-  receiver ever gets.
-- **Lab 07** is pure simulation by design, so "over the air" does not apply. Its BER was checked
-  against theory by execution.
-- **Lab 09** has never decoded a real aircraft here — only synthetic frames. The decoder is
-  verified against the published Mode S reference vectors; the *reception* is not.
-- **Lab 06's AM and NBFM branches** were not exercised on real signals (no airband or marine
-  traffic reachable with this antenna). Only the WBFM branch was measured.
-- **Lab 08's RadioText path** was not exercised: the one RDS station here sends group type 0
-  only, never type 2.
-
-Corrections and additional results from other locations and antennas are welcome — that is the
-spirit of this lab.
+- a `README.md` — the lab instructions. **Start here.**
+- one or more `.grc` files — open these in GNU Radio Companion.
+- a `.py` file for each `.grc` — the same flowgraph as a Python program. GNU Radio made it
+  from the `.grc`. You can run it directly with `python3`.
 
 ---
 
-## 🚀 What's Next?
+## 🚨 The one rule
 
-By the end of Lab 09 you will have built, from first principles: a wideband FM receiver, a
-stereo MPX decoder, an AM/NBFM/WBFM multimode receiver, a synchronised BPSK link you measured
-against theory, an RDS data decoder, and an aircraft transponder receiver. That covers analog
-and digital, broadcast and packet, audio and data.
-
-**Then open [Part 4 — the Applications Catalogue](./04_applications/README.md).** It maps 589
-signals and projects across 16 domains, sorted by difficulty, with the hardware each one needs.
-A few of the best next steps:
-
-| Next | Why | Where |
-|---|---|---|
-| 🛰️ **Meteor-M LRPT weather images** | A photo of your continent from a coat-hanger antenna | [Satellite](./04_applications/04_satellite_and_space.md) |
-| 🎈 **Radiosondes** | Weather balloons transmit their GPS position — decode it, then go and find one | [Weather](./04_applications/05_weather_and_environment.md) |
-| 📟 **POCSAG pagers** | The simplest real data decode there is; an hour's work after Lab 08 | [Land Mobile](./04_applications/06_land_mobile_and_professional.md) |
-| 🚢 **AIS ship tracking** | Like ADS-B but slower and gentler | [Maritime](./04_applications/03_maritime.md) |
-| 📉 **WSPR** | Decode signals 28 dB *below* the noise, no licence needed | [Amateur Radio](./04_applications/07_amateur_radio.md) |
-| 🧭 **GPS from raw IQ** | Correlation pulls a signal from 20 dB under the noise floor | [Navigation](./04_applications/10_navigation_and_timing.md) |
-| 📡 **Passive radar** | Detect aircraft using a broadcast transmitter you do not own | [Radar](./04_applications/11_radar_and_sensing.md) |
-| 🔭 **The hydrogen line** | Measure the rotation of the Milky Way from your garden | [Science](./04_applications/12_science_and_radio_astronomy.md) |
-
-Each one reuses the same method this repo teaches: read the theory, plan the sample rates
-backwards from the sink, build the chain, **validate against a signal you control**, and only
-then point it at the sky.
-
----
-
-## 🧠 The Mindset
-
-SDR is not just "running a flowgraph". It's about understanding what happens **between every pair of blocks**:
-- What is the sample rate at this point?
-- What is the data type (complex, float, short)?
-- What does the frequency spectrum look like?
-- Why did we choose this specific decimation / filter tap count?
-
-**Every block has a reason. Every parameter has a meaning.** This lab will teach you to ask
-those questions — and every flowgraph here answers them in the `comment` field of every block,
-which GRC shows on the canvas.
-
-Three habits worth taking from this repo:
-
-1. **Plan sample rates backwards from the sink.** 48 kHz audio × 8 = 384 kHz quadrature rate;
-   × 125/24 = 2 MSPS at the radio. Everything falls out cleanly, and nothing aliases.
-2. **Filter before you decimate, and filter before you AGC.** Both rules follow from one
-   equation each, in Fundamentals 05 and 06.
-3. **Validate against a signal you control before you blame the antenna.** It converts
-   "why doesn't this work?" into a reproducible test.
-
-Enjoy the journey! 🎧
-
----
-
-*Target hardware: SignalSDR Pro (Signalens) as USRP B210 • Target software: GNU Radio 3.10.9.2 + UHD 4.6*
-*1 quickstart · 1 introduction · 11 theory documents · 10 labs · 15 flowgraphs · 589 catalogued applications · 4 reference documents*
-*All flowgraphs structurally, deeply and compile-validated against GNU Radio 3.10.9.2; six labs verified on live RF*
+> **Listening is allowed almost everywhere. Transmitting is not.**
+>
+> The SignalSDR Pro can transmit from 70 MHz to 6 GHz. That includes aircraft, ship-safety and
+> mobile-phone frequencies. Transmitting on them without a licence is against the law (in
+> Malaysia, the Communications and Multimedia Act 1998). Ten of the twelve labs only listen.
+> Before you transmit anything, read [Law and ethics](./04_applications/README.md#-law--ethics)
+> and, in Malaysia, [how to get a licence](./05_reference/04_malaysia.md#3-getting-licensed-to-transmit).

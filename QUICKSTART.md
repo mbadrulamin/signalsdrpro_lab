@@ -2,8 +2,8 @@
 
 > **Goal: hear a real radio station through your SignalSDR Pro, today.**
 >
-> No theory. No flowgraphs. Just plug it in and prove the whole chain works — because
-> everything else in this repository is easier once you have heard *something*.
+> No theory. No flowgraphs. Just plug it in and check that everything works. The rest of
+> this course is much easier once you have heard *something*.
 >
 > **You need:** the SignalSDR Pro, its cables, an antenna, and a Linux PC.
 > **You do not need:** any knowledge of radio. That comes later.
@@ -17,14 +17,15 @@ Lay these out on the desk:
 | Item | Notes |
 |---|---|
 | SignalSDR Pro | with its **microSD card inserted** |
-| USB 3.0 cable (Type-B) | the chunky blue one — this carries data |
+| USB 3.0 cable (Type-B) | the thick one with a square-ish plug — this carries data |
 | USB-C cable | power |
 | Antenna | anything with an SMA plug. Even a 1 m piece of wire works for FM |
 | A Linux PC | Ubuntu 22.04 or 24.04. 8 GB RAM, a free USB 3.0 port |
 
-> 💡 **No antenna at all?** For this first test, FM broadcast is so strong that a **30 cm
-> piece of wire pushed into the SMA centre** will usually work indoors near a window. It is a
-> terrible antenna. It will still hear something. That is the point of this exercise.
+> 💡 **No antenna at all?** FM stations are very strong. For this first test, a **30 cm
+> piece of wire pushed into the centre hole of the SMA connector** usually works indoors near
+> a window. It is a very poor antenna, but it will still hear something. That is all we need
+> today.
 
 ---
 
@@ -62,6 +63,9 @@ Full detail: [Setup 01](./00_setup/01_install_uhd.md) and [Setup 03](./00_setup/
 1. **Power first** — USB-C cable from the SDR to a USB port or a 5 V charger.
 2. **Wait about 30 seconds.** The board is booting Linux from the microSD card. Let it finish.
 3. **Then data** — USB 3.0 Type-B cable from the SDR to a **blue** USB 3.0 port on your PC.
+   Plug it **directly into the computer**. Do not use a USB hub, a docking station or an
+   adapter dongle — many of them cannot carry enough data or power, and then the radio
+   does not appear at all.
 4. **Screw the antenna onto the `TX/RX` connector.** Finger-tight. Do not force it.
 
 Now ask the driver whether it can see the radio:
@@ -94,7 +98,8 @@ Work down this list — it is almost always one of the first three:
 | Did you wait 30 s after powering on? | Unplug, replug, count to thirty, try again |
 | Is the microSD card inserted? | It holds the firmware. Without it, nothing boots |
 | Did you log out and back in? | The group membership does not apply until you do |
-| Is it a **USB 3.0** port? | Blue connector, or marked `SS`. USB 2.0 may not enumerate |
+| Is it a **USB 3.0** port? | Blue connector, or marked `SS`. On USB 2.0 the radio may not appear |
+| Is it plugged into a hub, dock or dongle? | Plug it straight into the computer instead |
 | `lsusb \| grep -i ettus` shows nothing? | Power or cable problem, not software |
 
 Still stuck: [Setup 05 — Troubleshooting](./00_setup/05_troubleshooting.md).
@@ -152,14 +157,14 @@ A window opens with two panels. **This is the radio spectrum around 98 MHz, live
        97 MHz          98 MHz        99 MHz
 ```
 
-**Things to try right now** (this is the whole point of an SDR):
+**Things to try right now** (seeing the signals is the whole point of an SDR):
 
 - Each **hump** is a radio station. Count them.
-- The flat carpet underneath is the **noise floor** — the thermal noise of the universe plus
-  your receiver's own noise.
-- There is probably a **sharp spike dead centre**. That is *not* a station. It is your radio's
-  own local oscillator leaking into its own input. You will learn to dodge it in
-  [Lab 06](./02_flowgraphs/lab06_multimode_receiver/README.md).
+- The flat, grassy line along the bottom is the **noise floor**. It is background noise:
+  some comes from the world around you, some from the radio's own electronics.
+- There is probably a **sharp spike exactly in the centre**. That is *not* a station. Your
+  radio makes it itself: a little of its own tuning signal leaks into its input. You will
+  learn how to avoid it in [Lab 06](./02_flowgraphs/lab06_multimode_receiver/README.md).
 
 Close the window when you are done (`Ctrl+C` in the terminal if it sticks).
 
@@ -186,7 +191,7 @@ A window opens with two sliders.
 
 🎧 **You should hear music or speech.**
 
-That is a radio you assembled from three software blocks, receiving a real broadcast.
+That is a radio made from three software blocks, receiving a real broadcast.
 
 ### If you hear only hiss
 
@@ -202,15 +207,15 @@ That is a radio you assembled from three software blocks, receiving a real broad
 
 ## 🎉 What you just proved
 
-In half an hour, without writing any code, you confirmed that **every link in the chain works**:
+In half an hour, without writing any code, you checked that **every part of the system works**:
 
 ```
   antenna → SDR hardware → USB → driver → GNU Radio → your speakers
 ```
 
-Everything from here is building more interesting things on top of a chain you now know is good.
-When something stops working later, **come back and re-run these two steps** — if they still
-work, the problem is in what you changed.
+From here on, you build more interesting things on top of a system you know is good.
+If something stops working later, **come back and run these two steps again**. If they still
+work, the problem is in what you changed, not in the radio or the installation.
 
 ---
 
@@ -238,9 +243,9 @@ Skim, then come back for the theory when something confuses you:
 ### 📖 Two references to bookmark now
 
 - **[Glossary](./05_reference/01_glossary.md)** — every acronym in this repo, in plain English.
-  You will need this on page one of anything.
-- **[Antennas](./05_reference/03_antennas.md)** — the single biggest improvement available to
-  you, and it costs almost nothing.
+  You will need it from the first page.
+- **[Antennas](./05_reference/03_antennas.md)** — a better antenna is the biggest improvement
+  you can make, and it costs almost nothing.
 
 ### 🇲🇾 In Malaysia?
 
@@ -253,8 +258,8 @@ you may legally transmit in, how to get licensed, and the local clubs.
 
 > **Receiving is passive and mostly unrestricted. Transmitting is neither.**
 >
-> Your SignalSDR Pro can transmit from 70 MHz to 6 GHz. Nine of the ten labs here are
-> receive-only by design. Do not transmit until you have read
+> Your SignalSDR Pro can transmit from 70 MHz to 6 GHz. Ten of the twelve labs here only
+> receive. Do not transmit until you have read
 > [Law & Ethics](./04_applications/README.md#-law--ethics) and, in Malaysia,
 > [the licensing section](./05_reference/04_malaysia.md#3-getting-licensed-to-transmit).
 
