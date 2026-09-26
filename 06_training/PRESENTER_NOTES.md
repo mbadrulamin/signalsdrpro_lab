@@ -1569,9 +1569,10 @@ does — let them see an attenuator, not an antenna.
   the question completely."
 - *"How do I become allowed to transmit?"* — "Slide 58 answers that."
 
-**Background for you.** 40 dB means the power is divided by 10⁴ = 10,000. Lab 12's README allows
-20–30 dB; in a classroom start with 40 dB: the transmitter has plenty of spare gain, and the
-receiver cannot be overloaded.
+**Background for you.** 40 dB means the power is divided by 10⁴ = 10,000. The exact value matters
+less than the received **level**: aim for −10 to −20 dBFS on the receive side. At the lab, with RX
+gain 20, the link locked from TX gain 80 and was best at 89 (level −12.4 dBFS, MER about 20 dB).
+Above about −6 dBFS the receiver overloads and MER falls — lower RX gain first.
 
 **Next:** "With that said — we built a television station."
 
@@ -1718,11 +1719,15 @@ played by software, in real time.
 - The window appears but no video: the transmitter is still at zero — raise TX gain and TX
   amplitude.
 - The constellation is a smeared blob: too much signal on the cable. Lower RX gain first, then TX
-  gain.
-- **Rehearse this exact setup the day before.** The lab's perfect result was measured over a short,
-  controlled air path; the cable version must be checked on your equipment.
+  gain. Aim for a receive level of −10 to −20 dBFS.
+- `O` and `D` letters keep streaming after lock, and few packets arrive: the laptop cannot keep up.
+  Close other programs. (A slow MER block caused exactly this until 26 September 2026 — make sure
+  your copy is up to date.)
+- **Rehearse this exact setup the day before**, with your own cable and attenuator.
 
-**Background for you.** Lab 12 transmits DVB-T (8K, 16-QAM, code rate 2/3, guard 1/32) on UHF
+**Background for you.** On the real radio at the lab (26 September 2026), this flowgraph delivered
+16.13 Mbit/s with zero continuity errors at MER 19.7 dB, and the received video decoded cleanly.
+Lab 12 transmits DVB-T (8K, 16-QAM, code rate 2/3, guard 1/32) on UHF
 channel 31 (554 MHz) at 9.14 million samples per second in each direction, and needs exactly
 16.086 Mbit/s of video. The same radio transmits on `TX/RX` and receives on `RX2` at the same time
 — that is full duplex. MER is the ratio of the ideal constellation points' power to the error power.

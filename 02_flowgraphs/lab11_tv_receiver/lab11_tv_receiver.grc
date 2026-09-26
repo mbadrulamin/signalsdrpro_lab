@@ -836,7 +836,7 @@ blocks:
       \ decim=4096):\n        gr.decim_block.__init__(self, name='MER (dB)',\n                                in_sig=[np.complex64],\
       \ out_sig=[np.float32],\n                                decim=int(decim))\n        self.decim = int(decim)       # own copy: decim_block has no decimation() here\n        self.levels = LEVELS[int(bits_per_symbol)]\n\
       \        self.mer = 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n\
-      \        n = len(out)\n        x = input_items[0][:n * self.decim]\n        if len(x) > 8192:     \
+      \        n = len(out)\n        x = input_items[0][:n * self.decim:8]   # 1 in 8 is plenty for a reading, and 8x cheaper\n        if len(x) > 8192:     \
       \                 # a measurement, not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling\
       \ costs nothing\n        if len(x):\n            lv = self.levels\n            i = lv[np.abs(x.real[:, None]\
       \ - lv[None, :]).argmin(axis=1)]\n            q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n\

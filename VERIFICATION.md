@@ -90,16 +90,27 @@ After the review's fixes, the receive labs were run again on the live radio with
 | 04 | stereo decoded (on music stations the fix recovers 4–8 dB more L−R — see Lesson 9) |
 | 06 | audio SNR **68.2 dB** |
 
+Later the same day (after Lesson 13's fixes), more labs on the radio:
+
+| Lab | Result |
+|---|---|
+| 05 | recorded 8 s (128 MB, no samples lost) and played it back: audio SNR **68.4 dB** |
+| 07 | (no radio needed) BER 4.0 × 10⁻⁴ at 8 dB; theory 3.8 × 10⁻⁴ |
+| 08 | **182 RDS groups** in 30 s from BFM 89.9 (PI `0x6000`), names "BFM 89.9", "MUSIC", "FINANCE" |
+| 09 | no aircraft — still no 1090 MHz antenna (Lesson 4) |
+| 12 | the flowgraph itself, `TX/RX` → `RX2`: **16.13 Mbit/s, 0 continuity errors**, MER 19.7 dB, 1,381 frames decoded |
+| 06 AM | not possible: no signal in the aircraft band (118–137 MHz) during the test |
+
 The audio SNRs are close to the original measurements (which were taken at higher gain: 55–62).
 
 ---
 
-## 3. Thirteen lessons
+## 3. Fourteen lessons
 
 Simulation is useful, but it only tests what you thought of. Lessons 1–7 were found only by
 using a real radio. Lessons 8–11 were found later, by running the real flowgraphs on test
-signals with known answers. Lesson 12 was found by running the fixed labs on the real radio again, and Lesson 13 by running
-Lab 12 the way a student does.
+signals with known answers. Lesson 12 was found by running the fixed labs on the real radio again, Lesson 13 by running
+Lab 12 the way a student does, and Lesson 14 by questioning a status reading.
 Each one is now fixed or documented where it matters.
 
 ### Lesson 1 — One missing setting cost up to 43 dB
@@ -392,9 +403,32 @@ Run with the radios replaced by a simulated cable, it failed in two ways:
 It also starts with the transmitter off (on purpose), so the video appears only after TX gain and
 TX amplitude are raised. The terminal now says so, and the README explains what to expect.
 
+A third problem only showed on the real radio: the flowgraph was **too slow**. With a strong
+signal (MER 21.9 dB) only 6.7 of 16.09 Mbit/s arrived. Measured without a radio, the whole
+flowgraph ran at exactly 1.00× real time — no spare time at all — because the MER block measured
+every one of 6.5 million points per second. Measuring 1 in 8 gives 1.3–1.6× real time, and on the
+real radio: 16.13 Mbit/s, zero continuity errors.
+
 > **Rule:** test the program people actually run, the way they run it — from a restarted
 > computer, with the default settings. A test script that shares the idea but not the code proves
 > the idea, not the program.
+
+### Lesson 14 — A status reading said "broken"; the measurements said "fine"
+
+*Found on 26 September 2026 — by getting it wrong first.*
+
+That morning the radio's `lo_locked` sensor said `unlocked` on every frequency, on receive and
+transmit, and stations looked weak. We concluded the radio had a hardware fault and asked for a
+power supply check. Then we measured instead of trusting the reading: stations sat within 2 kHz of
+their frequencies, and BFM's stereo pilot measured **19,000.0 Hz** at 58 dB above the noise. A
+tuner that is really unlocked cannot do that. The transmit side rose exactly 10 dB for every 10 dB
+of gain. The radio was fine. What had changed was how much signal reached `TX/RX` (about 30 dB
+less than in the morning) — so at low gain the converter's own noise hid everything, and changing
+the gain seemed to do nothing.
+
+> **Rule:** a status flag is a claim, not a measurement. Before you blame the hardware, measure
+> something you know the answer to — a station's frequency, a pilot tone. (This is Lesson 3 again:
+> trust the check that actually measures.)
 
 ---
 
@@ -436,11 +470,6 @@ Being clear about what is **not** proven is as important as what is.
   official Mode S test examples, but real reception is not proven (see Lesson 4).
 - **Lab 06's AM and narrow-FM modes** were not tested on real signals. No aircraft or marine
   voice could be heard with this antenna. Only the wide-FM mode was measured.
-- **Labs 05, 08 and 09, Lab 06's AM mode and the Lab 12 flowgraph could not be re-run on the
-  radio on 26 September 2026.** From about 09:00 the radio had a hardware fault: both the receive
-  and transmit synthesisers reported `LO: unlocked` at every frequency, changing the gain did not
-  change the noise, and a power cycle did not clear it. Lab 07 needs no radio and was re-run
-  (BER 4.0 × 10⁻⁴ at 8 dB; theory 3.8 × 10⁻⁴).
 - **Lab 06's AM fix (Lesson 10) and Lab 10's analyser fix (Lesson 11) have not been tested on the
   radio.** There was no AM signal to receive, and Lab 10's analyser needs a transmitter, which was
   not switched on. Both are proven on test signals. (Lessons 8, 9 and 12 were re-checked on the

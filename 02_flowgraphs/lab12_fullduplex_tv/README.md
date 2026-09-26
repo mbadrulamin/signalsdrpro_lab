@@ -165,6 +165,12 @@ published DVB-T figures: 6.032, 16.086, 24.128, 31.668 Mbit/s.
    seconds later a separate video window (`SDR LAB TV`) opens** and plays the picture. It opens
    by itself — you do not start it.
 
+**How much attenuation?** Whatever you have, watch the receive **level** rather than the dB
+printed on the attenuator. Aim for about **−10 to −20 dBFS**: that is where MER is best. Above
+about −6 dBFS the receiver starts to overload and MER falls. If it will not lock even at TX gain
+89, there is too much attenuation (or raise RX gain); if the level stays above −6 dBFS, there is
+too little (lower RX gain first).
+
 > 💡 **Too much signal is the usual problem on a cable.** If the constellation is a smeared blob at
 > high gain, lower `rx_gain` first, then `tx_gain`.
 
@@ -284,6 +290,22 @@ packets=397376 cc_errors=0 sync_errors=0 dropped=0
 and the received stream decoded to 911 video frames (1280×720 H.264) plus MP2 audio. The same
 fix was applied to Lab 11, which uses the same MER block.
 
+**Then on the real radio** (same day, `TX/RX` → `RX2`, channel 31, RX gain 20), it still fell
+behind: MER 21.9 dB — a strong signal — but only 6.7 of 16.09 Mbit/s arrived, with streams of `O`
+and `D`. `verify_tv_link.py` on the same radio was perfect (38,153,284 bytes, 0 wrong), so the
+radio was fine and the flowgraph was too slow. Measured without a radio, it ran at exactly
+**1.00× real time**, and 1.49× with the MER block removed: that block measured all 6.5 million
+points per second. It now measures 1 in 8 (still about 800,000 a second), and the flowgraph runs
+at 1.3–1.6× real time. Result on the real radio:
+
+| TX gain | MER | Arrived | Continuity errors |
+|---|---|---|---|
+| 80 | 15.0 dB | 16.15 Mbit/s | 0 |
+| 85 | 17.9 dB | 16.14 Mbit/s | 0 |
+| 89 | 19.7 dB | 16.13 Mbit/s | 0 (3 at the moment the gain changed) |
+
+1,381 video frames were decoded from what came back.
+
 ### Three modes compared
 
 | Mode | Bit rate | MER | Byte error rate | Locks live? |
@@ -309,7 +331,8 @@ that failed.** Robustness against echoes and robustness against your own CPU are
 | **The window opens, but there is no video** | The transmitter starts off (TX gain 0, TX amplitude 0), so nothing is received | Raise TX gain, then TX amplitude. The video window opens by itself a few seconds after the lock |
 | The receiver freezes after a few packets; the terminal shows `AttributeError: ... no attribute 'decimation'` | A bug in the MER block, fixed on 26 September 2026 (it stalled the whole receiver) | Update your copy of the repository |
 | Only part of the window is visible | It opened small | Maximise it. (Since 26 September 2026 it opens at a usable size) |
-| Nothing works, and **changing the gain changes nothing** | The radio's synthesisers are not locking — a hardware or power problem, not the lab | Power-cycle with a proper power supply (Setup 05). Check: `lo_locked` should not say `unlocked` |
+| MER is fine (above 15 dB), but few packets arrive and `O`/`D` letters keep streaming after lock | The receiver cannot keep up. Before 26 September 2026 the MER block alone used all the spare time (the flowgraph ran at exactly 1.00× real time) | Update your copy — the fixed block measures 1 point in 8, and the flowgraph now runs at 1.3–1.6× real time. Close other heavy programs |
+| The radio reports `LO: unlocked` | This reading is not reliable on the SignalSDR Pro | Ignore it; judge by the spectrum and MER |
 | `RuntimeError: No devices found` | An earlier run still has the radio | Find it by PID and stop it. Avoid `pkill -f` (it kills the terminal that runs it) |
 | Nothing decodes, and the receive level does not change with `tx_gain` | No radio path, or the signal is spread below the noise | Send a test tone instead: a tone survives about 35 dB more loss than an 8 MHz signal. If the tone shows and DVB-T does not, it is the link budget, not the wiring |
 | `U` from the USRP Sink | The transmit side is not getting samples fast enough — usually because the unlocked receiver is using the CPU | Make sure a signal is present; an unlocked receiver runs at 1.55 MSPS and starves everything |
@@ -324,9 +347,8 @@ that failed.** Robustness against echoes and robustness against your own CPU are
 
 - **Nobody has watched the picture live.** The stream was decoded frame by frame, and still images
   were taken from it, but no person sat in front of `ffplay`.
-- **This flowgraph has not yet run on the real radio over a cable.** Its fixed version was tested
-  over a simulated cable only; on 26 September 2026 the radio had a hardware fault (both
-  synthesisers unlocked) that stopped the real test.
+- **Not every attenuator value was tried.** The flowgraph was run on the real radio through the
+  lab's own `TX/RX` → `RX2` path; the level rule in Section 3 applies to any attenuator.
 - **Two radios** (one sending, one receiving) were not tried. Everything here is one radio talking
   to itself.
 - **No deliberate frequency error was added**, so the receiver has never faced the problem a real

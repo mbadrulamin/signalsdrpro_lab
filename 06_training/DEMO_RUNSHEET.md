@@ -238,8 +238,24 @@ python3 scan_tv_band.py --first 21 --last 48 --dwell 0.4
 5. If the constellation becomes a smeared blob, the signal is too **strong**: lower `rx_gain`
    first, then `tx_gain`.
 
-> ⚠️ **Rehearse this exact setup.** Lab 12's perfect result (79,357,996 bytes, none wrong) was
-> measured over a short, controlled air path. The cable version has not been measured yet.
+**How much attenuation?** Whatever you have, watch the receive **level** rather than the dB
+printed on the attenuator. Aim for about **−10 to −20 dBFS**: that is where MER is best. Above
+about −6 dBFS the receiver starts to overload and MER falls. If it will not lock even at TX gain
+89, there is too much attenuation (or raise RX gain); if the level stays above −6 dBFS, there is
+too little (lower RX gain first).
+
+Measured on the real radio at the lab (26 September 2026, `TX/RX` → `RX2`, channel 31):
+
+| RX gain | TX gain | Level | MER | Result |
+|---|---|---|---|---|
+| 20 | 80 | — | 15.0 dB | 16.15 Mbit/s, 0 errors |
+| 20 | 89 | −12.4 dBFS | 19.7–20.4 dB | 16.13 Mbit/s, 0 errors |
+| 35 | 70 | −19.3 dBFS | 15.9 dB | clean |
+| 35 | 80 | −6.6 dBFS | 18.7 dB | clean |
+| 35 | 89 | −2.5 dBFS | 13.5 dB | at the edge: overload |
+
+> ⚠️ **Rehearse this exact setup** with your own cable and attenuator — the numbers above depend
+> on them.
 
 ---
 
@@ -248,15 +264,10 @@ python3 scan_tv_band.py --first 21 --last 48 --dwell 0.4
 | Symptom | What it means | Do this |
 |---|---|---|
 | `No UHD Devices Found` | the radio is not answering | power-cycle: unplug **both** cables, wait, power first, wait 30 s, then data |
-| Every station has vanished, and **changing the gain changes nothing** | the radio lost its clock (seen at the lab on 26 Sep 2026: every frequency reported `LO: unlocked`) | a full power-cycle, as above. (A software reset did **not** fix it.) |
+| Stations are weak, and gain below about 50 seems to change nothing | very little signal is reaching the radio, so the converter's own noise dominates | check the antenna is on the port the flowgraph uses (`TX/RX`), and is the right one for the band |
+| The radio reports `LO: unlocked` | on this board the reading is **not reliable**: on 26 Sep 2026 it said "unlocked" while stations measured within 2 kHz and the stereo pilot at 19,000.0 Hz | ignore it. Judge by whether known stations appear at the right frequency |
 | `O` letters stream in the terminal | the laptop cannot keep up | close the waterfall and other programs; mains power |
 | Sound stutters, `aU` in the terminal | the sound card rate does not match | check the Audio Sink rate |
-
-To check the clock lock yourself:
-
-```bash
-python3 -c "from gnuradio import uhd; s = uhd.usrp_source('', uhd.stream_args(cpu_format='fc32', channels=[0])); s.set_center_freq(100e6, 0); print(s.get_sensor('lo_locked', 0))"
-```
 
 ---
 

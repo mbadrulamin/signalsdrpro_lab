@@ -31,7 +31,7 @@ class blk(gr.decim_block):
     def work(self, input_items, output_items):
         out = output_items[0]
         n = len(out)
-        x = input_items[0][:n * self.decim]
+        x = input_items[0][:n * self.decim:8]   # 1 in 8 is plenty for a reading, and 8x cheaper
         if len(x) > 8192:                      # a measurement, not a filter:
             x = x[::len(x) // 8192]            # sub-sampling costs nothing
         if len(x):
