@@ -219,6 +219,10 @@ exactly. That makes advanced projects possible: finding the direction a signal c
 MIMO (multiple antennas at once), and passive radar. See
 [Radar & Sensing](../04_applications/11_radar_and_sensing.md).
 
+> ⚠️ **In the B210 mode this course uses, the driver offers only one receive and one transmit
+> path** (the TX2A and RX2A connectors). Two-channel projects need the second path, which this
+> mode does not provide. Full duplex — sending and receiving at the same time — still works.
+
 **Built-in GPS clock (GPSDO).** The radio's frequency accuracy depends on its internal clock.
 A **GPSDO** (GPS-disciplined oscillator) uses GPS satellites to correct that clock, so the
 radio's frequency is extremely accurate. Most SDRs need an extra box for this. You can see it

@@ -93,13 +93,38 @@ its internal memory, or the microSD card.
 ## 4. Connect the cables — in this order
 
 1. **Insert the microSD card.**
-2. **Screw the antenna** onto the `TX/RX` connector. Finger-tight only.
+2. **Screw the antenna** onto the **`TX2A`** connector — the one the software calls `TX/RX` (see
+   the box below). Finger-tight only.
 3. **Power:** connect the **USB Type-C** port to your computer or a 5 V charger, using a
    **USB-A to USB-C** cable. Signalens says it *must* be A-to-C. A C-to-C cable may not work.
    Charge-only cables are fine for power.
 4. **Wait about 30 seconds** while the board starts.
 5. **Data:** connect the **USB Type-B** port to a **USB 3.0** port on your computer (usually
    blue, or marked `SS`), with a USB 3.0 cable.
+
+### Which connector is "TX/RX"?
+
+The SignalSDR Pro labels its four connectors after the radio chip inside: **RX1A, TX1A, RX2A,
+TX2A**. The software, and every lab in this course, uses the B210's names instead: `TX/RX` and
+`RX2`. Here is how they match:
+
+| In the software | On the SignalSDR Pro |
+|---|---|
+| `TX/RX` — transmit, and receive | **TX2A** |
+| `RX2` — receive only | **RX2A** |
+| *(not available in B210 mode)* | TX1A, RX1A |
+
+**So put your antennas on TX2A and RX2A.** TX1A and RX1A are not used in this course.
+
+How we know: `uhd_usrp_probe` lists only **one** receive and one transmit path, named `FE-RX2`
+and `FE-TX2` — the chip's second path, which is the one the "2A" connectors belong to. Asking for
+the other path fails (`A:B is not a valid rx subdevice specification`). With antennas only on
+TX2A and RX2A, both `TX/RX` and `RX2` received FM stations, and Lab 12 sent from `TX/RX` and
+received on `RX2`. (That `TX/RX` is TX2A and `RX2` is RX2A follows the B210's layout; it was not
+checked with one antenna removed. If a lab hears nothing, try the other setting.)
+
+> ⚠️ The board itself has two receive and two transmit paths, but in B210 mode the driver offers
+> **one of each**. Full duplex (send and receive at once) still works — Lab 12 uses it.
 
 > 💡 A USB 3.0 port **on the computer itself** is the most reliable. Some hubs, docks and
 > adapters work (this course was tested through a Dell USB-C adapter), but if the radio does not
@@ -193,7 +218,7 @@ In the long list you will also see:
 | `Gain range PGA: 0.0 to 76.0` (RX) | Receive gain, in dB |
 | `Gain range PGA: 0.0 to 89.8` (TX) | Transmit gain, in dB |
 | `Bandwidth range: 200000.0 to 56000000.0` | The analog filter: 200 kHz to 56 MHz |
-| `Antennas: TX/RX, RX2` | The two receive connectors |
+| `Antennas: TX/RX, RX2` | The two receive connectors — **TX2A** and **RX2A** on the SignalSDR Pro ([see above](#which-connector-is-txrx)) |
 
 ---
 

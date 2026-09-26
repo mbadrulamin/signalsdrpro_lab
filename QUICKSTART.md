@@ -65,7 +65,9 @@ Full detail: [Setup 01](./00_setup/01_install_uhd.md) and [Setup 03](./00_setup/
 3. **Then data** — USB 3.0 Type-B cable from the SDR to a **blue** USB 3.0 port on your PC.
    A port **on the computer itself** is the most reliable. Some hubs, docks and adapters
    work, but if the radio does not appear, try a port on the computer first.
-4. **Screw the antenna onto the `TX/RX` connector.** Finger-tight. Do not force it.
+4. **Screw the antenna onto the `TX2A` connector** — the software calls it `TX/RX`
+   ([which connector is which](./00_setup/02_flash_b210_firmware.md#which-connector-is-txrx)).
+   Finger-tight. Do not force it.
 
 Now ask the driver whether it can see the radio:
 

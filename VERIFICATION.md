@@ -97,8 +97,8 @@ Later the same day (after Lesson 13's fixes), more labs on the radio:
 | 05 | recorded 8 s (128 MB, no samples lost) and played it back: audio SNR **68.4 dB** |
 | 07 | (no radio needed) BER 4.0 × 10⁻⁴ at 8 dB; theory 3.8 × 10⁻⁴ |
 | 08 | **182 RDS groups** in 30 s from BFM 89.9 (PI `0x6000`), names "BFM 89.9", "MUSIC", "FINANCE" |
-| 09 | no aircraft — still no 1090 MHz antenna (Lesson 4) |
-| 12 | the flowgraph itself, `TX/RX` → `RX2`: **16.13 Mbit/s, 0 continuity errors**, MER 19.7 dB, 1,381 frames decoded |
+| 09 | no aircraft in 2 × 60 s. The two ~7 cm antennas are the right length for 1090 MHz (69 mm), but not one pulse rose above the noise: indoors, surrounded by buildings, no aircraft signal arrives |
+| 12 | the flowgraph itself, `TX/RX` → `RX2` between two short antennas a few cm apart: **16.13 Mbit/s, 0 continuity errors**, MER 19.7 dB, 1,381 frames decoded |
 | 06 AM | not possible: no signal in the aircraft band (118–137 MHz) during the test |
 
 The audio SNRs are close to the original measurements (which were taken at higher gain: 55–62).

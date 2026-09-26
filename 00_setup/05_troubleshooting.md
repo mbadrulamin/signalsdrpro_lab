@@ -152,7 +152,7 @@ You should see humps where stations are.
 
 | Symptom | Try this |
 |---|---|
-| No humps at all, only a flat line | Antenna not connected, or on the wrong connector (use `TX/RX`). Try near a window. Raise gain to 50–60 |
+| No humps at all, only a flat line | Antenna not connected, or on the wrong connector (use **TX2A**, which the software calls `TX/RX`; RX1A and TX1A are not used in B210 mode). Try near a window. Raise gain to 50–60 |
 | Humps, but only hiss | You are between stations. Tune so a hump is in the centre (or at your chosen offset) |
 | Loud, harsh, distorted sound on strong stations | Too much gain, or too much volume. Lower the **volume** first (Lab 03), then the gain |
 | False "stations" appear when you raise the gain | The radio is overloaded (intermodulation). Lower the gain |

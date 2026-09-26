@@ -244,7 +244,8 @@ about −6 dBFS the receiver starts to overload and MER falls. If it will not lo
 89, there is too much attenuation (or raise RX gain); if the level stays above −6 dBFS, there is
 too little (lower RX gain first).
 
-Measured on the real radio at the lab (26 September 2026, `TX/RX` → `RX2`, channel 31):
+Measured on the real radio at the lab (26 September 2026, channel 31, `TX/RX` → `RX2` between two
+short antennas a few centimetres apart — not a cable, so your numbers will differ):
 
 | RX gain | TX gain | Level | MER | Result |
 |---|---|---|---|---|

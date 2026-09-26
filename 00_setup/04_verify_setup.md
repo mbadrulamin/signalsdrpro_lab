@@ -68,7 +68,8 @@ This loads the firmware and FPGA image and prints a long description. Look for t
 ## Check 3 — Can you see real signals?
 
 `uhd_fft` is a ready-made spectrum display that comes with GNU Radio. Screw the antenna onto
-`TX/RX`, then:
+`TX2A` (the software calls it `TX/RX` —
+[which connector is which](./02_flash_b210_firmware.md#which-connector-is-txrx)), then:
 
 ```bash
 uhd_fft -f 98e6 -s 2e6 -g 40 -A TX/RX

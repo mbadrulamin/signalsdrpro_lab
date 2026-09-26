@@ -290,7 +290,9 @@ packets=397376 cc_errors=0 sync_errors=0 dropped=0
 and the received stream decoded to 911 video frames (1280×720 H.264) plus MP2 audio. The same
 fix was applied to Lab 11, which uses the same MER block.
 
-**Then on the real radio** (same day, `TX/RX` → `RX2`, channel 31, RX gain 20), it still fell
+**Then on the real radio** (same day, channel 31, RX gain 20 — sent from `TX/RX` and received on
+`RX2`, between the two short antennas on TX2A and RX2A a few centimetres apart, in the lab
+owner's controlled setup; not a cable), it still fell
 behind: MER 21.9 dB — a strong signal — but only 6.7 of 16.09 Mbit/s arrived, with streams of `O`
 and `D`. `verify_tv_link.py` on the same radio was perfect (38,153,284 bytes, 0 wrong), so the
 radio was fine and the flowgraph was too slow. Measured without a radio, it ran at exactly
@@ -347,8 +349,8 @@ that failed.** Robustness against echoes and robustness against your own CPU are
 
 - **Nobody has watched the picture live.** The stream was decoded frame by frame, and still images
   were taken from it, but no person sat in front of `ffplay`.
-- **Not every attenuator value was tried.** The flowgraph was run on the real radio through the
-  lab's own `TX/RX` → `RX2` path; the level rule in Section 3 applies to any attenuator.
+- **No cable and attenuator was tried.** The real-radio run went between two short antennas a few
+  centimetres apart. The level rule in Section 3 applies to any path.
 - **Two radios** (one sending, one receiving) were not tried. Everything here is one radio talking
   to itself.
 - **No deliberate frequency error was added**, so the receiver has never faced the problem a real

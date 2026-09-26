@@ -34,6 +34,10 @@ twice a second, with their 24-bit identity, callsign, altitude, speed, and posit
 >
 > ⚠️ **Real reception is not yet proven here** — with the wrong antenna, we received nothing.
 > That result, and why, is in [Verification](#-verification) too.
+> A second try (26 September 2026) used two ~7 cm antennas — the right length for 1090 MHz — but
+> indoors, in an apartment surrounded by buildings. In 2 × 60 s not one pulse rose above the noise.
+> **The antenna must be the right length *and* see the sky:** try a window facing open sky, a
+> balcony, or outdoors.
 
 ### Why this lab is different
 

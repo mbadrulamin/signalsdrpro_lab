@@ -755,8 +755,8 @@ into things they can do.
 > "Up to 56 MHz at once. That is how wide a slice it can see or record at one time — enough for a
 > whole band, which you can pick through later, indoors, with the antenna unplugged."
 >
-> "Two receive, two transmit. It has two receive channels and two transmit channels, so you can use
-> two antennas at the same time — for example to find which direction a signal comes from."
+> "One receive and one transmit — at the same time. The chip inside has two of each, but in the B210
+> mode we use, the software offers one of each: one antenna to listen, one to send."
 >
 > "Full duplex. It can transmit and receive at the same instant. That is what makes the last demo of
 > the day possible, and it is unusual at this price."
@@ -766,6 +766,12 @@ into things they can do.
 - *"How far can it receive?"* — "That depends on the antenna, the signal and the location, not on
   the radio. The same radio hears aircraft 200 km away with a good antenna and nothing with the
   wrong one — we will see that in Lab 09."
+
+**If someone asks:**
+
+- *"Can I use both receive channels, for direction finding?"* — "Not in the B210 mode this course
+  uses. The driver offers only one receive path — the TX2A and RX2A connectors. RX1A and TX1A are not
+  used. Direction finding needs a mode or radio that offers both."
 
 **Next:** "You will notice your screen calls this radio a 'B210'. Here is why."
 
@@ -895,7 +901,9 @@ thing that goes wrong at home.
 > "Four steps, in this order, every time. One: the power cable — a USB-A to USB-C cable into the
 > board's power socket. Two: wait about 30 seconds. The board is starting Linux from its own SD card,
 > so let it finish. Three: the data cable — the thick USB 3.0 cable — into a blue USB port on your
-> laptop. Four: the antenna, finger-tight, onto the connector marked TX/RX. Do not force it."
+> laptop. Four: the antenna, finger-tight, onto the connector marked TX2A. The software calls this
+> connector 'TX/RX' — the board uses the radio chip's names, the software uses the B210's names.
+> Do not force it."
 >
 > "Remember: you are starting a small computer, not plugging in a memory stick. If the laptop does
 > not see the radio, unplug both cables, wait, and start again from step one."
