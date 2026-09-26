@@ -91,418 +91,122 @@ do not plan to spend it, and do not let Segment 2 eat it.
 
 ---
 
-## 4. Slide-by-slide with speaker notes
-
-> Notes are what to **say**, not what is on the slide. Slides carry one picture and at most six
-> words. Anything with a paragraph on it belongs in the repo, not on a wall.
-
-### Segment 1 — Why you are here (15 min)
-
-**S1 · Title — "Introduction to Software-Defined Radio"** *(1 min)*
-> Subtitle names the hardware and the date. While people settle, have a waterfall already
-> running on the second screen. The room should see a radio working before you say a word —
-> and for a beginner audience that first image does more than any slide can.
-
-**S2 · The promise: what you will be able to do by the end of today** *(3 min)*
-> Four bullets, all verbs: *set one up, build one, break one, know what to read next.* Then say
-> plainly: "You will not be an SDR engineer by the end of today. You will be someone who can start."
-> **For a beginner room this sentence is not modesty, it is permission** — it removes the fear
-> of being the person who doesn't keep up.
-
-**S3 · What this session is not** *(2 min)*
-> Name the cuts out loud: no mathematics, no filter design, no coding required today. Then
-> show the repo's scale — 12 fundamentals documents, 12 labs, 589 catalogued applications.
-> "Today is the map. The territory takes months, and it is all written down for you."
-
-**S4 · Who is in the room** *(3 min)*
-> Show of hands, three questions, asked in ascending order so nobody is exposed by the first:
-> *(i)* who has used a scanner, walkie-talkie or shortwave set? *(ii)* who has looked at a
-> radio's spectrum on any instrument? *(iii)* who has written any code, in any language?
-> **Act on answer (iii) per §2.** Thank every hand; count out loud; move on quickly.
-
-**S5 · The shape of the day** *(3 min)*
-> Walk the four blocks: *ideas → hardware → make it work → what it can do.* Tell them where
-> the breaks are. People relax once they know when they can check their phone, and a relaxed
-> beginner asks questions.
-
-**S6 · The repository is the course; today is the trailer** *(3 min)*
-> QR code up. Tell them to photograph it **now**, not later. Everything demonstrated today is a
-> folder they can open tonight, and every command is in a README. For a beginner this is the
-> single most reassuring slide of the morning: nothing they see will be lost.
-
----
-
-### Segment 2 — What a radio does, and what SDR changes (30 min)
-
-**S7 · What every radio has to do — four jobs** *(3 min)*
-> Before any block diagram. *Catch* the wave, *select* the one you want out of thousands,
-> *extract* the information, *present* it. Every radio ever built does these four things —
-> a crystal set, their handheld, a phone, a satellite terminal. **Nothing here is SDR yet.**
-> This slide exists so that the next two have somewhere to attach.
-
-**S8 · Inside the radio on your desk — six boxes of metal** *(5 min)*
-> Now the superheterodyne chain: antenna → filter → amplifier → mixer → IF filter → detector →
-> speaker. Walk it left to right and tie each box to one of the four jobs from S7. Say the key
-> property out loud: **each box is a physical part, chosen and soldered for one purpose, and
-> changing what the radio does means changing the metal.** Do not ask them to name the boxes.
-> *Depth box: "this is a superheterodyne receiver, 1918, and it is still in your car."*
-
-**S9 · The same radio, with one line moved — `images/sdr_vs_superhet.svg`** *(5 min)*
-> **The keystone slide of the whole session.** The analogue-to-digital converter slides from
-> the far right of the chain to just after the mixer. Everything to its right stops being
-> copper and becomes code. Say it slowly: **"The hardware didn't get smarter. It got shorter."**
-> Then pause. If one idea survives to next week, this is the one you want it to be.
-
-**S10 · What the software actually replaces** *(3 min)*
-> Map each deleted box to its software equivalent, one line each — IF filter becomes a list of
-> numbers; the detector becomes a function; the tuning knob becomes a variable. Stress the
-> reassuring part for a beginner: **these are the same operations, not new physics.** SDR is
-> the radio they already know, written down differently.
-
-**S11 · Consequence 1 — one box, many radios** *(3 min)*
-> Their world today: one device per job, each one obsolete when the standard changes. Today
-> they will watch one board be an FM receiver, a data decoder, an aircraft tracker and a
-> television transmitter — with no soldering iron anywhere near it.
-
-**S12 · Consequence 2 — you fix it with a download** *(2 min)*
-> One example they lived through: when television went from analogue to DVB-T, every receiver
-> in the country became scrap. With SDR that is a software update. Keep it to the example; the
-> industry-economics argument is for the intermediates and belongs in a depth box.
-
-**S13 · Consequence 3 — radio becomes visible** *(4 min · live)*
-> Live waterfall on the projector, no explanation, just look at it. Tune slowly across the FM
-> band. Their radio told them *one number*; this shows the whole band at once, with history
-> scrolling down the screen. **Highest-impact minute in the segment — do not talk over it.**
-> Then name what they are seeing: bright vertical stripe = a station, dark gaps = empty air.
-
-**S14 · What SDR is genuinely bad at** *(3 min)*
-> Credibility slide; do not skip it. It needs a whole computer. It struggles when a very strong
-> signal sits next to a very weak one. It is slower to respond than purpose-built hardware.
-> **"Your handheld still wins on the roadside, and that is fine."** A beginner who is told only
-> the good parts stops trusting you the first time something fails.
-
-**S15 · The one-sentence version** *(2 min)*
-> *"Turn the radio wave into numbers as early as you can, then do everything else in software."*
-> Everything in the remaining three hours is a consequence of that sentence. Come back to it
-> at S50.
-> **Check the room (1 min):** "In the picture a few slides ago, what moved?" Wait for *the
-> converter* (or *the ADC*). If nobody says it, show S9 again for thirty seconds.
-
----
-
-### Segment 3 — The two ideas you cannot skip (25 min)
-
-> **Slow down here.** This is the only segment where a beginner can be permanently lost, and
-> the only one where being lost matters — every later screen is a picture of what happens here.
-
-**S16 · A wave, and the three numbers that describe it** *(3 min)*
-> Amplitude (how big), frequency (how fast), phase (where in the cycle it starts). Draw a sine.
-> Connect to something they own: **frequency is the number on the dial.** No mathematics.
-
-**S17 · Turning a wave into numbers — sampling** *(4 min)*
-> Dots on the sine at regular intervals. That is all an ADC does: measure, write down, repeat,
-> millions of times a second. The numbers *are* the radio signal now. For beginners, the
-> analogy that works is a film camera: frames, not continuous motion.
-
-**S18 · When there are too few dots** *(3 min)*
-> Aliasing, via the wagon wheel in old films that appears to spin backwards. Same effect, same
-> cause. Conclusion only: **sample fast enough or you will recover the wrong wave.**
-> *Depth box: "sample rate > 2× bandwidth — Nyquist → fundamentals/05."* Do not derive it.
-
-**S19 · The problem one number cannot solve** *(4 min)*
-> A photograph of a fan blade tells you where the blade is — **not which way it is spinning.**
-> A single measured number has exactly this problem: a signal 10 kHz above where you are tuned
-> and one 10 kHz below look identical. Their existing radios solved this with hardware they
-> never had to think about. **Let the discomfort sit for a beat before S20 resolves it.**
-
-**S20 · I and Q — two numbers, and now you know** *(5 min)*
-> Two measurements taken a quarter-cycle apart: together they give position *and* direction of
-> rotation. Draw the rotating vector; animate it if you can. I is the horizontal part, Q the
-> vertical. **This is the concept the entire day rests on** — every screen from here on is a
-> stream of these pairs. Say explicitly: "If you only read one thing from the repo, read
-> `01_fundamentals/02_iq_sampling.md`."
-
-**S21 · What your sample rate buys you** *(3 min)*
-> Because there are two numbers per sample, bandwidth ≈ sample rate. 20 million samples per
-> second means 20 MHz of spectrum, all at once. Translate for the room: **"that is the entire
-> FM band, every station in it, captured in one go."**
-
-**S22 · The units on every screen today** *(2 min)*
-> dB is a comparison. dBm is an actual power. dBFS is *how full the ADC is.* The one to hammer
-> is **dBFS: a ceiling you must not hit**, because clipping is a failure mode they have never
-> had to watch for on an ordinary radio.
-
-**S23 · Gain is not volume** *(1 min)*
-> Turning gain up amplifies the noise too, and past a point only adds distortion. It is the
-> mistake every newcomer makes on day one. Beginners especially need this said before Segment 5,
-> because they will reach for the slider.
-> **Check the room before the hardware** (2 min, only if the pacing indicator says you are on
-> time). Hands up, no wrong answers: *Why two numbers, I and Q?* (to tell a signal above the
-> tuning from one below) · *What happens at 0 dBFS?* (clipping) · *Does more gain always help?*
-> (no). If a question gets silence, answer it in one sentence and point at the slide. Do not
-> re-teach the segment.
-
----
-
-### Segment 4 — The hardware: SignalSDR Pro (15 min)
-
-**S24 · The board — and pass one round** *(3 min)*
-> Hand a unit into the room while you talk. Credit-card sized. Let them hold it next to any
-> radio they brought. Physical contact does more for a beginner audience than three slides.
-
-**S25 · Two chips do everything — `images/signalsdr_pro_block_diagram.svg`** *(3 min)*
-> The AD9361 is the entire radio front end — both the tuning and the analogue-to-digital
-> conversion from S17 — on one chip. The Zynq moves the data and keeps time. **Everything else
-> on the board is connectors and power.** Point back to S9: this is that shortened chain, real.
-
-**S26 · The numbers that matter, translated** *(3 min)*
-> 70 MHz–6 GHz, up to 56 MHz at once, two channels, **full duplex**. Translate every one:
-> the tuning range runs from just below the FM band (70 MHz) to Wi-Fi (6 GHz) — shortwave is
-> below it, and someone will ask; full duplex means transmit and receive at
-> the same instant, which is what makes the last demo of the day possible at all.
-
-**S27 · Why it says "B210"** *(2 min)*
-> It loads firmware that makes it answer as a USRP B210, so every existing tutorial, block and
-> example works unmodified. For a beginner the point is practical, not clever: **when you
-> search the internet for help tonight, search for "B210".**
-
-**S28 · Two things that will bite you** *(3 min)*
-> (1) **Boot order** — power first, wait 30 seconds while it boots an operating system from its
-> SD card, *then* the data cable. (2) **The firmware-image error**, which you will meet in ten
-> minutes. Foreshadowing it now means that when it appears on screen it reads as competence
-> rather than a live failure.
-
-**S29 · Antennas, and how this compares** *(1 min)*
-> A good antenna on a cheap radio beats a bad antenna on an expensive one, every time. Flash
-> the comparison table (RTL-SDR / HackRF / B210 / SignalSDR Pro) without dwelling —
-> *depth box → `01_fundamentals/00` §5 and `05_reference/03_antennas.md`.*
-
----
-
-### ☕ BREAK — 10 minutes
-> **Use it.** Leave the FM receiver running with the waterfall up so people drift back to a
-> moving screen. Pre-flight the Segment 5 terminal now. Circulate — this is where beginners ask
-> the question they were too shy to raise.
-
----
-
-### Segment 5 — Making it work, live, from cold (25 min)
-
-**S31 · Four commands** *(3 min)*
-> `apt install`, `uhd_images_downloader`, `usermod`, log out and back in. Say what each did in
-> one line — especially that group membership only takes effect on a fresh login, which is the
-> number-one "it worked yesterday" support call.
-
-**S32 · Plug-in order** *(2 min)*
-> Power → 30 seconds → data → antenna. Say why: **it is booting a computer, not powering a
-> peripheral.** Treating it like a USB stick is what makes it "not detected".
-
-**S33 · 🖥️ LIVE — the radio answers** *(6 min)*
-> Terminal, full screen, large font. `uhd_find_devices`, then `uhd_usrp_probe`. Read the serial
-> number aloud. Walk **one** branch of the probe output so they see the radio describing its own
-> gain range and sample rates — for a beginner, seeing a machine introduce itself is the moment
-> it stops being a mystery box. Do not walk the whole tree.
-
-**S34 · 🖥️ LIVE — and now the failure** *(8 min)*
-> **Deliberately induce `Could not find path for image: usrp_b200_fw.hex`.** The tested way,
-> which changes nothing on the laptop, is to point the driver at an empty folder:
-> `mkdir -p /tmp/no_images` then `UHD_IMAGES_DIR=/tmp/no_images uhd_usrp_probe`. Say honestly
-> that you did this — "I sent the driver to the wrong folder, which is exactly what having two
-> versions does." (Your screen may show the newer wording, *Could not find the image
-> 'usrp_b200_fw.hex' in the image directory*. Same problem.) Then run
-> `00_setup/fix_uhd_version_conflict.sh`, which checks that every installed driver version can
-> find the files, and re-run `uhd_usrp_probe` without the variable. It works.
-> **The most valuable slide in the deck and the one most likely to be cut for time. Do not cut
-> it.** Every person in the room will meet this error alone, at night, with nobody to ask — and
-> the difference between someone who quits and someone who continues is having watched it fixed
-> once, calmly, by a person who expected it.
-
-**S35 · The setup checklist card** *(3 min)*
-> Hand out the one-page card (§6). It is the artefact that outlives the session, and for a
-> beginner it is the difference between trying again on Monday and not.
-
-**S36 · Where the setup documents live** *(3 min)*
-> `00_setup/01` through `06`, plus troubleshooting. Tell them document 06 exists and is the one
-> they will need. Say the sentence: **"You are not expected to remember any of this."**
-
----
-
-### Segment 6 — Your first flowgraph, built in front of you (25 min)
-
-**S37 · What GNU Radio Companion is** *(3 min)*
-> A diagram editor that produces a working radio. Block list on the left, canvas in the middle,
-> run button at the top. Thirty seconds each, no menu tour. Frame it in their terms: **"you are
-> going to draw the block diagram from slide 8, and it will play music."**
-
-**S38 · 🖥️ LIVE BUILD — Lab 01 from an empty canvas** *(13 min)*
-> Build it in front of them, narrating every single choice, with Lab 01's exact values so they can
-> repeat it tonight: **USRP Source** (sample rate `1e6`, your station's frequency, gain `40`,
-> antenna `TX/RX`, **bandwidth `1e6`**) → **WBFM Receive** (quadrature rate `1e6`, audio
-> decimation `20`) → **Audio Sink** (`50000`). Three blocks. Say the only arithmetic aloud:
-> 1,000,000 ÷ 20 = 50,000. While typing the bandwidth, tell the story: this one empty box cost the
-> course 18.6 dB in Lab 01 until it was measured (VERIFICATION Lesson 1). Name each block's job by
-> pointing back at S8's metal box that it replaces. Press play. **Music comes out of the laptop.**
-> Stop talking for three seconds. This is the emotional peak of the day.
-> Then show the generated Python for ten seconds only: *"the diagram is the program"* — enough
-> to intrigue the intermediates, not enough to frighten anyone else.
-
-**S39 · 🖥️ LIVE — break it on purpose** *(8 min)*
-> Three deliberate faults, each with a sound they can learn to recognise: Audio Sink `25000`
-> instead of `50000` → slow, deep and jumpy, with `O` letters in the terminal; tune to an empty
-> frequency → a loud rushing hiss (which leads straight to *squelch* in Lab 03); gain to maximum →
-> overload and distortion, then gain to zero → hiss. **Rehearse all three** — how each sounds
-> depends a little on the station and the laptop. **Teaching the *sound* of each mistake is worth more than any slide about it**, and it
-> is the single best use of recovered time if S4 told you the room is more capable than expected.
-
-**S40 · What you just watched** *(bridging, ~0 min)*
-> Three blocks. Everything after this is more blocks. Say it and move straight into the break.
-
----
-
-### ☕ BREAK — 10 minutes
-
----
-
-### Segment 7 — What it can do: the lab tour (40 min)
-
-> **Rule for this segment: 4–5 minutes per lab, hard-stopped.** You are demonstrating *range*,
-> not depth. Deep question → one sentence, name the document, parking lot, move.
-> This is the segment that re-levels a mixed room: nobody has seen most of this.
-
-**S42 · The arc** *(2 min)*
-> The ladder diagram from the README. Analogue → recorded → many modes → digital → real data →
-> other bands → transmit. Each lab adds exactly one new idea to the one before.
-
-**S43 · Labs 02–03 — instruments, then control** *(5 min · live)*
-> Spectrum, waterfall, sliders; then automatic gain control and squelch. "The same radio you
-> watched me build, plus instruments." **Squelch is the one they will recognise from their own
-> equipment** — lead with it and let them name it.
-> *Depth box: on the real radio, Lab 03's squelch first would not go quiet — the radio's own
-> centre spike was as strong as the station. A DC Blocker fixed it (VERIFICATION Lesson 12).*
-
-**S44 · Lab 04 — stereo, built from scratch** *(4 min · live)*
-> Point at the 19 kHz pilot tone on the spectrum. Then the punchline: **nobody bought a stereo
-> decoder chip.** That part of their car radio is, here, a few blocks on a canvas.
-> **Use a music station at gain about 55** — talk stations carry almost no stereo, and at gain 40
-> the pilot stood only 11 dB above the noise here (27 dB at 55).
-
-**S45 · Lab 05 — record once, experiment forever** *(5 min · live)*
-> Record 2 MHz of raw signal (several stations, 16 MB a second), then **unplug the antenna** and
-> retune inside the recording. Pitch it as the most practically useful lab in the repository: it separates going
-> outside from working on the data, and it is the habit that distinguishes people who make
-> progress from people who keep re-collecting.
-
-**S46 · Lab 06 — one tuner, many modes** *(4 min · live)*
-> AM, narrowband FM, wideband FM, channel selection, signal meter. **Their scanner, in
-> software** — and now they can see on screen why it does what it does. Only wide FM is sure to
-> have a signal in the room; show the other modes' controls, but do not promise a voice.
-
-**S47 · Lab 07 — crossing into digital** *(5 min · no hardware)*
-> Constellation diagram: two dots (BPSK sends +1 or −1). Add noise, watch the dots smear into clouds. Then the
-> punchline for the intermediates, stated simply enough for everyone: the measured error rate
-> lands exactly on the textbook curve. **"The mathematics is not an approximation of this
-> system. It is this system."** No radio needed — say so, because it means they can try it
-> tonight with no hardware.
-
-**S48 · Lab 08 — hidden data in a signal they have heard all their lives** *(5 min)*
-> RDS. The station name appears — carried on a subcarrier inside a broadcast they have listened
-> to for years without knowing it was there. **Best "I had no idea" moment of the day for a
-> beginner audience.** Check the station the day before: at the lab only BFM 89.9 sent RDS, and
-> only its name (no song titles). Tune 200 kHz beside it with the matching offset. Run from file
-> if the band is weak in the room.
-
-**S49 · Lab 09 — aircraft** *(5 min)*
-> 1090 MHz: aircraft identity, altitude, position, decoded from raw samples. A crowd-pleaser —
-> **but only with a 1090 MHz antenna and aircraft in range.** The FM whip heard nothing at
-> 1090 MHz (VERIFICATION Lesson 4), and no real aircraft has been decoded at the lab yet. Check in
-> rehearsal; if none appear, use the test capture **and say so** — the decoding is the same.
-
-**S50 · What all of those had in common** *(3 min)*
-> One board. One driver. One toolkit. Different *files*. Re-read S15's sentence aloud and let
-> the room notice they now hear it differently than they did before the first break.
-
-**S51 · And 589 more** *(2 min)*
-> Flash the applications catalogue: weather satellite images, ships, GPS, LoRa sensors, radio
-> astronomy. **Name three that suit this specific room's day job** — prepare them in advance.
-
----
-
-### Segment 8 — Transmitting: a television station (25 min)
-
-**S52 · Receiving is legal almost everywhere. Transmitting is not.** *(4 min)*
-> Open on the constraint, not the capability — especially with beginners, who will not yet have
-> an instinct for this. Spell out the words the first time: **MCMC** (the Malaysian
-> Communications and Multimedia Commission, the regulator); licensed broadcast spectrum; the
-> **Class Assignment** (MCMC's list of bands anyone may use at low power, without a licence). Then state what
-> today's demo does: **a cable from transmitter to receiver through an attenuator, no antenna
-> fitted**, and one line on why (see S56).
-
-**S53 · What we built** *(2 min)*
-> A DVB-T2 television transmitter that a consumer television found on a channel scan and played.
-> Not a simulation — an ordinary TV, an ordinary channel scan, a picture.
-
-**S54 · From a video file to a radio wave** *(3 min)*
-> Ten seconds per stage, no more. Say honestly that the theory behind the last two boxes is a
-> whole document (`01_fundamentals/11`) they should read another day — admitting what you are
-> skipping is what keeps a beginner from feeling lost. **First slide to cut in this segment.**
-
-**S55 · 🖥️ DEMO — scan the band** *(5 min)*
-> `scan_tv_band.py` (about 40 s for channels 21–48): a table classifying each channel as
-> television, some other signal, or empty. The slide shows the lab's real result — no TV reached
-> the FM whip, only a bursty signal on channel 22. Your venue will differ; if MYTV appears, point at it. Then tell the false-positive story — a non-TV signal scored 13.9× on the detector,
-> because **a burst of noise overlaps itself at any delay you test.** Two extra checks fixed it.
-> Good beginner-accessible teaching about instruments that lie confidently.
-
-**S56 · 🖥️ DEMO — a picture on the screen** *(5 min)*
-> Transmit over the cable, video window on the projector. Then the measurement behind it:
-> spreading the same power across thousands of carriers costs about **35 dB** versus a single
-> tone, so over the air this needed **19 dB more gain** than intuition suggested — and then
-> delivered 79 million bytes with none wrong. A cable does the same with far less power, and
-> sends nothing into the room. **Rehearse the cable setup end to end:** the lab's perfect result
-> was measured over a short, controlled air path, not yet over a cable.
-
-**S57 · Two things that went wrong, and what they taught us** *(4 min)*
-> Keep this even if you are late — cut S53 instead. Two stories, ~2 minutes each:
-> - A receiver whose output looked **100 % healthy and was complete garbage inside**, because the
->   part that writes the "this is fine" marker writes it no matter what. *A green light can be
->   structurally incapable of reporting the fault.*
-> - A picture that played perfectly but **sluggishly**, because replaying a finished file sent
->   the broadcast clock backwards three and a half minutes every lap. *A perfect stream of bits
->   is not a working television service — broadcasting is a timing system that happens to carry
->   bits.*
-
-**S58 · What you may actually do** *(2 min)*
-> Licence-exempt bands; amateur licensing as the legitimate route to transmitting; dummy loads
-> and attenuators; `05_reference/04_malaysia.md`. Close firmly: **receive freely, transmit only
-> where you are permitted.**
-
----
-
-### Segment 9 — Where to go next (15 min)
-
-**S59 · The path, in order** *(3 min)*
-> QUICKSTART → introduction → fundamentals 01–04 → Labs 01–04 → then each lab pulls in the
-> document it needs. Stress that the order carries weight and that skipping ahead is the usual
-> reason people stall and give up.
-
-**S60 · Your first week** *(4 min)*
-> A concrete five-evening plan: *Mon* setup + QUICKSTART; *Tue* fundamentals 01–02; *Wed* Labs
-> 01–02; *Thu* Lab 03 + fundamentals 03–04; *Fri* Lab 05 — record your own band.
-> **For a beginner audience this is the most important slide after S34.** Vague encouragement
-> produces nothing; a dated plan produces someone who actually opens the laptop on Monday.
-
-**S61 · The five mistakes everyone makes** *(3 min)*
-> Gain at maximum. No antenna, or the wrong one. Wrong sample rate. Expecting a weak signal
-> indoors. Skipping the fundamentals and then blaming the radio.
-
-**S62 · Resources** *(2 min)*
-> The 248-term glossary — tell them explicitly it is written plain-English-first, because a
-> beginner's worst hour is the one spent stuck on an acronym. Signal identification guide,
-> antenna reference, applications catalogue, local community. QR code again.
-
-**S63 · Q&A** *(3 min+, absorbs the buffer)*
-> Clear the parking lot first — it proves you were listening and it is what you promised the
-> intermediates. Last line: **"Everything you saw today is a folder you now have."**
+## 4. Slide by slide
+
+**The full notes for every slide are in [`PRESENTER_NOTES.md`](./PRESENTER_NOTES.md)** — in full
+sentences: why the slide is there, words to say, what to do, likely questions with answers, and
+background for you. The speaker view (press <kbd>S</kbd>) shows the same notes.
+
+This table is the one-page run of show: why each slide is there. ★ = never cut.
+
+
+**Segment 1 — Why you are here (15 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S1 | Title | 1 min | The room should see a radio working before you say a word. |
+| S2 | The promise | 3 min | It tells people what success looks like, so they can relax. |
+| S3 | What this session is not | 2 min | It removes fear. |
+| S4 | Who is in the room | 3 min | You learn the level of the room, and you adjust the rest of the day to it. |
+| S5 | The shape of the day | 3 min | People relax when they know the plan — especially when the breaks are. |
+| S6 | Today is the trailer. This is the course. | 3 min | It tells people where everything lives, so they stop worrying about taking notes and start watching. |
+
+**Segment 2 — What a radio does, and what SDR changes (30 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S7 | What every radio has to do | 3 min | It gives beginners a simple frame — four jobs — to hang everything else on. |
+| S8 | Inside the radio on your desk | 5 min | It shows the classic radio as a chain of physical parts. |
+| S9 | The whole idea, in one picture ★ | 5 min | This is the most important idea of the whole session. |
+| S10 | Same jobs. Different material. | 3 min | It reassures people that SDR is not new physics. |
+| S11 | Consequence 1 — one box, many radios | 3 min | It connects SDR to the audience's own experience: a shelf of single-purpose devices. |
+| S12 | Consequence 2 — you fix it with a download | 2 min | One real example that everybody lived through makes the idea concrete. |
+| S13 | Consequence 3 — radio becomes visible | 4 min · live | This is the most powerful minute of the segment. |
+| S14 | What SDR is genuinely bad at | 3 min | Honesty builds trust. |
+| S15 | The one-sentence version | 2 min | It summarises Segment 2 in one sentence that people can repeat to a colleague. |
+
+**Segment 3 — The two ideas you cannot skip (25 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S16 | A wave, and three numbers | 3 min | Before talking about sampling, people need the words for describing a wave: amplitude, frequency and phase. |
+| S17 | Turning a wave into numbers | 4 min | It explains *sampling* — the first of the two big ideas — with a picture everyone understands: a film camera. |
+| S18 | Too few frames, wrong answer | 3 min | It explains *aliasing* — the danger of sampling too slowly — with the wagon-wheel effect from old films. |
+| S19 | The problem one number cannot solve | 4 min | It creates a question in the audience's mind, so that the next slide — I and Q — feels like the answer, not like extra theory. |
+| S20 | I and Q — two numbers, and now you know ★ | 5 min | This is the concept the rest of the day depends on. |
+| S21 | What your sample rate buys you | 3 min | It connects sample rate to the amount of spectrum you can see — the key to Lab 05 (recording a whole slice of the band). |
+| S22 | Three units you will see all afternoon | 2 min | dB, dBm and dBFS appear on every display. |
+| S23 | Gain is not volume | 1 min | It prevents the most common beginner mistake — turning the gain to maximum — before people see a gain slider in the next segments. |
+
+**Segment 4 — The hardware: SignalSDR Pro (15 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S24 | The SignalSDR Pro — pass it round | 3 min | Holding the radio makes it real. |
+| S25 | Two chips do everything | 3 min | It connects the real board to the "shortened chain" of slide 9. |
+| S26 | The numbers, translated | 3 min | Specifications mean nothing to beginners until they are translated into things they can do. |
+| S27 | Why your screen will say "B210" | 2 min | It prevents confusion when the software shows a different name, and gives people the most useful search word. |
+| S28 | Two things that will bite you | 3 min | It warns about the two most common set-up problems *before* people meet them, so the error in ten minutes looks expected. |
+| S29 | The cheapest part that matters most | 1 min | Antennas decide what you can receive. |
+| S30 | Break | 10 min | People need rest, and you need time to prepare Segment 5. |
+
+**Segment 5 — Making it work, live, from cold (25 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S31 | Four commands | 3 min | It shows that installing everything is short. |
+| S32 | Order matters | 2 min | Repeats the boot order as four clear steps, because it is the first thing that goes wrong at home. |
+| S33 | Live — the radio answers | 6 min | Watching a machine introduce itself turns it from a mystery box into something understandable. |
+| S34 | Live — the failure, and the fix ★ | 8 min | Every person in the room will meet this error alone, at night, with nobody to ask. |
+| S35 | Take this with you | 3 min | The handout card is what people will actually use on Monday. |
+| S36 | It is all written down | 3 min | It tells people where the full setup documents are, and removes the pressure to remember. |
+
+**Segment 6 — Your first flowgraph, built in front of you (25 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S37 | GNU Radio Companion | 3 min | It introduces the tool before you use it, so people know where to look on the screen. |
+| S38 | Live build — three blocks and a radio ★ | 13 min | This is the emotional peak of the day: a radio, built from nothing, plays music. |
+| S39 | Break it on purpose | 8 min | Hearing what each mistake sounds like teaches people to diagnose problems by ear. |
+| S40 | Three blocks | 1 min | A short, memorable summary before the break. |
+| S41 | Break | 10 min | Rest, and time for you to prepare eight demos in a row. |
+
+**Segment 7 — What it can do: the lab tour (40 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S42 | Twelve labs, one ladder | 2 min | It shows the whole course as one ladder, so the repository feels finishable, not enormous. |
+| S43 | Labs 02–03 — instruments, then control | 5 min · live | It shows how Lab 01 grows. |
+| S44 | Lab 04 — stereo, built from scratch | 4 min · live | It reveals a hidden part of a familiar signal (the 19 kHz pilot), and shows that a whole chip in their car radio is just a few blocks here. |
+| S45 | Lab 05 — record once, experiment forever | 5 min · live | Recording raw signals is the habit that separates people who make progress from people who keep going back outside. |
+| S46 | Lab 06 — one tuner, many modes | 4 min · live | It connects SDR to the scanners many people in the room use, and shows that a "mode" is just a different set of blocks. |
+| S47 | Lab 07 — crossing into digital | 5 min · no radio | It introduces the constellation — the picture used for every digital signal — and shows that measured results match theory exactly. |
+| S48 | Lab 08 — hidden data | 5 min · live | It is usually the best "I had no idea" moment of the day: text data hidden inside ordinary FM radio. |
+| S49 | Lab 09 — aircraft | 5 min | Decoding real aircraft positions is exciting, and it shows the same board working in a completely different band and modulation. |
+| S50 | What did all of those have in common? | 3 min | It ties the tour back to the one-sentence version from slide 15. |
+| S51 | And 589 more | 2 min | It shows the size of the field, and — if you prepare — connects it to the audience's own work. |
+
+**Segment 8 — Transmitting: a television station (25 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S52 | Receiving is legal almost everywhere. Transmitting is not. | 4 min | It sets the rules *before* the exciting part. |
+| S53 | We built a television station | 2 min | It states the headline result simply, so the audience knows where this segment is going. |
+| S54 | From a video file to a radio wave | 3 min | One quick look at the chain, so the demo makes sense. |
+| S55 | Demo — scan the band | 5 min · receive only | It shows a real measuring tool — and a great story about an instrument that was confidently wrong. |
+| S56 | Demo — a picture, down a cable | 5 min · transmits | The live result: video sent by one software radio and received and played by software, in real time. |
+| S57 | Two things that went wrong ★ | 4 min | Two stories with lessons that apply far beyond radio. |
+| S58 | What you may actually do | 2 min | It ends the transmit segment with a clear, legal path, so people leave with the right habit. |
+
+**Segment 9 — Where to go next (15 minutes)**
+
+| Slide | Title | Time | Why it is there |
+|---|---|---|---|
+| S59 | The path, in order | 3 min | Order matters. |
+| S60 | Your first week ★ | 4 min | A dated plan turns "that was interesting" into "I opened the laptop on Monday". |
+| S61 | The five mistakes everyone makes | 3 min | A quick checklist that covers most "my SDR does not work" problems. |
+| S62 | When you get stuck | 2 min | It points to the reference material, especially the glossary, so people are never stopped by an unknown word. |
+| S63 | Questions | 3 min or more | You promised to answer the parking-lot questions. |
 
 ---
 

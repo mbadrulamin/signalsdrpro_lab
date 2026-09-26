@@ -834,9 +834,9 @@ blocks:
       \ / np.sqrt(2),\n          4: np.array([-3., -1., 1., 3.]) / np.sqrt(10),\n          6: np.array([-7., -5.,\
       \ -3., -1., 1., 3., 5., 7.]) / np.sqrt(42)}\n\n\nclass blk(gr.decim_block):\n    def __init__(self, bits_per_symbol=4,\
       \ decim=4096):\n        gr.decim_block.__init__(self, name='MER (dB)',\n                                in_sig=[np.complex64],\
-      \ out_sig=[np.float32],\n                                decim=int(decim))\n        self.levels = LEVELS[int(bits_per_symbol)]\n\
+      \ out_sig=[np.float32],\n                                decim=int(decim))\n        self.decim = int(decim)       # own copy: decim_block has no decimation() here\n        self.levels = LEVELS[int(bits_per_symbol)]\n\
       \        self.mer = 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n\
-      \        n = len(out)\n        x = input_items[0][:n * self.decimation()]\n        if len(x) > 8192:     \
+      \        n = len(out)\n        x = input_items[0][:n * self.decim]\n        if len(x) > 8192:     \
       \                 # a measurement, not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling\
       \ costs nothing\n        if len(x):\n            lv = self.levels\n            i = lv[np.abs(x.real[:, None]\
       \ - lv[None, :]).argmin(axis=1)]\n            q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n\

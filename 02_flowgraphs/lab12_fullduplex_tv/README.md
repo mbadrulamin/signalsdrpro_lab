@@ -153,10 +153,17 @@ published DVB-T figures: 6.032, 16.086, 24.128, 31.668 Mbit/s.
    gnuradio-companion lab12_fullduplex_tv.grc
    ```
 
-4. Raise **`tx_gain`** and **`tx_amplitude`** slowly. Watch the receive side's **level**, **MER**
-   and **constellation**.
-5. When MER is above about **15 dB**, the receiver locks, the continuity-error count stays at
-   zero, and the picture appears.
+   The window has four sliders at the top (UHF channel, TX amplitude, TX gain, RX gain), the
+   received and transmitted spectrum, the received constellation, and **Signal quality** (MER).
+   The terminal prints a short reminder of the next steps.
+4. **The transmitter starts off** — TX gain 0 and TX amplitude 0 — so at first nothing is
+   received and no video appears. That is on purpose. Raise **`tx_gain`** slowly, then
+   **`tx_amplitude`** to about 0.5. Watch the receive side's **level**, **MER** and
+   **constellation**.
+5. When MER is above about **15 dB**, the receiver locks: the constellation becomes 16 tight dots,
+   the terminal prints `[TV] LOCKED` with the continuity-error count staying at zero, and **a few
+   seconds later a separate video window (`SDR LAB TV`) opens** and plays the picture. It opens
+   by itself — you do not start it.
 
 > 💡 **Too much signal is the usual problem on a cable.** If the constellation is a smeared blob at
 > high gain, lower `rx_gain` first, then `tx_gain`.
@@ -261,6 +268,22 @@ reported it honestly. Playing a 209-second file straight through gave **zero** e
 
 **If you loop a short stream, expect a burst of errors at every loop — it is not the radio.**
 
+### This flowgraph itself, tested over a simulated cable
+
+The results above came from `03_scripts/verify_tv_link.py`, which builds its own receiver. The
+flowgraph in this folder — the one you run — had never been tested with a signal. When it was
+(26 September 2026, with the radio blocks replaced by a simulated cable), its MER block crashed
+on the first signal and stalled the whole receiver after 48 packets: **no video, ever**. After
+the fix, the same test gave:
+
+```
+[TV] LOCKED     380,000 pkts  CC err       0 (0.00e+00)  sync err      0  dropped    0
+packets=397376 cc_errors=0 sync_errors=0 dropped=0
+```
+
+and the received stream decoded to 911 video frames (1280×720 H.264) plus MP2 audio. The same
+fix was applied to Lab 11, which uses the same MER block.
+
 ### Three modes compared
 
 | Mode | Bit rate | MER | Byte error rate | Locks live? |
@@ -282,6 +305,11 @@ that failed.** Robustness against echoes and robustness against your own CPU are
 
 | Problem | Cause | Fix |
 |---|---|---|
+| **No window at all.** The terminal says the video stream does not exist (older versions: `RuntimeError: can't open file`) | `/tmp/bintang.ts` has not been made — `/tmp` is emptied at every restart | Make it (Section 2). The terminal prints the exact command |
+| **The window opens, but there is no video** | The transmitter starts off (TX gain 0, TX amplitude 0), so nothing is received | Raise TX gain, then TX amplitude. The video window opens by itself a few seconds after the lock |
+| The receiver freezes after a few packets; the terminal shows `AttributeError: ... no attribute 'decimation'` | A bug in the MER block, fixed on 26 September 2026 (it stalled the whole receiver) | Update your copy of the repository |
+| Only part of the window is visible | It opened small | Maximise it. (Since 26 September 2026 it opens at a usable size) |
+| Nothing works, and **changing the gain changes nothing** | The radio's synthesisers are not locking — a hardware or power problem, not the lab | Power-cycle with a proper power supply (Setup 05). Check: `lo_locked` should not say `unlocked` |
 | `RuntimeError: No devices found` | An earlier run still has the radio | Find it by PID and stop it. Avoid `pkill -f` (it kills the terminal that runs it) |
 | Nothing decodes, and the receive level does not change with `tx_gain` | No radio path, or the signal is spread below the noise | Send a test tone instead: a tone survives about 35 dB more loss than an 8 MHz signal. If the tone shows and DVB-T does not, it is the link budget, not the wiring |
 | `U` from the USRP Sink | The transmit side is not getting samples fast enough — usually because the unlocked receiver is using the CPU | Make sure a signal is present; an unlocked receiver runs at 1.55 MSPS and starves everything |
@@ -296,6 +324,9 @@ that failed.** Robustness against echoes and robustness against your own CPU are
 
 - **Nobody has watched the picture live.** The stream was decoded frame by frame, and still images
   were taken from it, but no person sat in front of `ffplay`.
+- **This flowgraph has not yet run on the real radio over a cable.** Its fixed version was tested
+  over a simulated cable only; on 26 September 2026 the radio had a hardware fault (both
+  synthesisers unlocked) that stopped the real test.
 - **Two radios** (one sending, one receiving) were not tried. Everything here is one radio talking
   to itself.
 - **No deliberate frequency error was added**, so the receiver has never faced the problem a real

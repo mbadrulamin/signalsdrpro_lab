@@ -34,6 +34,30 @@ import lab12_fullduplex_tv_tv_out as tv_out  # embedded python block
 import sip
 
 
+def snipfcn_check_inputs(self):
+    import os, sys
+    if not os.path.exists(self.ts_in):
+        sys.exit(
+            "\n[Lab 12] Cannot start: the video stream " + self.ts_in + " does not exist.\n"
+            "  Make it first (README section 2), from this folder:\n"
+            "    ../../03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4 " + self.ts_in + " \\\n"
+            "        --mode 16qam-2/3-1/32 --width 1280 --duration 300 --loop\n")
+    print("\n[Lab 12] The transmitter starts OFF: TX gain 0, TX amplitude 0.\n"
+          "  1. Raise 'TX gain' slowly, then 'TX amplitude' to about 0.5.\n"
+          "  2. Watch 'Signal quality' (MER). Above about 15 dB the receiver locks.\n"
+          "  3. The video window opens by itself a few seconds after the lock.\n"
+          "  Cable and attenuator only - no antennas on a TV channel.\n", flush=True)
+
+def snipfcn_window_size(self):
+    if self.width() < 1200:      # GNU Radio does not apply the .grc window size; start usable
+        self.resize(1600, 950)
+
+
+def snippets_main_after_init(tb):
+    snipfcn_window_size(tb)
+
+def snippets_init_before_blocks(tb):
+    snipfcn_check_inputs(tb)
 
 class lab12_fullduplex_tv(gr.top_block, Qt.QWidget):
 
@@ -87,7 +111,7 @@ class lab12_fullduplex_tv(gr.top_block, Qt.QWidget):
         ##################################################
         # Blocks
         ##################################################
-
+        snippets_init_before_blocks(self)
         self._tx_gain_range = qtgui.Range(0, 89, 1, 0, 200)
         self._tx_gain_win = qtgui.RangeWidget(self._tx_gain_range, self.set_tx_gain, "TX gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_grid_layout.addWidget(self._tx_gain_win, 0, 2, 1, 1)
@@ -521,7 +545,7 @@ def main(top_block_cls=lab12_fullduplex_tv, options=None):
     qapp = Qt.QApplication(sys.argv)
 
     tb = top_block_cls()
-
+    snippets_main_after_init(tb)
     tb.start()
 
     tb.show()

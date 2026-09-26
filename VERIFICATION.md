@@ -94,11 +94,12 @@ The audio SNRs are close to the original measurements (which were taken at highe
 
 ---
 
-## 3. Twelve lessons
+## 3. Thirteen lessons
 
 Simulation is useful, but it only tests what you thought of. Lessons 1–7 were found only by
 using a real radio. Lessons 8–11 were found later, by running the real flowgraphs on test
-signals with known answers. Lesson 12 was found by running the fixed labs on the real radio again.
+signals with known answers. Lesson 12 was found by running the fixed labs on the real radio again, and Lesson 13 by running
+Lab 12 the way a student does.
 Each one is now fixed or documented where it matters.
 
 ### Lesson 1 — One missing setting cost up to 43 dB
@@ -370,6 +371,31 @@ Two related findings from the same session:
 > **Rule:** test signals must include the real radio's flaws (here, the centre spike), or the
 > test passes where the radio fails. And re-test on the radio after every fix.
 
+### Lesson 13 — The test passed, but it was not the program students run
+
+*Found on 26 September 2026, after the lab owner reported that Lab 12 "showed nothing".*
+
+Lab 12's best result — 422,304 packets, 79,357,996 bytes, no errors — was real. But it was
+measured by `03_scripts/verify_tv_link.py`, a separate script that builds its own receiver. The
+flowgraph in the Lab 12 folder, the one students open, had never received a signal.
+
+Run with the radios replaced by a simulated cable, it failed in two ways:
+
+- **It stopped before any window appeared** if the video stream `/tmp/bintang.ts` did not exist,
+  with only `RuntimeError: can't open file`. (`/tmp` is emptied at every restart.) It now says
+  which file is missing and prints the command that makes it.
+- **Its signal-quality (MER) block crashed on the first signal** (`self.decimation()` does not
+  exist for Python blocks in GNU Radio 3.10.9). A crashed block stops consuming data, so the whole
+  receiver stalled after 48 packets: **no video, ever**. Lab 11 had the same block. After the fix:
+  397,376 packets, 0 continuity errors, 911 decoded video frames.
+
+It also starts with the transmitter off (on purpose), so the video appears only after TX gain and
+TX amplitude are raised. The terminal now says so, and the README explains what to expect.
+
+> **Rule:** test the program people actually run, the way they run it — from a restarted
+> computer, with the default settings. A test script that shares the idea but not the code proves
+> the idea, not the program.
+
 ---
 
 ## 4. Known issue
@@ -391,8 +417,9 @@ If you control Lab 06 from your own Python code, call `start()` first, then `set
 
 Being clear about what is **not** proven is as important as what is.
 
-- **The TV result was reported by a person, not measured by a tool.** A real TV found the
-  station and played the video well. But no recording was made. The fix for the jerky video
+- **The TV result was reported by a person, not measured by a tool.** A real DVB-T2 TV found
+  the Lab 10 station and played the video well — confirmed again by the lab owner on 26 September
+  2026 (the transmitter flowgraph is unchanged since). But no recording was made. The fix for the jerky video
   (Lesson 7) is proven by measurement, but nobody has watched the fixed version yet.
 - **Nobody has watched the received picture live.** Labs 11–12 were checked by decoding frames
   and audio from the received data, and by comparing files byte by byte — not by watching
@@ -409,6 +436,11 @@ Being clear about what is **not** proven is as important as what is.
   official Mode S test examples, but real reception is not proven (see Lesson 4).
 - **Lab 06's AM and narrow-FM modes** were not tested on real signals. No aircraft or marine
   voice could be heard with this antenna. Only the wide-FM mode was measured.
+- **Labs 05, 08 and 09, Lab 06's AM mode and the Lab 12 flowgraph could not be re-run on the
+  radio on 26 September 2026.** From about 09:00 the radio had a hardware fault: both the receive
+  and transmit synthesisers reported `LO: unlocked` at every frequency, changing the gain did not
+  change the noise, and a power cycle did not clear it. Lab 07 needs no radio and was re-run
+  (BER 4.0 × 10⁻⁴ at 8 dB; theory 3.8 × 10⁻⁴).
 - **Lab 06's AM fix (Lesson 10) and Lab 10's analyser fix (Lesson 11) have not been tested on the
   radio.** There was no AM signal to receive, and Lab 10's analyser needs a transmitter, which was
   not switched on. Both are proven on test signals. (Lessons 8, 9 and 12 were re-checked on the

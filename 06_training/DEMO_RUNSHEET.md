@@ -232,8 +232,9 @@ python3 scan_tv_band.py --first 21 --last 48 --dwell 0.4
 
 3. In the room: `gnuradio-companion lab12_fullduplex_tv.grc`. It starts with the transmitter at
    **zero**. Raise `tx_gain`, then `tx_amplitude`, **slowly**, watching the MER.
-4. **Room sees:** the MER readout rise above about 15 dB, the continuity-error count stay at
-   zero, and the video window open.
+4. **Room sees:** the MER readout rise above about 15 dB, the constellation become 16 tight dots,
+   `[TV] LOCKED` in the terminal with zero continuity errors — and, a few seconds later, a separate
+   video window titled **SDR LAB TV** opens by itself.
 5. If the constellation becomes a smeared blob, the signal is too **strong**: lower `rx_gain`
    first, then `tx_gain`.
 

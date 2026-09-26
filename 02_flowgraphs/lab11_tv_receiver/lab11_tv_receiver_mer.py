@@ -24,13 +24,14 @@ class blk(gr.decim_block):
         gr.decim_block.__init__(self, name='MER (dB)',
                                 in_sig=[np.complex64], out_sig=[np.float32],
                                 decim=int(decim))
+        self.decim = int(decim)       # own copy: decim_block has no decimation() here
         self.levels = LEVELS[int(bits_per_symbol)]
         self.mer = 0.0
 
     def work(self, input_items, output_items):
         out = output_items[0]
         n = len(out)
-        x = input_items[0][:n * self.decimation()]
+        x = input_items[0][:n * self.decim]
         if len(x) > 8192:                      # a measurement, not a filter:
             x = x[::len(x) // 8192]            # sub-sampling costs nothing
         if len(x):

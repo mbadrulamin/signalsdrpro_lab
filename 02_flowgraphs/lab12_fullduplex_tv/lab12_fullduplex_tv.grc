@@ -1315,9 +1315,9 @@ blocks:
       \ 1., 3.]) / np.sqrt(10),\n          6: np.array([-7., -5., -3., -1., 1., 3., 5., 7.]) / np.sqrt(42)}\n\n\nclass\
       \ blk(gr.decim_block):\n    def __init__(self, bits_per_symbol=4, decim=4096):\n        gr.decim_block.__init__(self,\
       \ name='MER (dB)',\n                                in_sig=[np.complex64], out_sig=[np.float32],\n            \
-      \                    decim=int(decim))\n        self.levels = LEVELS[int(bits_per_symbol)]\n        self.mer =\
+      \                    decim=int(decim))\n        self.decim = int(decim)       # own copy: decim_block has no decimation() here\n        self.levels = LEVELS[int(bits_per_symbol)]\n        self.mer =\
       \ 0.0\n\n    def work(self, input_items, output_items):\n        out = output_items[0]\n        n = len(out)\n\
-      \        x = input_items[0][:n * self.decimation()]\n        if len(x) > 8192:                      # a measurement,\
+      \        x = input_items[0][:n * self.decim]\n        if len(x) > 8192:                      # a measurement,\
       \ not a filter:\n            x = x[::len(x) // 8192]            # sub-sampling costs nothing\n        if len(x):\n\
       \            lv = self.levels\n            i = lv[np.abs(x.real[:, None] - lv[None, :]).argmin(axis=1)]\n     \
       \       q = lv[np.abs(x.imag[:, None] - lv[None, :]).argmin(axis=1)]\n            ideal = i + 1j * q\n        \
@@ -1559,6 +1559,37 @@ blocks:
     - 540
     rotation: 0
     state: enabled
+- name: check_inputs
+  id: snippet
+  parameters:
+    alias: ''
+    code: "import os, sys\nif not os.path.exists(self.ts_in):\n    sys.exit(\n        \"\\n[Lab 12] Cannot start: the video stream \" + self.ts_in + \" does not exist.\\n\"\n        \"  Make it first (README section 2), from this folder:\\n\"\n        \"    ../../03_scripts/make_video_ts.py ~/Downloads/Bintang.mp4 \" + self.ts_in + \" \\\\\\n\"\n        \"        --mode 16qam-2/3-1/32 --width 1280 --duration 300 --loop\\n\")\nprint(\"\\n[Lab 12] The transmitter starts OFF: TX gain 0, TX amplitude 0.\\n\"\n      \"  1. Raise 'TX gain' slowly, then 'TX amplitude' to about 0.5.\\n\"\n      \"  2. Watch 'Signal quality' (MER). Above about 15 dB the receiver locks.\\n\"\n      \"  3. The video window opens by itself a few seconds after the lock.\\n\"\n      \"  Cable and attenuator only - no antennas on a TV channel.\\n\", flush=True)"
+    comment: "Stops with a clear message if the video stream is missing (instead of \"can't open file\"), and prints how to bring the transmitter up."
+    priority: '0'
+    section: init_before_blocks
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [16, 700]
+    rotation: 0
+    state: enabled
+- name: window_size
+  id: snippet
+  parameters:
+    alias: ''
+    code: "if self.width() < 1200:      # GNU Radio does not apply the .grc window size; start usable\n    self.resize(1600, 950)"
+    comment: "Opens the window at a usable size the first time."
+    priority: '0'
+    section: main_after_init
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [16, 780]
+    rotation: 0
+    state: enabled
+
 connections:
 - - ts_src
   - '0'

@@ -7,7 +7,8 @@ never seen an SDR, GNU Radio, or a SignalSDR Pro.
 | File | What it is |
 |---|---|
 | [`intro_to_sdr.html`](./intro_to_sdr.html) | **The deck.** 63 slides, speaker notes built in. One file, no internet required. |
-| [`SESSION_PLAN.md`](./SESSION_PLAN.md) | The design rationale, per-slide speaker notes, demo risk plan, and the cut order. Read this before you present. |
+| [`PRESENTER_NOTES.md`](./PRESENTER_NOTES.md) | **The full presenter notes for all 63 slides**, in full sentences: why each slide is there, words you can say, what to do, likely questions with answers, and background for you. The speaker view shows the same notes. **Start here.** |
+| [`SESSION_PLAN.md`](./SESSION_PLAN.md) | The design rationale, a one-page run of show, the demo risk plan, and the cut order. Read this before you present. |
 | [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) | **Every live demo, step by step:** the exact command and settings, what the room should see or hear, and the fallback. Plus the day-before checklist. Print it. |
 | [`handout_cards.html`](./handout_cards.html) | **The two handout cards, ready to print** (A4, double-sided): the setup card, and the 15 words used today. |
 
@@ -62,19 +63,21 @@ buffer, that is the difference between finishing on time and abandoning the last
 
 ## Before you present
 
-1. **Read [`SESSION_PLAN.md`](./SESSION_PLAN.md)** — particularly §2 (teaching a mixed-level
+1. **Read [`PRESENTER_NOTES.md`](./PRESENTER_NOTES.md) aloud once**, a few days before. It is the
+   best rehearsal there is, and it gives you the background to answer questions calmly.
+2. **Read [`SESSION_PLAN.md`](./SESSION_PLAN.md)** — particularly §2 (teaching a mixed-level
    room), §6 (demo risk management) and §7 (why the transmit demo runs down a cable).
-2. **Work through [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) §1 the day before.** It lists every
+3. **Work through [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) §1 the day before.** It lists every
    check, recording and test file, with the commands.
-3. **Print the handout cards** — open [`handout_cards.html`](./handout_cards.html) and press
+4. **Print the handout cards** — open [`handout_cards.html`](./handout_cards.html) and press
    <kbd>Ctrl+P</kbd> (A4, double-sided, no margins or "default"). The setup card is the artefact
    that outlives the session. The QR code on the cards, slide 6 and the last slide points to
    `github.com/mbadrulamin/signalsdrpro_lab`; if you move the repository, replace it.
-4. **Record a fallback for every live demo.** If a demo has not recovered in 30 seconds, switch
+5. **Record a fallback for every live demo.** If a demo has not recovered in 30 seconds, switch
    to the recording and keep moving. Never debug in front of a classroom.
-5. **Pre-flight in the actual room**, on the actual power and network, within an hour of
+6. **Pre-flight in the actual room**, on the actual power and network, within an hour of
    starting — and **test the audio**, because half the demos are sound.
-6. **Run `python3 03_scripts/test_labs_offline.py` the day before.** It checks the real lab
+7. **Run `python3 03_scripts/test_labs_offline.py` the day before.** It checks the real lab
    flowgraphs against known answers in about a minute, with no radio. All nine should PASS.
 
 ### Shape of the day
@@ -107,7 +110,7 @@ Slides are plain `<section class="slide">` elements in document order. Each carr
 
 ```html
 <section class="slide" data-seg="3 · The two ideas" data-min="5" data-key="1">
-<aside class="notes"><p>What to say…</p></aside>
+<aside class="notes">…generated — do not edit here…</aside>
   <h2>Slide title</h2>
   …
 </section>
@@ -118,6 +121,16 @@ Slides are plain `<section class="slide">` elements in document order. Each carr
   plan**; the checked total is 235 minutes plus a 5-minute buffer.
 - `data-key` — marks a never-cut slide with a ★ in the overview
 - `.step` on any element makes it a reveal, shown one press at a time in document order
+
+**Speaker notes are not edited in the deck.** Edit [`PRESENTER_NOTES.md`](./PRESENTER_NOTES.md)
+(one `## S12 · Title (2 min)` section per slide), then copy them into the deck:
+
+```bash
+python3 03_scripts/sync_speaker_notes.py          # updates every <aside class="notes">
+python3 03_scripts/sync_speaker_notes.py --check  # says whether the deck is up to date
+```
+
+If you add or remove a slide, add or remove its section in `PRESENTER_NOTES.md` and renumber.
 
 Diagrams are inline SVG using the deck's CSS variables (`var(--accent)`, `var(--hw)`, …), so
 they follow the light/dark toggle automatically. The slide area is a fixed 1280×720 coordinate
