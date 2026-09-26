@@ -7,7 +7,7 @@ a signal-strength bar. Do **not** assume they can name the parts inside a radio,
 diagram, calculate with decibels, or write code. A few will know much more. Teaching both groups
 at once is the main challenge of this session (see §2).
 
-**Goal:** by 16:00 they can (a) say what SDR replaces and why in their own words, (b) set up a
+**Goal:** by the end of the session they can (a) say what SDR replaces and why in their own words, (b) set up a
 SignalSDR Pro from cold and prove it works, (c) build one working flowgraph, and (d) name,
 from having *seen* it, roughly ten things SDR does that their existing radios cannot.
 
@@ -103,9 +103,9 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > running on the second screen. The room should see a radio working before you say a word —
 > and for a beginner audience that first image does more than any slide can.
 
-**S2 · The promise: what you will be able to do at 16:00** *(3 min)*
+**S2 · The promise: what you will be able to do by the end of today** *(3 min)*
 > Four bullets, all verbs: *set one up, build one, break one, know what to read next.* Then say
-> plainly: "You will not be an SDR engineer at 16:00. You will be someone who can start."
+> plainly: "You will not be an SDR engineer by the end of today. You will be someone who can start."
 > **For a beginner room this sentence is not modesty, it is permission** — it removes the fear
 > of being the person who doesn't keep up.
 
@@ -184,7 +184,9 @@ do not plan to spend it, and do not let Segment 2 eat it.
 **S15 · The one-sentence version** *(2 min)*
 > *"Turn the radio wave into numbers as early as you can, then do everything else in software."*
 > Everything in the remaining three hours is a consequence of that sentence. Come back to it
-> at S49.
+> at S50.
+> **Check the room (1 min):** "In the picture a few slides ago, what moved?" Wait for *the
+> converter* (or *the ADC*). If nobody says it, show S9 again for thirty seconds.
 
 ---
 
@@ -234,6 +236,11 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > Turning gain up amplifies the noise too, and past a point only adds distortion. It is the
 > mistake every newcomer makes on day one. Beginners especially need this said before Segment 5,
 > because they will reach for the slider.
+> **Check the room before the hardware** (2 min, only if the pacing indicator says you are on
+> time). Hands up, no wrong answers: *Why two numbers, I and Q?* (to tell a signal above the
+> tuning from one below) · *What happens at 0 dBFS?* (clipping) · *Does more gain always help?*
+> (no). If a question gets silence, answer it in one sentence and point at the slide. Do not
+> re-teach the segment.
 
 ---
 
@@ -250,7 +257,8 @@ do not plan to spend it, and do not let Segment 2 eat it.
 
 **S26 · The numbers that matter, translated** *(3 min)*
 > 70 MHz–6 GHz, up to 56 MHz at once, two channels, **full duplex**. Translate every one:
-> the tuning range covers from shortwave to Wi-Fi; full duplex means transmit and receive at
+> the tuning range runs from just below the FM band (70 MHz) to Wi-Fi (6 GHz) — shortwave is
+> below it, and someone will ask; full duplex means transmit and receive at
 > the same instant, which is what makes the last demo of the day possible at all.
 
 **S27 · Why it says "B210"** *(2 min)*
@@ -296,9 +304,14 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > it stops being a mystery box. Do not walk the whole tree.
 
 **S34 · 🖥️ LIVE — and now the failure** *(8 min)*
-> **Deliberately induce `Could not find path for image: usrp_b200_fw.hex`.** Explain it in plain
-> words: two versions of the driver are installed and it is looking in the wrong folder. Fix it
-> live with `00_setup/fix_uhd_version_conflict.sh`. Re-run. Succeed.
+> **Deliberately induce `Could not find path for image: usrp_b200_fw.hex`.** The tested way,
+> which changes nothing on the laptop, is to point the driver at an empty folder:
+> `mkdir -p /tmp/no_images` then `UHD_IMAGES_DIR=/tmp/no_images uhd_usrp_probe`. Say honestly
+> that you did this — "I sent the driver to the wrong folder, which is exactly what having two
+> versions does." (Your screen may show the newer wording, *Could not find the image
+> 'usrp_b200_fw.hex' in the image directory*. Same problem.) Then run
+> `00_setup/fix_uhd_version_conflict.sh`, which checks that every installed driver version can
+> find the files, and re-run `uhd_usrp_probe` without the variable. It works.
 > **The most valuable slide in the deck and the one most likely to be cut for time. Do not cut
 > it.** Every person in the room will meet this error alone, at night, with nobody to ask — and
 > the difference between someone who quits and someone who continues is having watched it fixed
@@ -322,21 +335,27 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > going to draw the block diagram from slide 8, and it will play music."**
 
 **S38 · 🖥️ LIVE BUILD — Lab 01 from an empty canvas** *(13 min)*
-> Build it in front of them, narrating every single choice: USRP Source (frequency, sample rate,
-> gain), WBFM Receive, Rational Resampler, Audio Sink. Name each block's job by pointing back at
-> S8's metal box that it replaces. Press play. **Music comes out of the laptop.**
+> Build it in front of them, narrating every single choice, with Lab 01's exact values so they can
+> repeat it tonight: **USRP Source** (sample rate `1e6`, your station's frequency, gain `40`,
+> antenna `TX/RX`, **bandwidth `1e6`**) → **WBFM Receive** (quadrature rate `1e6`, audio
+> decimation `20`) → **Audio Sink** (`50000`). Three blocks. Say the only arithmetic aloud:
+> 1,000,000 ÷ 20 = 50,000. While typing the bandwidth, tell the story: this one empty box cost the
+> course 18.6 dB in Lab 01 until it was measured (VERIFICATION Lesson 1). Name each block's job by
+> pointing back at S8's metal box that it replaces. Press play. **Music comes out of the laptop.**
 > Stop talking for three seconds. This is the emotional peak of the day.
 > Then show the generated Python for ten seconds only: *"the diagram is the program"* — enough
 > to intrigue the intermediates, not enough to frighten anyone else.
 
 **S39 · 🖥️ LIVE — break it on purpose** *(8 min)*
-> Three deliberate faults, each with a sound they can learn to recognise: wrong audio rate →
-> chipmunk; delete the resampler → stuttering; gain to maximum → distortion, then gain to zero →
-> hiss. **Teaching the *sound* of each mistake is worth more than any slide about it**, and it
+> Three deliberate faults, each with a sound they can learn to recognise: Audio Sink `25000`
+> instead of `50000` → slow, deep and jumpy, with `O` letters in the terminal; tune to an empty
+> frequency → a loud rushing hiss (which leads straight to *squelch* in Lab 03); gain to maximum →
+> overload and distortion, then gain to zero → hiss. **Rehearse all three** — how each sounds
+> depends a little on the station and the laptop. **Teaching the *sound* of each mistake is worth more than any slide about it**, and it
 > is the single best use of recovered time if S4 told you the room is more capable than expected.
 
 **S40 · What you just watched** *(bridging, ~0 min)*
-> Four blocks. Everything after this is more blocks. Say it and move straight into the break.
+> Three blocks. Everything after this is more blocks. Say it and move straight into the break.
 
 ---
 
@@ -358,41 +377,49 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > Spectrum, waterfall, sliders; then automatic gain control and squelch. "The same radio you
 > watched me build, plus instruments." **Squelch is the one they will recognise from their own
 > equipment** — lead with it and let them name it.
+> *Depth box: on the real radio, Lab 03's squelch first would not go quiet — the radio's own
+> centre spike was as strong as the station. A DC Blocker fixed it (VERIFICATION Lesson 12).*
 
 **S44 · Lab 04 — stereo, built from scratch** *(4 min · live)*
 > Point at the 19 kHz pilot tone on the spectrum. Then the punchline: **nobody bought a stereo
 > decoder chip.** That part of their car radio is, here, a few blocks on a canvas.
+> **Use a music station at gain about 55** — talk stations carry almost no stereo, and at gain 40
+> the pilot stood only 11 dB above the noise here (27 dB at 55).
 
 **S45 · Lab 05 — record once, experiment forever** *(5 min · live)*
-> Capture 20 MHz of raw signal to disk, then **unplug the antenna** and retune inside the
-> recording. Pitch it as the most practically useful lab in the repository: it separates going
+> Record 2 MHz of raw signal (several stations, 16 MB a second), then **unplug the antenna** and
+> retune inside the recording. Pitch it as the most practically useful lab in the repository: it separates going
 > outside from working on the data, and it is the habit that distinguishes people who make
 > progress from people who keep re-collecting.
 
 **S46 · Lab 06 — one tuner, many modes** *(4 min · live)*
 > AM, narrowband FM, wideband FM, channel selection, signal meter. **Their scanner, in
-> software** — and now they can see on screen why it does what it does.
+> software** — and now they can see on screen why it does what it does. Only wide FM is sure to
+> have a signal in the room; show the other modes' controls, but do not promise a voice.
 
 **S47 · Lab 07 — crossing into digital** *(5 min · no hardware)*
-> Constellation diagram: four dots. Add noise, watch the dots smear into clouds. Then the
+> Constellation diagram: two dots (BPSK sends +1 or −1). Add noise, watch the dots smear into clouds. Then the
 > punchline for the intermediates, stated simply enough for everyone: the measured error rate
 > lands exactly on the textbook curve. **"The mathematics is not an approximation of this
 > system. It is this system."** No radio needed — say so, because it means they can try it
 > tonight with no hardware.
 
 **S48 · Lab 08 — hidden data in a signal they have heard all their lives** *(5 min)*
-> RDS. The station name and scrolling text appear — carried on a subcarrier inside a broadcast
-> they have listened to for twenty years without knowing it was there. **Best "I had no idea"
-> moment of the day for a beginner audience.** Run from file if the band is weak in the room.
+> RDS. The station name appears — carried on a subcarrier inside a broadcast they have listened
+> to for years without knowing it was there. **Best "I had no idea" moment of the day for a
+> beginner audience.** Check the station the day before: at the lab only BFM 89.9 sent RDS, and
+> only its name (no song titles). Tune 200 kHz beside it with the matching offset. Run from file
+> if the band is weak in the room.
 
 **S49 · Lab 09 — aircraft** *(5 min)*
-> 1090 MHz: aircraft identity, altitude, position, decoded from raw samples. Reliable
-> crowd-pleaser — **but it needs aircraft overhead right now.** Check before the session and
-> switch to the synthetic capture without comment if the sky is empty.
+> 1090 MHz: aircraft identity, altitude, position, decoded from raw samples. A crowd-pleaser —
+> **but only with a 1090 MHz antenna and aircraft in range.** The FM whip heard nothing at
+> 1090 MHz (VERIFICATION Lesson 4), and no real aircraft has been decoded at the lab yet. Check in
+> rehearsal; if none appear, use the test capture **and say so** — the decoding is the same.
 
 **S50 · What all of those had in common** *(3 min)*
 > One board. One driver. One toolkit. Different *files*. Re-read S15's sentence aloud and let
-> the room notice they now hear it differently than they did at 11:00.
+> the room notice they now hear it differently than they did before the first break.
 
 **S51 · And 589 more** *(2 min)*
 > Flash the applications catalogue: weather satellite images, ships, GPS, LoRa sensors, radio
@@ -404,7 +431,9 @@ do not plan to spend it, and do not let Segment 2 eat it.
 
 **S52 · Receiving is legal almost everywhere. Transmitting is not.** *(4 min)*
 > Open on the constraint, not the capability — especially with beginners, who will not yet have
-> an instinct for this. MCMC, licensed broadcast spectrum, the Class Assignment. Then state what
+> an instinct for this. Spell out the words the first time: **MCMC** (the Malaysian
+> Communications and Multimedia Commission, the regulator); licensed broadcast spectrum; the
+> **Class Assignment** (MCMC's list of bands anyone may use at low power, without a licence). Then state what
 > today's demo does: **a cable from transmitter to receiver through an attenuator, no antenna
 > fitted**, and one line on why (see S56).
 
@@ -418,16 +447,19 @@ do not plan to spend it, and do not let Segment 2 eat it.
 > skipping is what keeps a beginner from feeling lost. **First slide to cut in this segment.**
 
 **S55 · 🖥️ DEMO — scan the band** *(5 min)*
-> `scan_tv_band.py`: a table classifying each channel as television, some other carrier, or
-> empty. Then tell the false-positive story — a non-TV signal scored 13.9× on the detector,
+> `scan_tv_band.py` (about 40 s for channels 21–48): a table classifying each channel as
+> television, some other signal, or empty. The slide shows the lab's real result — no TV reached
+> the FM whip, only a bursty signal on channel 22. Your venue will differ; if MYTV appears, point at it. Then tell the false-positive story — a non-TV signal scored 13.9× on the detector,
 > because **a burst of noise overlaps itself at any delay you test.** Two extra checks fixed it.
 > Good beginner-accessible teaching about instruments that lie confidently.
 
 **S56 · 🖥️ DEMO — a picture on the screen** *(5 min)*
-> Transmit over the cable, video window on the projector. Then the measurement that justifies
-> the cable: spreading the same power across thousands of carriers costs about **35 dB** versus
-> a single tone, so over the air this needed **19 dB more gain** than intuition suggested.
-> **The cable is not the timid option — it is the better-performing one, and the legal one.**
+> Transmit over the cable, video window on the projector. Then the measurement behind it:
+> spreading the same power across thousands of carriers costs about **35 dB** versus a single
+> tone, so over the air this needed **19 dB more gain** than intuition suggested — and then
+> delivered 79 million bytes with none wrong. A cable does the same with far less power, and
+> sends nothing into the room. **Rehearse the cable setup end to end:** the lab's perfect result
+> was measured over a short, controlled air path, not yet over a cable.
 
 **S57 · Two things that went wrong, and what they taught us** *(4 min)*
 > Keep this even if you are late — cut S53 instead. Two stories, ~2 minutes each:
@@ -511,9 +543,10 @@ of how much they help:
    | Labs 01–04, 06 (FM) | a strong local FM station | **low** — FM is everywhere |
    | Lab 07 (BPSK) | nothing at all | **none** — no radio needed |
    | Lab 05 (record/playback) | a file you made earlier | **none** if recorded beforehand |
+   | Lab 04 (stereo) | a *music* station | low — talk stations carry almost no stereo |
    | Lab 08 (RDS) | a station actually transmitting RDS | medium — **verify the exact station the day before** |
-   | Lab 09 (ADS-B) | aircraft overhead *right now* | **high** — check the sky; keep the synthetic capture loaded |
-   | Labs 10–12 (TV) | your own transmitter + cable | medium — pre-build the transport stream |
+   | Lab 09 (ADS-B) | a 1090 MHz antenna *and* aircraft in range | **high** — never yet received at the lab; keep the test capture loaded |
+   | Labs 10–12 (TV) | your own transmitter + cable | medium — pre-build the transport stream; the cable setup must be rehearsed |
 4. **Pre-build every artefact**: the IQ recording for Lab 05, the transport stream for the TV
    demo, the synthetic captures for Labs 08 and 09. Generating live is slow, boring to watch,
    and is where failures hide.
@@ -539,14 +572,17 @@ of how much they help:
 Segment 8 is the most exciting part of the day — and the only part with legal risk.
 
 **Demonstrate over a cable — SMA from transmitter to receiver through a 30–40 dB attenuator,
-with no antenna on the transmitter.** Three independent reasons:
+with no antenna on the transmitter.** (Lab 12's README allows 20–30 dB. In a classroom, start
+with 40 dB: the transmitter has plenty of spare gain, and the receiver cannot be overloaded.) Three independent reasons:
 
 - **Legal.** Labs 10 and 12 use frequencies licensed to TV broadcasters (in Malaysia, MYTV). A
   classroom is not a shielded room, and a room full of people is not the place to find out how
   far "five metres" really reaches.
-- **Technical.** This repository's own measurements show the cable link performs *better*: over
-  the air, identical settings needed 19 dB more transmit gain, while the cable link was proven
-  byte-for-byte exact across 79,357,996 bytes with zero errors.
+- **Technical.** Over the air, the first attempt decoded nothing; it needed 19 dB more transmit
+  gain before it delivered 79,357,996 bytes with zero errors (Lab 12). A cable with an attenuator
+  gives the receiver a strong, steady signal with far less transmit power. (That perfect result
+  was measured over a short, controlled air path; **rehearse the cable version before the day** —
+  DEMO_RUNSHEET.md has the steps.)
 - **Teaching.** It shows the professional habit at the moment the audience is most impressed.
   **Beginners copy what they see the expert do** — so they should see an attenuator, not an
   antenna.
@@ -561,12 +597,13 @@ schedule the cable demo and treat the other as a bonus.
 | Item | Notes |
 |---|---|
 | **Slide deck** | [`intro_to_sdr.html`](./intro_to_sdr.html) — 63 slides, speaker notes built in. One file, no internet needed. |
-| **Setup checklist card** | One page, double-sided: the four commands, plug-in order, the firmware-image fix, the five mistakes. The thing they keep. |
-| **Glossary card** | The 15 terms actually used today, not all 248: IQ, dBFS, MSPS, bandwidth, sample rate, gain, AGC, squelch, FFT, waterfall, constellation, flowgraph, block, duplex, transport stream. |
-| **QR code** | To the repository. On S6, on S62, and printed on both cards. |
+| **Setup checklist card** | Ready to print: [`handout_cards.html`](./handout_cards.html), page 1 — the four commands, plug-in order, the firmware-image fix, the five mistakes, the first week. The thing they keep. |
+| **Glossary card** | Page 2 of the same file — the 15 terms actually used today, not all 248: IQ, dBFS, MSPS, bandwidth, sample rate, gain, AGC, squelch, FFT, waterfall, constellation, flowgraph, block, duplex, transport stream. |
+| **QR code** | To the repository. Already on S6, on the last slide, and on both cards. |
+| **Demo run sheet** | [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) — the exact command and settings for every live moment, what the room should see or hear, and the fallback. |
 | **Fallback recordings** | One per live demo (§6). |
 | **Pre-built artefacts** | IQ recording, transport stream, synthetic ADS-B and RDS captures. |
-| **Hardware** | SignalSDR Pro ×1 (×2 preferred), antennas, USB-B 3.0 + USB-C cables, SMA cable, 30–40 dB attenuator, spare SD card. |
+| **Hardware** | SignalSDR Pro ×1 (×2 preferred), FM antenna, **1090 MHz antenna** (for Lab 09), USB-B 3.0 + USB-A-to-C cables, SMA cable, 30–40 dB attenuator, spare SD card. |
 | **Room** | 1080p projector; audio the whole room can hear (**test this — half the demos are sound**); power strips; a whiteboard with a parking-lot column. |
 
 ---

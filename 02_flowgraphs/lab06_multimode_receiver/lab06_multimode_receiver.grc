@@ -153,9 +153,9 @@ blocks:
     type: int
     num_opts: '3'
     option0: '0'
-    label0: 'AM (airband, shortwave)'
+    label0: 'AM (airband)'
     option1: '1'
-    label1: 'NBFM (marine, weather, PMR)'
+    label1: 'NBFM (marine, PMR, amateur)'
     option2: '2'
     label2: 'WBFM (broadcast 88-108)'
     value: '2'

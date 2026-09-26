@@ -44,7 +44,7 @@ CLI_VER=$(short_version "$(uhd_config_info --version 2>/dev/null || true)")
 
 if [ -n "$GR_VER" ] && [ "$GR_VER" = "$CLI_VER" ]; then
     ok "Only one UHD version ($GR_VER). There is no version conflict."
-    echo "     If you still see 'Could not find path for image', just download the images:"
+    echo "     If you still see 'Could not find ... image', just download the images:"
     echo "         sudo uhd_images_downloader -t b2xx"
     exit 0
 fi
@@ -107,8 +107,10 @@ if [ $DRY = 1 ]; then
     exit 0
 fi
 say "Checking GNU Radio can now find the images (without any environment variable)..."
-OUT=$(env -u UHD_IMAGES_DIR python3 -c "from gnuradio import uhd; uhd.usrp_source('', uhd.stream_args('fc32', '', [0]))" 2>&1 || true)
-if echo "$OUT" | grep -q "Could not find path for image"; then
+OUT=$(env -u UHD_IMAGES_DIR python3 -c "from gnuradio import uhd; uhd.usrp_source('', uhd.stream_args(cpu_format='fc32', channels=[0]))" 2>&1 || true)
+# UHD words it two ways: "Could not find path for image" (no images folder at all) or
+# "Could not find the image '...' in the image directory ..." (folder there, file missing)
+if echo "$OUT" | grep -q "Could not find path for image\|Could not find the image"; then
     fail "GNU Radio still cannot find the images. Output:\n$OUT"
 elif echo "$OUT" | grep -q "Detected Device"; then
     ok "GNU Radio found the radio and loaded the images."

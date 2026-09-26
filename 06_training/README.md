@@ -8,6 +8,8 @@ never seen an SDR, GNU Radio, or a SignalSDR Pro.
 |---|---|
 | [`intro_to_sdr.html`](./intro_to_sdr.html) | **The deck.** 63 slides, speaker notes built in. One file, no internet required. |
 | [`SESSION_PLAN.md`](./SESSION_PLAN.md) | The design rationale, per-slide speaker notes, demo risk plan, and the cut order. Read this before you present. |
+| [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) | **Every live demo, step by step:** the exact command and settings, what the room should see or hear, and the fallback. Plus the day-before checklist. Print it. |
+| [`handout_cards.html`](./handout_cards.html) | **The two handout cards, ready to print** (A4, double-sided): the setup card, and the 15 words used today. |
 
 The two are kept in sync: every slide number and every per-slide timing in the plan matches
 the deck exactly.
@@ -62,10 +64,12 @@ buffer, that is the difference between finishing on time and abandoning the last
 
 1. **Read [`SESSION_PLAN.md`](./SESSION_PLAN.md)** — particularly §2 (teaching a mixed-level
    room), §6 (demo risk management) and §7 (why the transmit demo runs down a cable).
-2. **Add your QR code.** Slides 6 and 62 have a placeholder. Generate one for wherever this
-   repository lives and paste the image in.
-3. **Print the handout cards** (§8 of the plan). The setup checklist is the artefact that
-   outlives the session.
+2. **Work through [`DEMO_RUNSHEET.md`](./DEMO_RUNSHEET.md) §1 the day before.** It lists every
+   check, recording and test file, with the commands.
+3. **Print the handout cards** — open [`handout_cards.html`](./handout_cards.html) and press
+   <kbd>Ctrl+P</kbd> (A4, double-sided, no margins or "default"). The setup card is the artefact
+   that outlives the session. The QR code on the cards, slide 6 and the last slide points to
+   `github.com/mbadrulamin/signalsdrpro_lab`; if you move the repository, replace it.
 4. **Record a fallback for every live demo.** If a demo has not recovered in 30 seconds, switch
    to the recording and keep moving. Never debug in front of a classroom.
 5. **Pre-flight in the actual room**, on the actual power and network, within an hour of

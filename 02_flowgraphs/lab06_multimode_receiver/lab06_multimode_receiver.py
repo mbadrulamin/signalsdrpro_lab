@@ -100,7 +100,7 @@ class lab06_multimode_receiver(gr.top_block, Qt.QWidget):
         # Create the options list
         self._mode_options = [0, 1, 2]
         # Create the labels list
-        self._mode_labels = ['AM (airband, shortwave)', 'NBFM (marine, weather, PMR)', 'WBFM (broadcast 88-108)']
+        self._mode_labels = ['AM (airband)', 'NBFM (marine, PMR, amateur)', 'WBFM (broadcast 88-108)']
         # Create the combo box
         # Create the radio buttons
         self._mode_group_box = Qt.QGroupBox("Demodulator" + ": ")

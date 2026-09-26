@@ -14,11 +14,8 @@ If you understand these twenty, you can read almost anything in this repository.
 | Term | Say it as | What it actually means |
 |---|---|---|
 | **SDR** | "S-D-R" | **Software-Defined Radio.** A radio whose behaviour is set by software rather than by its wiring |
-| **Selector** | A GNU Radio block that picks one of several inputs to pass on. Lab 06 uses it to switch between AM, NBFM and WBFM |
 | **RF** | "R-F" | **Radio Frequency.** Any signal a radio deals with, roughly 20 kHz to 300 GHz |
-| **Roll-off (α)** | How gently a raised-cosine pulse's spectrum falls at its edges. Width = symbol rate × (1 + α). 0.35 is common |
 | **IQ** | "eye-queue" | **In-phase and Quadrature.** The pair of numbers an SDR produces for each sample. Together they describe a signal's amplitude *and* its phase |
-| **Jitter** | Small, random wobble in timing or phase. A wide PLL loop gives more jitter |
 | **Sample rate** | — | How many measurements per second. For IQ, **the sample rate equals the bandwidth you can see** |
 | **Bandwidth** | — | How wide a slice of spectrum, in Hz. One FM station is 200 kHz wide |
 | **dB** | "dee-bee" | **Decibel.** A ratio on a logarithmic scale. +10 dB = 10× the power, +3 dB = 2× |
@@ -27,7 +24,6 @@ If you understand these twenty, you can read almost anything in this repository.
 | **Noise floor** | — | The background hiss present even with no signal. You cannot hear anything below it |
 | **Gain** | — | Amplification. More is **not** always better — see [Fundamentals 06](../01_fundamentals/06_noise_snr_and_gain.md) |
 | **LO** | "L-O" | **Local Oscillator.** The internal tone a radio mixes with the incoming signal to shift it down to a workable frequency |
-| **Loop bandwidth** | How quickly a feedback loop (PLL, Costas, timing) reacts. Wide = locks fast but noisy; narrow = clean but slow |
 | **Modulation** | — | How information is stuck onto a radio wave — by varying its amplitude (AM), frequency (FM), or phase (PSK) |
 | **Demodulate** | — | Getting the information back out |
 | **AM / FM** | — | **Amplitude / Frequency Modulation.** The two classic analog schemes |
@@ -37,7 +33,6 @@ If you understand these twenty, you can read almost anything in this repository.
 | **Flowgraph** | — | A GNU Radio program: blocks connected by wires, each doing one operation |
 | **GNU Radio** | "g-noo radio" | The open-source toolkit this entire repository is built on |
 | **UHD** | "U-H-D" | **USRP Hardware Driver.** The software that talks to your SignalSDR Pro |
-| **udev rule** | A Linux rule that decides who may use a USB device. `uhd-host` installs one for USRP radios |
 
 ---
 
@@ -195,6 +190,7 @@ If you understand these twenty, you can read almost anything in this repository.
 | **ISI** | Inter-Symbol Interference. Symbols smearing into each other |
 | **ISM** | Industrial, Scientific and Medical. Licence-exempt bands: in Malaysia 433 MHz, 919–923 MHz, 2.4 GHz |
 | **IQ** | In-phase / Quadrature. See [Fundamentals 02](../01_fundamentals/02_iq_sampling.md) |
+| **Jitter** | Small, random wobble in timing or phase. A wide PLL loop gives more jitter |
 
 ## L
 
@@ -205,6 +201,7 @@ If you understand these twenty, you can read almost anything in this repository.
 | **LNA** | Low-Noise Amplifier. An amplifier placed **at the antenna** to set the system noise figure |
 | **LNB** | Low-Noise Block downconverter. The thing on a satellite dish that shifts Ku-band down to something usable |
 | **LO** | Local Oscillator. See the top-twenty table |
+| **Loop bandwidth** | How quickly a feedback loop (PLL, Costas, timing) reacts. Wide = locks fast but noisy; narrow = clean but slow |
 | **LoRa** | Long Range. A chirp-spread-spectrum IoT modulation. Malaysia uses 919–923 MHz |
 | **LPF** | Low-Pass Filter. Keeps low frequencies, removes high ones |
 | **LSB / USB** | Lower / Upper Sideband — the two SSB variants. (Also USB = Universal Serial Bus. Context decides) |
@@ -268,6 +265,7 @@ If you understand these twenty, you can read almost anything in this repository.
 | **Reed–Solomon** | An error-correcting code that fixes whole wrong **bytes**. Used in DVB-T, CDs and Voyager |
 | **Resampling** | Changing the sample rate by a ratio, e.g. 2 MSPS → 48 kSPS |
 | **RF** | Radio Frequency |
+| **Roll-off (α)** | How gently a raised-cosine pulse's spectrum falls at its edges. Width = symbol rate × (1 + α). 0.35 is common |
 | **RRC** | Root Raised Cosine. The standard pulse shape for digital links, split between transmitter and receiver |
 | **RTL-SDR** | The $40 USB dongle that started the hobby. Still the best way to begin |
 
@@ -278,6 +276,7 @@ If you understand these twenty, you can read almost anything in this repository.
 | **Sample** | One measurement. For IQ, one complex number |
 | **Sample rate** | Samples per second. For IQ, equals the visible bandwidth |
 | **SDR** | Software-Defined Radio |
+| **Selector** | A GNU Radio block that picks one of several inputs to pass on. Lab 06 uses it to switch between AM, NBFM and WBFM |
 | **SFN** | Single Frequency Network. Many transmitters on one frequency, made possible by OFDM's guard interval |
 | **Sideband** | The frequencies either side of a carrier, created by modulation |
 | **SMA** | The small screw-on coaxial connector on your SDR |
@@ -307,6 +306,7 @@ If you understand these twenty, you can read almost anything in this repository.
 | **TPMS** | Tyre Pressure Monitoring System. Sensors in car wheels, 433 MHz here |
 | **Transceiver** | A device that both transmits and receives |
 | **TS** | Transport Stream. The MPEG-2 container digital television is carried in |
+| **udev rule** | A Linux rule that decides who may use a USB device. `uhd-host` installs one for USRP radios |
 | **UHD** | USRP Hardware Driver |
 | **UHF** | Ultra High Frequency, 300 MHz – 3 GHz |
 | **Underrun (`U`, `aU`)** | Samples arrived too slowly: `U` when transmitting (a gap goes on air), `aU` for the sound card |

@@ -130,7 +130,7 @@ ls -la /usr/share/uhd/4.6.0/images/usrp_b200_fw.hex
 from the app menu sees). With the radio plugged in:
 
 ```bash
-env -u UHD_IMAGES_DIR python3 -c "from gnuradio import uhd; s = uhd.usrp_source('', uhd.stream_args('fc32', '', [0]))"
+env -u UHD_IMAGES_DIR python3 -c "from gnuradio import uhd; s = uhd.usrp_source('', uhd.stream_args(cpu_format='fc32', channels=[0]))"
 ```
 
 ✅ Expected:

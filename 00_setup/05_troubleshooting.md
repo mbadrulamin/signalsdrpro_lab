@@ -104,7 +104,13 @@ Only low sample rates will work. Use a USB 3.0 port (blue, or marked `SS`) and a
 Using images directory: <no images directory located>
 ```
 
-UHD must send two **image** files to the radio each time it starts
+or, when the folder exists but the files are not in it:
+
+```
+[WARNING] [B200] EnvironmentError: IOError: Could not find the image 'usrp_b200_fw.hex' in the image directory /some/folder
+```
+
+Both mean the same thing. UHD must send two **image** files to the radio each time it starts
 ([Setup 01 §6](./01_install_uhd.md#6-why-does-the-radio-need-images-every-time)). It cannot
 find them. There are two causes. Look at the **first line** UHD prints, which shows its version:
 
