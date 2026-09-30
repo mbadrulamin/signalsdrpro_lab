@@ -4,3 +4,7 @@ __pycache__/
 03_scripts/_*.ts
 *.cf32
 *.iq
+# Fallback recordings are large and stay on the presenting laptop.
+07_client_demo/fallbacks/*.png
+07_client_demo/fallbacks/*.webm
+07_client_demo/fallbacks/*.mp4

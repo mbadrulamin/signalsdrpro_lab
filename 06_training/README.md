@@ -4,6 +4,11 @@ Materials for delivering **Introduction to SDR** as a four-hour taught session t
 **beginner-to-intermediate** audience: people who have *used* radio as operators, but have
 never seen an SDR, GNU Radio, or a SignalSDR Pro.
 
+> 💡 **Tip:** showing the radio to **end users** who will use it but never build with it — for
+> example a client or a military unit? Use the shorter
+> [2½-hour client briefing](../07_client_demo/README.md) instead. It has no theory and no GNU
+> Radio on screen, and is built around six live demonstrations.
+
 | File | What it is |
 |---|---|
 | [`intro_to_sdr.html`](./intro_to_sdr.html) | **The deck.** 63 slides, speaker notes built in. One file, no internet required. |

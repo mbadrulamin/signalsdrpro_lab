@@ -12,13 +12,19 @@ simple HTML and puts it in that slide's <aside class="notes"> in
 06_training/intro_to_sdr.html, which is what the speaker view (press S) shows.
 So the printed notes and the speaker view always say the same thing.
 
-Markdown understood: paragraphs, **bold**, *italic*, `code`, <kbd>keys</kbd>, lists
+Markdown understood: paragraphs, **bold**, *italic*, `code`, [links](shown as text), <kbd>keys</kbd>, lists
 ("- " and "1. "), tables, and quotes ("> "), which the speaker view shows as
 the words to say.
 
 Usage:
     python3 sync_speaker_notes.py            # update the deck
     python3 sync_speaker_notes.py --check    # only report whether it is up to date
+
+The same works for any other deck built on the same slide engine, such as the
+client briefing:
+
+    python3 sync_speaker_notes.py --notes ../07_client_demo/PRESENTER_SCRIPT.md \
+                                  --deck  ../07_client_demo/client_brief.html
 """
 import argparse
 import html
@@ -43,6 +49,7 @@ def inline(text):
         codes.append('<code>' + m.group(1) + '</code>')
         return '\x00%d\x00' % (len(codes) - 1)
     text = re.sub(r'`([^`]+)`', keep, text)
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)   # [text](link) -> text: links do not work in the speaker view
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])', r'<em>\1</em>', text)
     return re.sub(r'\x00(\d+)\x00', lambda m: codes[int(m.group(1))], text)
@@ -93,9 +100,9 @@ def to_html(lines):
     return ''.join(out)
 
 
-def read_notes():
+def read_notes(path):
     notes, num, body = {}, None, []
-    for line in open(NOTES, encoding='utf-8').read().split('\n'):
+    for line in open(path, encoding='utf-8').read().split('\n'):
         m = HEADING.match(line)
         if m or line.startswith('# ') or line.strip() == '<!-- end of slide notes -->':
             if num is not None:
@@ -114,10 +121,12 @@ def read_notes():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--check', action='store_true')
+    ap.add_argument('--notes', default=NOTES, help='the Markdown notes (default: 06_training/PRESENTER_NOTES.md)')
+    ap.add_argument('--deck', default=DECK, help='the HTML deck (default: 06_training/intro_to_sdr.html)')
     a = ap.parse_args()
 
-    notes = read_notes()
-    deck = open(DECK, encoding='utf-8').read()
+    notes = read_notes(a.notes)
+    deck = open(a.deck, encoding='utf-8').read()
     starts = [m.start() for m in re.finditer(r'<section class="slide', deck)]
     missing = [n for n in range(1, len(starts) + 1) if n not in notes]
     extra = [n for n in notes if not 1 <= n <= len(starts)]
@@ -141,8 +150,8 @@ def main():
         print('speaker notes are up to date' if new == deck else 'speaker notes are OUT OF DATE: run sync_speaker_notes.py')
         return 0 if new == deck else 1
     if new != deck:
-        open(DECK, 'w', encoding='utf-8').write(new)
-        print(f'updated the notes of {len(starts)} slides in {os.path.relpath(DECK)}')
+        open(a.deck, 'w', encoding='utf-8').write(new)
+        print(f'updated the notes of {len(starts)} slides in {os.path.relpath(a.deck)}')
     else:
         print('already up to date')
     return 0

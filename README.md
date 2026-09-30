@@ -54,7 +54,7 @@ Each lab tells you which theory page to read before it.
      │
   Part 4  Applications   589 more things to try
   Part 5  Reference      look things up
-  Part 6  Teaching       run a class with this
+  Part 6  Teaching       run a class, or brief a client
 ```
 
 ### Part 0 — Setup
@@ -182,6 +182,7 @@ For looking things up, not for reading from start to end.
 |---|---|
 | [4-hour session plan](./06_training/SESSION_PLAN.md) | You are teaching a class. Timings, speaker notes, what to do if a demo fails. |
 | [Slide deck](./06_training/intro_to_sdr.html) | 63 slides with speaker notes and a timer. Opens in any browser, no internet needed. |
+| [2½-hour client briefing](./07_client_demo/README.md) | You are showing the radio to **end users** who will use it, not build with it. Plain words, six live demos, no GNU Radio on screen. |
 
 ### Part 3 — Scripts and tools
 
@@ -294,6 +295,7 @@ signalsdrpro_lab/
 ├── 04_applications/       ← Part 4: 589 things to try next
 ├── 05_reference/          ← Part 5: glossary, antennas, Malaysia
 ├── 06_training/           ← Part 6: slides and plan for teaching
+├── 07_client_demo/        ← Part 6: a 2½-hour briefing and live demos for end users
 └── images/                ← diagrams used by the pages
 ```
 

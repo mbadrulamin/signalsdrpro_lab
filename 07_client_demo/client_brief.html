@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SignalSDR Pro Briefing</title>
+<style>
+:root{
+  --bg:#0a0e1a; --bg2:#070a12; --surface:#131b2e; --surface2:#1b2540;
+  --ink:#eaf0fa; --ink2:#aab8cf; --muted:#7e8da8; --line:#2a3550;
+  --accent:#5eead4; --accent-dim:#1f4d47;
+  --amber:#fbbf24; --amber-dim:#4a3714;
+  --hw:#f87171; --hw-dim:#4a2020;
+  --sw:#60a5fa; --sw-dim:#1d3557;
+  --ok:#34d399;
+  --shadow:0 18px 60px rgba(0,0,0,.55);
+}
+:root[data-theme="light"]{
+  --bg:#f4f6fb; --bg2:#e7ecf5; --surface:#ffffff; --surface2:#eef2f9;
+  --ink:#10192b; --ink2:#3d4b63; --muted:#65748e; --line:#cdd7e8;
+  --accent:#0d9488; --accent-dim:#cdf2ec;
+  --amber:#b45309; --amber-dim:#fdefd2;
+  --hw:#b4534f; --hw-dim:#fbe4e3;
+  --sw:#2563eb; --sw-dim:#dbe7fe;
+  --ok:#2f7d46;
+  --shadow:0 18px 50px rgba(20,35,70,.18);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:"Inter","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+#stage{position:fixed;inset:0;display:grid;place-items:center;
+  background:radial-gradient(ellipse 90% 70% at 50% -10%,var(--surface) 0%,var(--bg) 55%,var(--bg2) 100%)}
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+
+.slide{
+  position:absolute;inset:0;padding:62px 76px 56px;display:none;
+  flex-direction:column;background:transparent;
+}
+.slide.on{display:flex;animation:in .32s cubic-bezier(.22,.7,.3,1)}
+@keyframes in{from{transform:translateY(16px)}to{transform:none}}
+/* deliberately transform-only: a stalled animation clock must never leave a slide invisible */
+.notes{display:none}
+
+/* ---------- chrome ---------- */
+#seg{position:absolute;top:26px;left:76px;font-size:14.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:650;z-index:5}
+#seg b{color:var(--accent);font-weight:750}
+#num{position:absolute;bottom:22px;right:76px;font-size:14px;color:var(--muted);
+  font-variant-numeric:tabular-nums;z-index:5}
+#bar{position:absolute;bottom:0;left:0;height:3px;background:var(--accent);z-index:6;
+  transition:width .3s cubic-bezier(.22,.7,.3,1);box-shadow:0 0 12px var(--accent)}
+#blackout{position:fixed;inset:0;background:#000;z-index:60;display:none}
+
+/* ---------- typography ---------- */
+h1{font-size:60px;line-height:1.06;margin:0 0 20px;font-weight:780;letter-spacing:-.022em}
+h2{font-size:46px;line-height:1.1;margin:0 0 26px;font-weight:740;letter-spacing:-.018em}
+h3{font-size:27px;line-height:1.25;margin:0 0 14px;font-weight:700;color:var(--accent)}
+p{font-size:25px;line-height:1.5;margin:0 0 18px;color:var(--ink2);max-width:23em}
+.lede{font-size:31px;line-height:1.42;color:var(--ink);max-width:21em;font-weight:520}
+.kicker{font-size:16px;letter-spacing:.17em;text-transform:uppercase;color:var(--accent);
+  font-weight:720;margin-bottom:18px}
+.big{font-size:54px;font-weight:780;line-height:1.14;letter-spacing:-.02em;max-width:20em}
+.huge{font-size:72px;font-weight:800;line-height:1.08;letter-spacing:-.03em}
+em{color:var(--ink);font-style:italic}
+strong{color:var(--ink);font-weight:720}
+.dim{color:var(--muted)}
+.acc{color:var(--accent)}
+.amb{color:var(--amber)}
+.hw{color:var(--hw)}
+.sw{color:var(--sw)}
+.center{align-items:center;justify-content:center;text-align:center}
+.center p,.center .lede,.center .big{max-width:24em}
+.grow{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+
+/* ---------- lists ---------- */
+ul{list-style:none;padding:0;margin:0}
+li{font-size:26px;line-height:1.4;margin:0 0 20px;padding-left:44px;position:relative;color:var(--ink2)}
+li::before{content:"";position:absolute;left:8px;top:.55em;width:12px;height:12px;
+  border-radius:3px;background:var(--accent);opacity:.85}
+li b,li strong{color:var(--ink)}
+ul.verbs li{font-size:30px;font-weight:620;color:var(--ink)}
+ul.tight li{margin-bottom:13px;font-size:23px}
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:0}
+ol.steps li{counter-increment:s;padding-left:58px}
+ol.steps li::before{content:counter(s);width:36px;height:36px;border-radius:50%;left:0;top:-.08em;
+  background:var(--accent-dim);color:var(--accent);border:1.5px solid var(--accent);
+  display:grid;place-items:center;font-size:18px;font-weight:750;opacity:1}
+
+/* ---------- layout ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center;flex:1;min-height:0}
+.two.wide-l{grid-template-columns:1.35fr 1fr}
+.two.wide-r{grid-template-columns:1fr 1.35fr}
+.fig{display:flex;align-items:center;justify-content:center;min-height:0}
+.fig svg{width:100%;height:auto;max-height:100%;display:block}
+.full-fig{flex:1;display:grid;place-items:center;min-height:0;margin-top:6px}
+.full-fig svg{max-height:100%;width:auto;max-width:100%}
+
+/* ---------- components ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px 26px}
+.cards{display:grid;gap:18px}
+.cards.c3{grid-template-columns:repeat(3,1fr)}
+.cards.c4{grid-template-columns:repeat(4,1fr)}
+.card h4{margin:0 0 9px;font-size:21px;font-weight:720;color:var(--accent)}
+.card p{font-size:19px;margin:0;line-height:1.42;color:var(--ink2)}
+
+.depth{border-left:3px solid var(--sw);background:var(--sw-dim);border-radius:0 10px 10px 0;
+  padding:15px 20px;margin-top:22px;font-size:18.5px;color:var(--ink2);line-height:1.45;max-width:30em}
+.depth b{color:var(--sw);text-transform:uppercase;letter-spacing:.09em;font-size:13.5px;
+  display:block;margin-bottom:5px;font-weight:750}
+.depth code{font-size:.94em}
+
+.callout{border:1.5px solid var(--amber);background:var(--amber-dim);border-radius:12px;
+  padding:22px 26px;font-size:26px;line-height:1.38;color:var(--ink);font-weight:600;max-width:26em}
+.warn{border:1.5px solid var(--hw);background:var(--hw-dim);border-radius:12px;
+  padding:20px 24px;font-size:23px;line-height:1.4;color:var(--ink);max-width:28em}
+
+.quote{font-size:40px;line-height:1.26;font-weight:640;letter-spacing:-.014em;color:var(--ink);
+  max-width:19em;border-left:4px solid var(--accent);padding-left:30px}
+
+code,kbd{font-family:"JetBrains Mono","SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  background:var(--surface2);border:1px solid var(--line);border-radius:6px;
+  padding:2px 8px;font-size:.88em;color:var(--accent)}
+pre{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:10px;padding:22px 26px;overflow:hidden;margin:0}
+pre code{background:none;border:none;padding:0;font-size:22px;line-height:1.68;color:var(--ink);display:block}
+pre code .c{color:var(--muted)}
+pre code .k{color:var(--accent)}
+
+table{border-collapse:collapse;width:100%;font-size:21px}
+th{text-align:left;color:var(--accent);font-weight:700;font-size:16px;letter-spacing:.09em;
+  text-transform:uppercase;padding:0 18px 12px 0;border-bottom:1.5px solid var(--line)}
+td{padding:14px 18px 14px 0;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td b{color:var(--ink)}
+tr:last-child td{border-bottom:none}
+
+.demo-tag{display:inline-flex;align-items:center;gap:10px;background:var(--hw-dim);
+  border:1.5px solid var(--hw);color:var(--hw);border-radius:100px;padding:7px 18px;
+  font-size:15px;font-weight:750;letter-spacing:.11em;text-transform:uppercase;margin-bottom:20px;align-self:flex-start}
+.demo-tag::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--hw);
+  animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.key-tag{display:inline-block;background:var(--amber-dim);border:1.5px solid var(--amber);
+  color:var(--amber);border-radius:100px;padding:6px 17px;font-size:14.5px;font-weight:750;
+  letter-spacing:.11em;text-transform:uppercase;margin-bottom:18px;align-self:flex-start}
+
+.brk{background:linear-gradient(135deg,var(--accent-dim),var(--surface))}
+.title-slide{background:radial-gradient(ellipse 70% 90% at 78% 30%,var(--accent-dim) 0%,transparent 62%)}
+
+/* ---------- step reveals ---------- */
+.step{opacity:0;transition:opacity .42s ease, transform .42s cubic-bezier(.22,.7,.3,1)}
+.step.show{opacity:1}
+.step.rise{transform:translateY(16px)}
+.step.rise.show{transform:none}
+.step.dimmable{opacity:.2}
+.step.dimmable.show{opacity:1}
+
+/* ---------- overview ---------- */
+#ov{position:fixed;inset:0;background:var(--bg2);z-index:50;display:none;
+  overflow-y:auto;padding:36px}
+#ov.on{display:block}
+#ovg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;max-width:1700px;margin:0 auto}
+.ovi{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:14px;
+  cursor:pointer;transition:border-color .15s,transform .15s}
+.ovi:hover{border-color:var(--accent);transform:translateY(-2px)}
+.ovi.cur{border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent)}
+.ovi .n{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:6px;
+  display:flex;justify-content:space-between}
+.ovi .n em{color:var(--accent);font-style:normal;font-weight:700}
+.ovi .t{font-size:15px;line-height:1.3;color:var(--ink);font-weight:620;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#ovh{max-width:1700px;margin:0 auto 22px;display:flex;justify-content:space-between;align-items:baseline}
+#ovh h3{font-size:22px;margin:0}
+#ovh span{font-size:14px;color:var(--muted)}
+
+#help{position:fixed;bottom:16px;left:16px;font-size:12.5px;color:var(--muted);z-index:40;
+  opacity:0;transition:opacity .25s;pointer-events:none;line-height:1.7}
+#help.on{opacity:.92}
+#help kbd{font-size:11px;padding:1px 6px}
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--surface);
+  border:1px solid var(--accent);color:var(--ink);padding:11px 22px;border-radius:9px;
+  font-size:15px;z-index:70;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow)}
+#toast.on{opacity:1}
+@media print{#stage{position:static}.slide{display:flex!important;position:static;page-break-after:always}}
+
+/* ---------- client briefing additions ---------- */
+.so{border-left:4px solid var(--amber);padding:6px 0 6px 18px;margin:18px 0 0;font-size:24px;
+  line-height:1.4;color:var(--ink);font-weight:620;max-width:none}
+.center .so{border-left:none;padding-left:0;color:var(--amber)}
+.center .demo-tag,.center .key-tag{align-self:center}
+.card .badge{display:inline-block;margin-top:14px;border-radius:100px;padding:4px 13px;font-size:13.5px;
+  font-weight:750;letter-spacing:.08em;text-transform:uppercase;border:1.5px solid}
+.badge.yes{color:var(--ok);border-color:var(--ok)}
+.badge.part{color:var(--amber);border-color:var(--amber)}
+.badge.no{color:var(--hw);border-color:var(--hw)}
+</style>
+
+<div id="stage"><div id="deck">
+<div id="seg"></div><div id="num"></div><div id="bar"></div>
+
+<!-- ══════════════ 0 — WELCOME (5 min) ══════════════ -->
+
+<section class="slide title-slide center" data-seg="Welcome" data-min="1">
+<aside class="notes"><p><b>Why this slide is here.</b> It sets the tone: short, plain, and about them.</p><p><b>Do.</b> Before people arrive, start the live spectrum on the second screen (or on the TV): <code>./d1_spectrum.sh</code> from the <code>demo</code> folder. Leave it running. Close it before Demo 1.</p><p><b>Say it like this:</b></p><blockquote><p>"Good morning, and thank you for your time. Today is about one small box, the SignalSDR Pro. You do not need any background in radio engineering. I will explain for about half an hour, and then the box will do the talking."</p></blockquote><p><b>Next:</b> "Here is exactly what you will see today."</p></aside>
+  <div class="kicker">Client briefing</div>
+  <h1 style="font-size:76px;max-width:15em">One box.<br>Many radios.</h1>
+  <p class="lede" style="margin-top:8px;max-width:none">What the SignalSDR&nbsp;Pro is, and what it can do for you</p>
+  <p class="dim" style="font-size:20px;margin-top:34px">No technical background needed &nbsp;·&nbsp; Mostly live demonstration</p>
+</section>
+
+<section class="slide" data-seg="Welcome" data-min="4">
+<aside class="notes"><p><b>Why this slide is here.</b> It tells them what success looks like, so they know the talking has an end and the demonstrations are coming.</p><p><b>Say it like this:</b></p><blockquote><p>"Today you will watch this one box do four things. It will see every signal in this room. It will read hidden data out of a radio station. It will record the air and replay it with no antenna attached. And it will transmit television to a real TV."</p><p>"The first half hour is explanation, in plain words. Then there is a short break. After that, the box does the talking. Please ask questions at any time."</p></blockquote><p><b>Do.</b> Reveal the four lines one at a time. Pause after "a real TV".</p><p><b>If someone asks:</b></p><ul><li><em>"Will we get to try it?"</em> — "Today is a demonstration. A hands-on workshop is one of the options I will show you at the end."</li></ul><p><b>Next:</b> "Let us start with what every radio does."</p></aside>
+  <h2>Today, you will watch this one box…</h2>
+  <div class="grow">
+  <ul class="verbs">
+    <li class="step rise"><b>See</b> every signal in this room</li>
+    <li class="step rise"><b>Read</b> hidden data out of a radio station</li>
+    <li class="step rise"><b>Record</b> the air, and replay it with no antenna</li>
+    <li class="step rise"><b>Transmit</b> television to a real TV</li>
+  </ul>
+  <p class="so step">30 minutes of explanation. Then the box does the talking.</p>
+  </div>
+</section>
+
+<!-- ══════════════ 1 — WHAT IS SDR (18 min) ══════════════ -->
+
+<section class="slide" data-seg="1 · What is SDR" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> It gives a simple frame — four jobs — that the rest of the session hangs on.</p><p><b>Say it like this:</b></p><blockquote><p>"Every radio ever built does four jobs. It <em>catches</em> the wave, with an antenna. It <em>selects</em> the one signal you want out of thousands in the air. It <em>extracts</em> what that signal carries — a voice, data or a picture. And it <em>presents</em> it to you — on a speaker, a screen, or in a file."</p><p>"The handheld on your belt does these four jobs. So does your phone. So does a satellite ground station. Keep these four words in mind: catch, select, extract, present."</p></blockquote><p><b>Do.</b> Point at each circle as you name it.</p><p><b>Next:</b> "Now, how were radios built until recently?"</p></aside>
+  <h2>Every radio does four jobs</h2>
+  <div class="full-fig">
+    <svg viewBox="0 0 1120 250" aria-label="The four jobs of any radio">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+      <g font-family="inherit">
+      <g class="step rise"><circle cx="130" cy="98" r="62" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+        <text x="130" y="106" text-anchor="middle" font-size="26" font-weight="720" fill="var(--accent)">Catch</text>
+        <text x="130" y="196" text-anchor="middle" font-size="19" fill="var(--ink2)">the wave</text></g>
+      <line x1="200" y1="98" x2="345" y2="98" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)" class="step"/>
+      <g class="step rise"><circle cx="425" cy="98" r="62" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+        <text x="425" y="106" text-anchor="middle" font-size="26" font-weight="720" fill="var(--accent)">Select</text>
+        <text x="425" y="196" text-anchor="middle" font-size="19" fill="var(--ink2)">the one you want</text></g>
+      <line x1="495" y1="98" x2="640" y2="98" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)" class="step"/>
+      <g class="step rise"><circle cx="720" cy="98" r="62" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+        <text x="720" y="106" text-anchor="middle" font-size="26" font-weight="720" fill="var(--accent)">Extract</text>
+        <text x="720" y="196" text-anchor="middle" font-size="19" fill="var(--ink2)">voice, data, picture</text></g>
+      <line x1="790" y1="98" x2="935" y2="98" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)" class="step"/>
+      <g class="step rise"><circle cx="1015" cy="98" r="62" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+        <text x="1015" y="106" text-anchor="middle" font-size="26" font-weight="720" fill="var(--accent)">Present</text>
+        <text x="1015" y="196" text-anchor="middle" font-size="19" fill="var(--ink2)">speaker, screen, file</text></g>
+      </g>
+    </svg>
+  </div>
+  <p class="so step">Your handheld, your phone and a satellite ground station all do these four jobs.</p>
+</section>
+
+<section class="slide" data-seg="1 · What is SDR" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> It connects to their own experience: a bag of single-purpose equipment.</p><p><b>Say it like this:</b></p><blockquote><p>"Until recently, each job needed its own box. A handheld for one band. A scanner that can listen but cannot send. A spectrum analyser that measures signals but cannot decode them. A test transmitter that sends but cannot listen."</p><p>"Each job is built into the metal inside. If you want a new job, you buy a new box. And every box is something you carry, power, maintain and eventually replace."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Is our issued radio like that?"</em> — "Many modern military radios are partly software-defined inside. But they are locked to their approved waveforms. You cannot load your own."</li></ul><p><b>Next:</b> "Software-defined radio changes that picture."</p></aside>
+  <h2>The old way: one sealed box per job</h2>
+  <div class="cards c4" style="margin-top:14px">
+    <div class="card"><h4 style="color:var(--hw)">VHF handheld</h4><p>One band. One mode.</p></div>
+    <div class="card"><h4 style="color:var(--hw)">Scanner</h4><p>Listens. Cannot send.</p></div>
+    <div class="card"><h4 style="color:var(--hw)">Spectrum analyser</h4><p>Measures. Cannot decode.</p></div>
+    <div class="card"><h4 style="color:var(--hw)">Test transmitter</h4><p>Sends. Cannot listen.</p></div>
+  </div>
+  <p class="lede" style="margin-top:40px">Each job is built into the metal. A new job means a new box.</p>
+  <p class="so">Every box you carry, power, maintain and replace.</p>
+</section>
+
+<section class="slide" data-seg="1 · What is SDR" data-min="4" data-key="1">
+<aside class="notes"><p><b>Why this slide is here.</b> This is the one idea they should remember next week.</p><p><b>Say it like this:</b></p><blockquote><p>"In a software-defined radio, the hardware does as little as possible. The antenna catches the wave. The box turns the wave into numbers. That is all the hardware does."</p><p>"Everything after that — selecting, extracting, presenting — is done by software on a laptop. Load one program, and the box is an FM radio. Load another, and it is a data decoder, a spectrum analyser, or a television transmitter."</p><p>"So: the box catches the wave. Software decides what radio it is."</p></blockquote><p><b>Do.</b> Reveal the three parts in order: hardware, software, the list of radios. Say the last sentence slowly, then pause for three seconds.</p><p><b>If someone asks:</b></p><ul><li><em>"Why not do everything in software?"</em> — "Something has to turn the wave into numbers. That part must be hardware. The trick is to make it small and general."</li></ul><p><b>Background for you.</b> Inside the box, one radio chip (an AD9361) filters, mixes and converts the signal. It sends up to 61.44 million sample pairs per second to the laptop over USB 3.</p><p><b>Next:</b> "The first consequence is that one box becomes many radios."</p></aside>
+  <div class="key-tag">The whole idea, in one picture</div>
+  <h2 style="margin-bottom:14px">Software-defined radio</h2>
+  <div class="full-fig">
+    <svg viewBox="0 0 1120 260" aria-label="A software-defined radio: a small hardware front end, then software">
+      <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+      <g font-family="inherit">
+      <g class="step">
+        <text x="30" y="30" font-size="16" font-weight="700" fill="var(--hw)" letter-spacing=".08em">HARDWARE — SMALL, GENERAL</text>
+        <rect x="30" y="50" width="170" height="90" rx="10" fill="var(--hw-dim)" stroke="var(--hw)" stroke-width="2"/>
+        <text x="115" y="102" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)">Antenna</text>
+        <line x1="202" y1="95" x2="236" y2="95" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar4)"/>
+        <rect x="240" y="50" width="200" height="90" rx="10" fill="var(--hw-dim)" stroke="var(--hw)" stroke-width="2"/>
+        <text x="340" y="90" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)">The box</text>
+        <text x="340" y="116" text-anchor="middle" font-size="16" fill="var(--muted)">wave → numbers</text>
+      </g>
+      <g class="step">
+        <line x1="478" y1="20" x2="478" y2="240" stroke="var(--ok)" stroke-width="2.6" stroke-dasharray="8 5"/>
+        <line x1="442" y1="95" x2="506" y2="95" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar4)"/>
+        <text x="510" y="30" font-size="16" font-weight="700" fill="var(--ok)" letter-spacing=".08em">SOFTWARE — ANY JOB YOU LOAD</text>
+        <rect x="510" y="50" width="580" height="90" rx="10" fill="var(--accent-dim)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="800" y="90" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)">Select · Extract · Present</text>
+        <text x="800" y="116" text-anchor="middle" font-size="16" fill="var(--muted)">on a laptop</text>
+      </g>
+      <g class="step">
+        <text x="560" y="190" font-size="19" fill="var(--ink2)">FM radio · data decoder · spectrum analyser</text>
+        <text x="560" y="222" font-size="19" fill="var(--ink2)">TV transmitter · recorder · …</text>
+      </g>
+      </g>
+    </svg>
+  </div>
+  <p class="so step">The box catches the wave. Software decides what radio it is.</p>
+</section>
+
+<section class="slide" data-seg="1 · What is SDR" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> It makes the idea concrete with what they will see this afternoon.</p><p><b>Say it like this:</b></p><blockquote><p>"Before, you had a bag of radios. Each one was tied to one standard. When the standard changed, the radio became scrap."</p><p>"This afternoon, in this room, the same box will be a spectrum analyser, a data decoder, a recorder and a television transmitter. We will not change any hardware. Only the software."</p></blockquote><p><b>Next:</b> "The second consequence matters most for a military user."</p></aside>
+  <h2>One box becomes many radios</h2>
+  <div class="two" style="margin-top:0">
+    <div>
+      <h3 style="color:var(--hw)">Before</h3>
+      <ul class="tight">
+        <li>A bag of single-purpose radios</li>
+        <li>Each one tied to one standard</li>
+        <li>Each one obsolete when the standard changes</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Today, in this room</h3>
+      <ul class="tight">
+        <li>A spectrum analyser</li>
+        <li>A data decoder</li>
+        <li>A recorder</li>
+        <li>A <em>television transmitter</em></li>
+      </ul>
+    </div>
+  </div>
+  <p class="so">Same box, all afternoon. Only the software changes.</p>
+</section>
+
+<section class="slide" data-seg="1 · What is SDR" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> It states the military value of SDR in one example.</p><p><b>Say it like this:</b></p><blockquote><p>"Imagine a new kind of signal appears in your area of operations. With fixed radios, you need new equipment. That means procurement, months, money."</p><p>"With a software radio, you load new software onto the box you already have. That is why defence organisations adopted software radio before anyone else."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Who writes the new software?"</em> — "An engineer, usually. Some tools already exist and are free. For new signals, that is where a partner like us comes in."</li></ul><p><b>Next:</b> "To be fair, let me tell you what SDR is bad at."</p></aside>
+  <h2>A new capability is a download</h2>
+  <div class="grow">
+    <p class="lede">A new signal appears in your area of operations.</p>
+    <p class="lede acc" style="margin-top:4px">You do not buy a new radio. You load new software.</p>
+  </div>
+  <p class="so">This is why defence adopted software radio first.</p>
+</section>
+
+<section class="slide" data-seg="1 · What is SDR" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Honesty builds trust. A military audience distrusts a sales pitch with no weaknesses.</p><p><b>Say it like this:</b></p><blockquote><p>"Three honest weaknesses. First, it needs a computer. A laptop, power, and someone who knows the software. Your handheld just switches on."</p><p>"Second, a very strong transmitter nearby can drown the weak signal you are looking for. Purpose-built receivers are better at that."</p><p>"Third, this box is not a field radio. It is not rugged, not waterproof, and not certified. It is a tool for the lab, for training and for building things."</p><p>"So your issued handheld still wins in the field. This box wins on flexibility."</p></blockquote><p><b>Next:</b> "Here is the whole idea in one sentence."</p></aside>
+  <h2>What SDR is <span class="hw">bad</span> at</h2>
+  <div class="cards c3" style="margin-top:10px">
+    <div class="card"><h4 style="color:var(--hw)">Needs a computer</h4><p>A laptop, power and a person who knows the software.</p></div>
+    <div class="card"><h4 style="color:var(--hw)">Strong beside weak</h4><p>A powerful transmitter nearby can drown the weak signal you want.</p></div>
+    <div class="card"><h4 style="color:var(--hw)">Not a field radio</h4><p>Not rugged, not waterproof, not certified. A lab and training tool.</p></div>
+  </div>
+  <p class="so" style="margin-top:34px">Your issued handheld still wins in the field. This box wins on flexibility.</p>
+</section>
+
+<section class="slide center" data-seg="1 · What is SDR" data-min="1">
+<aside class="notes"><p><b>Why this slide is here.</b> It gives them one sentence to repeat to their commander.</p><p><b>Say it like this:</b></p><blockquote><p>"If you remember one sentence from today: a software-defined radio is a radio whose job is decided by software, so one box can be many radios."</p></blockquote><p><b>Do.</b> Read it once, slowly. Then move on.</p><p><b>Next:</b> "Now, the box itself."</p></aside>
+  <div class="kicker">In one sentence</div>
+  <div class="quote" style="text-align:left;font-size:46px">A radio whose job is decided by <span class="acc">software</span> —<br>so one box can be <span class="acc">many radios</span>.</div>
+</section>
+
+<!-- ══════════════ 2 — THE SIGNALSDR PRO (12 min) ══════════════ -->
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Holding the box makes it real.</p><p><b>Say it like this:</b></p><blockquote><p>"This is the SignalSDR Pro. It is smaller than your hand. It connects to a laptop with one USB cable. In the setup we use today, one antenna listens and one sends."</p><p>"Please pass it round. Everything I just described — the part that turns waves into numbers — is on this board."</p></blockquote><p><b>Do.</b> Pass a <b>spare</b> board round if you have one. Do <b>not</b> pass round the one wired up for the demos. If there is no spare, hold it up and offer it on the table afterwards.</p><p><b>Background for you.</b> The board has four antenna connectors. In the B210 mode used here, only two work: <code>TX/RX</code> (labelled TX2A) and <code>RX2</code> (labelled RX2A). The software calls the box "B210" because it copies the commands of a well-known research radio, the Ettus USRP B210.</p><p><b>Next:</b> "Here are its numbers, in plain words."</p></aside>
+  <h2>The SignalSDR Pro</h2>
+  <div class="two">
+    <div>
+      <p class="lede">Smaller than your hand. Connects to a laptop by one USB cable.</p>
+      <p>In this setup, one antenna listens and one sends.</p>
+      <p class="acc" style="font-size:23px"><b>Pass it round.</b> It is on the table after the session too.</p>
+    </div>
+    <div class="fig">
+      <svg viewBox="0 0 440 290" aria-label="The SignalSDR Pro board">
+        <rect x="30" y="50" width="380" height="200" rx="12" fill="var(--surface)" stroke="var(--accent)" stroke-width="2.5"/>
+        <rect x="70" y="92" width="118" height="82" rx="7" fill="var(--surface2)" stroke="var(--sw)" stroke-width="2"/>
+        <text x="129" y="128" text-anchor="middle" font-size="17" font-weight="720" fill="var(--sw)" font-family="inherit">Radio chip</text>
+        <text x="129" y="152" text-anchor="middle" font-size="13" fill="var(--muted)" font-family="inherit">wave ↔ numbers</text>
+        <rect x="222" y="92" width="118" height="82" rx="7" fill="var(--surface2)" stroke="var(--ok)" stroke-width="2"/>
+        <text x="281" y="128" text-anchor="middle" font-size="17" font-weight="720" fill="var(--ok)" font-family="inherit">Processor</text>
+        <text x="281" y="152" text-anchor="middle" font-size="13" fill="var(--muted)" font-family="inherit">moves the data</text>
+        <g fill="var(--muted)"><circle cx="30" cy="100" r="9"/><circle cx="30" cy="145" r="9"/><circle cx="30" cy="190" r="9"/><circle cx="410" cy="120" r="9"/><circle cx="410" cy="175" r="9"/></g>
+        <text x="220" y="228" text-anchor="middle" font-size="14" fill="var(--muted)" font-family="inherit">plus a GPS-locked clock, USB 3 and power</text>
+        <text x="220" y="30" text-anchor="middle" font-size="15" fill="var(--muted)" font-family="inherit">≈ 86 mm</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> Specifications mean nothing until they are translated into use.</p><p><b>Say it like this:</b></p><blockquote><p>"Seventy megahertz to six gigahertz. That is from FM radio up to 5.8-gigahertz Wi-Fi and drone links. I will show you what lies in between on the next slide."</p><p>"Fifty-six megahertz at once. That is how much of the air it sees in one go. Enough for a whole band."</p><p>"Transmit and receive together. It can listen and send at the same moment."</p><p>"A GPS-locked clock. Its frequency and time are corrected by satellites, so measurements are accurate anywhere."</p><p>"And it connects to a laptop by USB 3. No rack, no lab bench."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"How far can it receive?"</em> — "That depends on the antenna and the signal, not on the box. The same box hears nothing with the wrong antenna and a great deal with the right one."</li><li><em>"How much power does it transmit?"</em> — "Very little: well under a tenth of a watt. That is a feature for training and testing, not a weakness."</li><li><em>"What about below 70 MHz — HF?"</em> — "Not covered directly. It needs an extra converter."</li></ul><p><b>Next:</b> "What does 70 megahertz to 6 gigahertz actually cover?"</p></aside>
+  <h2>The numbers, in plain words</h2>
+  <div class="grow">
+  <table style="font-size:23px">
+    <tr><th style="width:32%">The specification</th><th>What it means for you</th></tr>
+    <tr><td><b class="acc">70 MHz – 6 GHz</b></td><td>From FM radio up to 5.8 GHz Wi-Fi and drone links</td></tr>
+    <tr><td><b class="acc">56 MHz at once</b></td><td>See, or record, a whole band in one go</td></tr>
+    <tr><td><b class="acc">Transmit + receive together</b></td><td>Listen and send at the same moment</td></tr>
+    <tr><td><b class="acc">GPS-locked clock</b></td><td>Accurate frequency and time, anywhere</td></tr>
+    <tr><td><b class="acc">USB 3 to a laptop</b></td><td>No rack, no lab bench. Software does the rest</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> It shows that almost everything relevant to them is in range.</p><p><b>Say it like this:</b></p><blockquote><p>"This line runs from 70 megahertz on the left to 6 gigahertz on the right. FM radio. The aircraft voice band. Military UHF. Car keys and remote controls at 433. Television. Mobile phones. Aircraft identification at 1090. GPS. Wi-Fi and drone links at 2.4 and 5.8 gigahertz."</p><p>"Almost everything your unit transmits, or faces, sits somewhere on this line."</p></blockquote><p><b>Do.</b> Point along the line from left to right.</p><p><b>If someone asks:</b></p><ul><li><em>"Can it receive GPS?"</em> — "It can see the GPS band. Using it as a GPS receiver needs extra software. It also has its own GPS clock built in."</li></ul><p><b>Next:</b> "The most useful number is 56 megahertz. Here is why."</p></aside>
+  <h2>What that range covers</h2>
+  <div class="full-fig">
+    <svg viewBox="0 0 1140 300" aria-label="Frequency range from 70 MHz to 6 GHz with common services marked">
+      <g font-family="inherit">
+      <rect x="60" y="130" width="1000" height="36" rx="6" fill="var(--surface2)" stroke="var(--line)"/>
+      <g font-size="15" fill="var(--muted)"><text x="60" y="194" text-anchor="middle">70 MHz</text><text x="1060" y="194" text-anchor="middle">6 GHz</text></g>
+      <g font-size="17" font-weight="650">
+        <rect x="111" y="130" width="46" height="36" fill="var(--accent)" opacity=".85"/>
+        <line x1="134" y1="126" x2="134" y2="92" stroke="var(--accent)"/><text x="134" y="84" text-anchor="middle" fill="var(--ink)">FM radio</text>
+        <rect x="177" y="130" width="34" height="36" fill="var(--sw)" opacity=".85"/>
+        <line x1="194" y1="170" x2="194" y2="222" stroke="var(--sw)"/><text x="194" y="242" text-anchor="middle" fill="var(--ink)">Air band</text>
+        <rect x="322" y="130" width="130" height="36" fill="var(--amber)" opacity=".85"/>
+        <line x1="387" y1="126" x2="387" y2="56" stroke="var(--amber)"/><text x="387" y="48" text-anchor="middle" fill="var(--ink)">Military UHF</text>
+        <rect x="466" y="130" width="5" height="36" fill="var(--hw)"/>
+        <line x1="468" y1="170" x2="468" y2="262" stroke="var(--hw)"/><text x="468" y="282" text-anchor="middle" fill="var(--ink)">Car keys 433</text>
+        <rect x="488" y="130" width="87" height="36" fill="var(--accent)" opacity=".6"/>
+        <line x1="531" y1="126" x2="531" y2="92" stroke="var(--accent)"/><text x="531" y="84" text-anchor="middle" fill="var(--ink)">Television</text>
+        <rect x="636" y="130" width="12" height="36" fill="var(--sw)" opacity=".85"/>
+        <line x1="642" y1="170" x2="642" y2="222" stroke="var(--sw)"/><text x="642" y="242" text-anchor="middle" fill="var(--ink)">Phones</text>
+        <rect x="675" y="130" width="5" height="36" fill="var(--amber)"/>
+        <line x1="677" y1="126" x2="677" y2="56" stroke="var(--amber)"/><text x="677" y="48" text-anchor="middle" fill="var(--ink)">Aircraft ID</text>
+        <rect x="757" y="130" width="5" height="36" fill="var(--ok)"/>
+        <line x1="759" y1="170" x2="759" y2="262" stroke="var(--ok)"/><text x="759" y="282" text-anchor="middle" fill="var(--ink)">GPS</text>
+        <rect x="789" y="130" width="35" height="36" fill="var(--sw)" opacity=".85"/>
+        <line x1="806" y1="126" x2="806" y2="92" stroke="var(--sw)"/><text x="806" y="84" text-anchor="middle" fill="var(--ink)">Phones</text>
+        <rect x="854" y="130" width="10" height="36" fill="var(--hw)" opacity=".85"/>
+        <line x1="859" y1="170" x2="859" y2="222" stroke="var(--hw)"/><text x="859" y="242" text-anchor="middle" fill="var(--ink)">Wi-Fi, drones 2.4</text>
+        <rect x="990" y="130" width="62" height="36" fill="var(--hw)" opacity=".85"/>
+        <line x1="1021" y1="126" x2="1021" y2="56" stroke="var(--hw)"/><text x="1021" y="48" text-anchor="middle" fill="var(--ink)">Wi-Fi, drones 5.8</text>
+      </g>
+      </g>
+    </svg>
+  </div>
+  <p class="so">Almost everything your unit transmits or faces sits somewhere on this line.</p>
+</section>
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Wide bandwidth is the box's biggest advantage over a scanner, and it is hard to grasp without a picture.</p><p><b>Say it like this:</b></p><blockquote><p>"A normal radio is a keyhole. It shows you one channel. You only know what is on the channel you chose."</p><p>"This box is a window. It sees up to 56 megahertz at once — every channel in a band, together. It can record all of it, too."</p><p>"So a short burst on a channel you were not watching does not slip past you."</p></blockquote><p><b>Next:</b> "Where does it sit among other equipment?"</p></aside>
+  <h2>56 MHz wide: a window, not a keyhole</h2>
+  <div class="two">
+    <div class="card" style="border-color:var(--hw)"><h4 style="color:var(--hw)">A normal radio</h4><p style="font-size:22px">One channel at a time. You only know what is on the channel you chose.</p></div>
+    <div class="card" style="border-color:var(--accent)"><h4>This box</h4><p style="font-size:22px">Up to 56 MHz at once. Every channel in a band, together, live or recorded.</p></div>
+  </div>
+  <p class="so">Nothing short or brief slips past because you were tuned elsewhere.</p>
+</section>
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> It sets expectations: more capable than a hobby dongle, far smaller and cheaper than a rack system.</p><p><b>Say it like this:</b></p><blockquote><p>"On the left, a cheap USB dongle. It receives a narrow slice, cannot transmit, and stops below two gigahertz. Good for hobbyists."</p><p>"On the right, rack-mounted systems. Very wide, very capable, and they live in a vehicle or a shelter."</p><p>"The SignalSDR Pro sits in between. It is serious enough to train on real signals, and small enough to take anywhere."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"How much does it cost?"</em> — Give the current price from your sales sheet. Do not guess.</li></ul><p><b>Next:</b> "Just as important is what it is not."</p></aside>
+  <h2>Where it sits</h2>
+  <div class="grow">
+  <table style="font-size:22px">
+    <tr><th style="width:26%"></th><th>USB dongle</th><th style="color:var(--amber)">SignalSDR Pro</th><th>Rack systems</th></tr>
+    <tr><td><b>Receive</b></td><td>Yes, narrow</td><td><b>Yes, 56 MHz wide</b></td><td>Yes, very wide</td></tr>
+    <tr><td><b>Transmit</b></td><td>No</td><td><b>Yes</b></td><td>Yes</td></tr>
+    <tr><td><b>Top frequency</b></td><td>About 1.7 GHz</td><td><b>6 GHz</b></td><td>Higher</td></tr>
+    <tr><td><b>Carry it</b></td><td>Pocket</td><td><b>Pocket + laptop</b></td><td>Vehicle or shelter</td></tr>
+  </table>
+  </div>
+  <p class="so">Serious enough to train on real signals. Small enough to take anywhere.</p>
+</section>
+
+<section class="slide" data-seg="2 · The SignalSDR Pro" data-min="1">
+<aside class="notes"><p><b>Why this slide is here.</b> It prevents the wrong expectations, which would cost trust later.</p><p><b>Say it like this:</b></p><blockquote><p>"It is not a certified electronic-warfare system. It is not a direction finder on its own: in this setup it has one receive channel, and finding direction needs at least two. And it is not a code-breaker. It cannot read encrypted traffic."</p><p>"It is a flexible radio for learning, testing and building. That is its value."</p></blockquote><p><b>Next:</b> "So what can it do for you? Six things."</p></aside>
+  <h2>What it is <span class="hw">not</span></h2>
+  <div class="grow">
+  <ul>
+    <li><b>Not</b> a certified electronic-warfare system</li>
+    <li><b>Not</b> a direction finder on its own — it has one receive channel in this setup</li>
+    <li><b>Not</b> a code-breaker — it cannot read encrypted traffic</li>
+  </ul>
+  </div>
+  <p class="so">It is a flexible radio for learning, testing and building. That is its value.</p>
+</section>
+
+<!-- ══════════════ 3 — WHAT IT CAN DO (12 min) ══════════════ -->
+
+<section class="slide" data-seg="3 · What it can do" data-min="1">
+<aside class="notes"><p><b>Why this slide is here.</b> A map of the capabilities, and an honest note of which ones they will see today.</p><p><b>Say it like this:</b></p><blockquote><p>"Here are six things this box can do for a military user. The green badges are things you will see working today. The amber one you will see in part. The red one needs more hardware, and I will explain why."</p></blockquote><p><b>Next:</b> "The first two go together."</p></aside>
+  <h2>Six things it can do for you</h2>
+  <div class="cards c3" style="margin-top:6px">
+    <div class="card"><h4>1 · See the spectrum</h4><p>Who is transmitting here, now</p><span class="badge yes">Today</span></div>
+    <div class="card"><h4>2 · Identify signals</h4><p>Unknown signal → measured → named</p><span class="badge yes">Today</span></div>
+    <div class="card"><h4>3 · Record and replay</h4><p>Evidence, analysis, training</p><span class="badge yes">Today</span></div>
+    <div class="card"><h4>4 · Find devices</h4><p>Triggers, trackers, unknown transmitters</p><span class="badge part">Partly today</span></div>
+    <div class="card"><h4>5 · Transmit</h4><p>Test and training signals</p><span class="badge yes">Today</span></div>
+    <div class="card"><h4>6 · Locate and radar</h4><p>Needs more hardware</p><span class="badge no">Not today</span></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="3 · What it can do" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Spectrum awareness is the capability most relevant to them, and the easiest to understand.</p><p><b>Say it like this:</b></p><blockquote><p>"The first two capabilities are seeing the spectrum and identifying what is on it. You can survey a site before an exercise or a deployment. You can spot a transmitter that should not be there. And you can check your own emissions: what does your unit look like to someone else who is listening?"</p><p>"You cannot protect, use or deny a frequency that you cannot see."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Can it tell us what a signal is automatically?"</em> — "For known signal types, yes: there are decoders that name them. For an unknown signal, it measures it — frequency, width, timing — and a trained person identifies it. You will see both today."</li></ul><p><b>Next:</b> "The next two are about time."</p></aside>
+  <div class="kicker">1 and 2</div>
+  <h2>See the spectrum. Identify what is on it.</h2>
+  <div class="grow">
+  <ul>
+    <li><b>Survey</b> a site before an exercise or deployment</li>
+    <li><b>Spot</b> a transmitter that should not be there</li>
+    <li><b>Check</b> your own emissions: what does your unit look like to others?</li>
+  </ul>
+  </div>
+  <p class="so">You cannot protect, use or deny a frequency you cannot see.</p>
+</section>
+
+<section class="slide" data-seg="3 · What it can do" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Recording is an unexpected capability for most users, and it matters for evidence and training.</p><p><b>Say it like this:</b></p><blockquote><p>"Capabilities three and four. You can record a whole band — not just the sound, the raw signal — and study it indoors later, as many times as you like."</p><p>"You can train operators on real signals from the field, without going back to the field."</p><p>"And you can detect short bursts: a remote trigger, a tracker checking in, a telemetry link."</p><p>"A signal you missed is gone — unless you recorded the band."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"How big are the recordings?"</em> — "Large. At the settings we use today, about one gigabyte per minute. A normal laptop disk holds hours."</li></ul><p><b>Next:</b> "Capability five: it transmits."</p></aside>
+  <div class="kicker">3 and 4</div>
+  <h2>Record now. Find it later.</h2>
+  <div class="grow">
+  <ul>
+    <li><b>Record</b> a whole band, then study it indoors, again and again</li>
+    <li><b>Train</b> operators on real signals, without going back to the field</li>
+    <li><b>Detect</b> short bursts: remote triggers, trackers, telemetry</li>
+  </ul>
+  </div>
+  <p class="so">A signal you missed is gone — unless you recorded the band.</p>
+</section>
+
+<section class="slide" data-seg="3 · What it can do" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> Transmitting is powerful and regulated. Frame it as testing and training.</p><p><b>Say it like this:</b></p><blockquote><p>"Capability five: the box can transmit, anywhere from 70 megahertz to 6 gigahertz. That lets you test your receivers with a known, controlled signal. It lets you train operators against realistic target signals. And it lets engineers prototype a data link before buying dedicated hardware."</p><p>"Always inside a licence, or inside a shielded room. I will come to the rules in a moment."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Can it jam?"</em> — "Technically, any transmitter can interfere. Jamming is a criminal offence outside authorised military use, and we do not demonstrate or support it. For authorised electronic-warfare training, the right place is a shielded range, under your own authority."</li></ul><p><b>Next:</b> "The sixth capability is one you will not see today."</p></aside>
+  <div class="kicker">5</div>
+  <h2>Transmit</h2>
+  <div class="grow">
+  <ul>
+    <li><b>Test</b> your receivers with a known, controlled signal</li>
+    <li><b>Train</b> operators against realistic target signals</li>
+    <li><b>Prototype</b> a data link before buying dedicated hardware</li>
+  </ul>
+  </div>
+  <p class="so">Always inside a licence or a shielded room. More on that in a moment.</p>
+</section>
+
+<section class="slide" data-seg="3 · What it can do" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> They will ask about direction finding. Answer it before they ask, honestly.</p><p><b>Say it like this:</b></p><blockquote><p>"Finding where a transmitter is — direction finding — and passive radar both need two or more receivers, locked to the same clock, looking at the same signal. In the setup we use, this box has one receive channel."</p><p>"So this box can be one part of such a system, with more hardware and more engineering. It is possible as a project. It is not something to expect out of the box."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Could two boxes do it?"</em> — "In principle, yes. Two boxes, a shared clock and the right software. That would be a project, and we would scope it with you."</li></ul><p><b>Next:</b> "Before the demonstrations, the legal line."</p></aside>
+  <div class="kicker">6 · Not today</div>
+  <h2>Locate a transmitter. Passive radar.</h2>
+  <div class="grow">
+  <ul>
+    <li>Both need <b>two or more receivers</b> locked to the same clock</li>
+    <li>This box can be part of such a system, with more hardware and more work</li>
+  </ul>
+  </div>
+  <p class="so">Possible as a project. Not something to expect out of the box.</p>
+</section>
+
+<section class="slide" data-seg="3 · What it can do" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> A military audience respects rules. Saying them before the transmit demo makes the demo credible, not careless.</p><p><b>Say it like this:</b></p><blockquote><p>"Receiving broadcast radio and television is allowed. Receiving other people's traffic needs care: under the Communications and Multimedia Act 1998, section 234, unauthorised interception is an offence. Decrypting encrypted traffic is prohibited."</p><p>"Transmitting without an assignment from MCMC is an offence. Jamming or interfering is a criminal offence."</p><p>"Your unit's authority to transmit comes from MCMC and your chain of command. It does not come from the box. The box will transmit on any frequency. The responsibility stays with the person at the keyboard."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Does military use change this?"</em> — "Your own authorities and assignments apply. I cannot advise on those. Everything I show today stays within civilian rules."</li><li><em>"Then how can you transmit TV today?"</em> — "At the lowest power that works, over a few metres, in a controlled room, for a few minutes. I will say that again before I do it."</li></ul><p><b>Next:</b> "Let us take ten minutes. After the break, the box does the talking."</p></aside>
+  <div class="key-tag">The legal line</div>
+  <h2>Listening is easy. <span class="hw">Transmitting is licensed.</span></h2>
+  <div class="grow">
+  <table style="font-size:23px">
+    <tr><td style="width:44%"><b>Receive broadcast radio and TV</b></td><td class="acc"><b>✅ Allowed</b></td></tr>
+    <tr><td><b>Receive other people's traffic</b></td><td class="amb"><b>🟡 Take care</b> — interception is an offence (CMA 1998, s.234)</td></tr>
+    <tr><td><b>Decrypt encrypted traffic</b></td><td class="hw"><b>⛔ Prohibited</b></td></tr>
+    <tr><td><b>Transmit without an assignment</b></td><td class="hw"><b>⛔ An offence</b></td></tr>
+    <tr><td><b>Jam or interfere</b></td><td class="hw"><b>⛔ A criminal offence</b></td></tr>
+  </table>
+  </div>
+  <p class="so">Your unit's authority to transmit comes from MCMC and your chain of command, not from the box.</p>
+</section>
+
+<!-- ══════════════ BREAK (10 min) ══════════════ -->
+
+<section class="slide center brk" data-seg="Break" data-min="10">
+<aside class="notes"><p><b>Why this slide is here.</b> It gives you ten minutes to set up the demos without an audience.</p><p><b>Do.</b> During the break:</p><ul><li>Close the live spectrum from S1.</li><li>Run <code>./preflight.sh</code> in the <code>demo</code> folder. It must not say FAIL.</li><li>Make the terminal font large. Put the terminal where the room can see it.</li><li>Check the TV box is on and showing its menu.</li><li>Put the run sheet beside the laptop.</li></ul><p><b>Say it like this (at the end of the break):</b></p><blockquote><p>"Welcome back. Everything you are about to see is this one box and this one laptop."</p></blockquote><p><b>Next:</b> "Six demonstrations."</p></aside>
+  <div class="kicker">10 minutes</div>
+  <div class="huge">Break</div>
+  <p class="lede" style="margin-top:24px">After the break, the box does the talking.</p>
+</section>
+
+<!-- ══════════════ 4 — DEMONSTRATIONS (70 min) ══════════════ -->
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> It shows the order, so the room can follow.</p><p><b>Say it like this:</b></p><blockquote><p>"Six demonstrations. First we see. Then we decode. Then we survey a few bands. Then we record, then we look at noise, and last, we transmit."</p><p>"If something does not work in this building, I have a recording of it working last night, and I will say so."</p></blockquote><p><b>Do.</b> Remember the 30-second rule: no recovery in 30 seconds means the fallback.</p><p><b>Next:</b> Demo 1.</p></aside>
+  <div class="kicker">Live</div>
+  <div class="big" style="margin-bottom:26px">Six demonstrations</div>
+  <table style="font-size:24px;max-width:840px;text-align:left">
+    <tr><td class="acc" style="width:60px"><b>1</b></td><td>See the invisible</td><td class="acc" style="width:60px"><b>4</b></td><td>Record now, analyse later</td></tr>
+    <tr><td class="acc"><b>2</b></td><td>Hidden data</td><td class="acc"><b>5</b></td><td>Noise against a signal</td></tr>
+    <tr><td class="acc"><b>3</b></td><td>Tour the busy bands</td><td class="acc"><b>6</b></td><td>Television to your TV</td></tr>
+  </table>
+  <p class="dim" style="margin-top:30px;font-size:21px">Everything you see is the same box and the same laptop.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="7">
+<aside class="notes"><p><b>Why this slide is here.</b> The first live picture. It is the foundation for every other demo.</p><p><b>Do.</b> <code>./d1_spectrum.sh</code>. Run sheet: Demo 1.</p><p><b>Say it like this:</b></p><blockquote><p>"Before you can use, protect or deny a frequency, you have to see who is on it. This is 20 megahertz of the air in this room, right now. Every bright stripe is someone transmitting. A normal radio shows you one station. This shows you all of them at once."</p></blockquote><p><b>Point to land:</b> step one of any operation is knowing who is on the air.</p><p><b>Next:</b> "Now let us pull something out of one of those signals."</p></aside>
+  <div class="demo-tag">Live · Demo 1</div>
+  <div class="big">See the invisible</div>
+  <p class="lede" style="margin-top:20px">20 MHz of the air in this room, right now.</p>
+  <p class="so" style="margin-top:30px">Step one of any operation: know who is on the air.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="12">
+<aside class="notes"><p><b>Why this slide is here.</b> It turns "a signal" into "information". This is intercept and identify, on a harmless target.</p><p><b>Do.</b> <code>./d2_rds.sh</code>. Type <code>89.7e6</code>, <code>200e3</code>, gain <code>60</code>. Run sheet: Demo 2.</p><p><b>Say it like this:</b></p><blockquote><p>"This is BFM, an ordinary radio station. Under the sound, it carries a slow data channel with its name. Watch the terminal."</p><p><em>(When the name appears.)</em> "That text came out of the air. The box found the signal, measured it and read it. The same idea finds the identity inside a drone link or a tracker."</p></blockquote><p><b>Point to land:</b> find a signal, pull out what it carries.</p><p><b>If someone asks:</b></p><ul><li><em>"Could it read our radios?"</em> — "Not encrypted ones. And listening to other people's traffic has legal limits, as we saw. Broadcast stations like BFM are meant for the public."</li></ul><p><b>Next:</b> "Now a quick tour of the busiest bands."</p></aside>
+  <div class="demo-tag">Live · Demo 2</div>
+  <div class="big">Hidden data</div>
+  <p class="lede" style="margin-top:20px">Reading text out of a radio station that sounds like music.</p>
+  <p class="so" style="margin-top:30px">Find a signal. Pull out what it carries.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="14">
+<aside class="notes"><p><b>Why this slide is here.</b> It shows the width of the box's range and teaches that signals have recognisable shapes.</p><p><b>Do.</b> <code>./d3_bands.sh</code>, then <code>89.9e6</code> → <code>945e6</code> → <code>2.437e9</code>. Close it, then <code>./d3_bands.sh scan</code>. Run sheet: Demo 3.</p><p><b>Say it like this:</b></p><blockquote><p>"One box, from radio to Wi-Fi. FM radio is steady: always on, always in the same place. Mobile phone towers are dense blocks. Wi-Fi flickers: it only transmits when someone is using it."</p><p>"An operator learns to recognise a signal by its shape, before decoding anything."</p><p><em>(During the scan.)</em> "This checks each TV channel and names what it finds. It also flags anything that is not TV. That is how you would look for an intruder in a band that should be quiet."</p></blockquote><p><b>Do (bonus).</b> If there is time and goodwill, the car key.</p><p><b>Next:</b> "Now, a signal that is no longer in the air."</p></aside>
+  <div class="demo-tag">Live · Demo 3</div>
+  <div class="big">Tour the busy bands</div>
+  <p class="lede" style="margin-top:20px">Radio · phones · Wi-Fi · television</p>
+  <p class="so" style="margin-top:30px">Every signal has a shape. Operators learn the shapes.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="6">
+<aside class="notes"><p><b>Why this slide is here.</b> It proves recording, and it gives the radio a rest if it has been difficult.</p><p><b>Do.</b> Unscrew the antenna in front of them. <code>./d4_replay.sh</code>, offset <code>200e3</code>. Run sheet: Demo 4.</p><p><b>Say it like this:</b></p><blockquote><p>"No antenna. Last night I recorded twenty seconds of this band — not the sound, the whole raw signal. Now I can replay it and choose any station that was in the air at that moment."</p><p>"Record a whole band today. Decide next week what you are looking for."</p></blockquote><p><b>Point to land:</b> evidence you can replay, training you can repeat.</p><p><b>Do.</b> Screw the antenna back onto <code>TX/RX</code> before the next demo.</p><p><b>Next:</b> "Why do links fail? Let me show you."</p></aside>
+  <div class="demo-tag">Live · Demo 4</div>
+  <div class="big">Record now, analyse later</div>
+  <p class="lede" style="margin-top:20px">Last night's air, played back with the antenna unplugged.</p>
+  <p class="so" style="margin-top:30px">Evidence you can replay. Training you can repeat.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="5">
+<aside class="notes"><p><b>Why this slide is here.</b> It shows, in one picture, what range and jamming do to a digital link. No radio is used, so it cannot fail.</p><p><b>Do.</b> <code>./d5_bpsk.sh</code>. Drag <b>Eb/N0</b> from 8 down to 0, then back. Run sheet: Demo 5.</p><p><b>Say it like this:</b></p><blockquote><p>"This is a simulated digital link. Each dot is one symbol: a zero or a one. I will add noise."</p><p><em>(Drag down.)</em> "The dots swell into clouds. When the clouds touch, the receiver starts guessing wrong — watch the error count. That is the edge of your range, or the moment a jammer wins."</p><p><em>(Drag back.)</em> "Remove the noise, and the link recovers at once."</p></blockquote><p><b>Next:</b> "Last demonstration. This one transmits."</p></aside>
+  <div class="demo-tag">Live · Demo 5</div>
+  <div class="big">Noise against a signal</div>
+  <p class="lede" style="margin-top:20px">Watch a digital link break, one slider at a time.</p>
+  <p class="so" style="margin-top:30px">This is what range, and jamming, do to your link.</p>
+</section>
+
+<section class="slide center" data-seg="4 · Demonstrations" data-min="20">
+<aside class="notes"><p><b>Why this slide is here.</b> The strongest image of the day: their own kind of television, fed by the box.</p><p><b>Do.</b> <code>./d6_tv.sh</code>. TX digital amplitude <code>0.25</code>, then raise TX RF gain slowly. Scan the TV box on channel 21, 474 MHz. Run sheet: Demo 6.</p><p><b>Say it like this (before you start — do not skip):</b></p><blockquote><p>"This is a licensed TV channel. So we transmit at the lowest power that works, over a few metres, in a controlled room, for a few minutes. Receiving is free. Transmitting needs a licence."</p></blockquote><blockquote><p><em>(While the TV scans.)</em> "This is a real digital television signal, the same standard MYTV uses. It was made entirely in software on this laptop. The box has no television chip inside."</p></blockquote><blockquote><p><em>(When the picture appears.)</em> "Your TV cannot tell the difference between this and a real broadcaster. That is the point. This box can make any signal in its range: a TV channel, a test signal, a training target."</p></blockquote><p><b>If it fails.</b> After 3 minutes, use <code>./d6_fallback_loop.sh</code>: the box sends TV to itself. Say so honestly.</p><p><b>Do (always).</b> Close the window. Run <code>./stop_all.sh</code>. Say out loud: "The transmitter is off."</p><p><b>Next:</b> "Let me put the six demonstrations side by side."</p></aside>
+  <div class="demo-tag">Live · Demo 6 · Transmits</div>
+  <div class="big">Television to your TV</div>
+  <p class="lede" style="margin-top:20px">Digital TV, made in software, sent from this box.</p>
+  <div class="warn" style="margin-top:26px;font-size:21px">Licensed channel · lowest power that works · a few metres · never unattended</div>
+</section>
+
+<section class="slide" data-seg="4 · Demonstrations" data-min="4">
+<aside class="notes"><p><b>Why this slide is here.</b> It ties each demo back to a capability, so they leave with the capability list, not with a memory of software windows.</p><p><b>Say it like this:</b></p><blockquote><p>"Six demonstrations, six capabilities. The air in this room: seeing the spectrum. A station's name: identifying and extracting data. Four bands and a scan: survey. No antenna: record and replay. Two dots becoming clouds: why links fail. Your TV: transmit."</p><p>"One box. We did not change any hardware all afternoon."</p></blockquote><p><b>Do.</b> Take questions about the demos here. This slide absorbs spare time.</p><p><b>Next:</b> "Which software would your people actually use?"</p></aside>
+  <h2>What you just saw</h2>
+  <div class="grow">
+  <table style="font-size:23px">
+    <tr><th style="width:36%">Demo</th><th>Capability</th></tr>
+    <tr><td>1 · The air in this room</td><td>See the spectrum</td></tr>
+    <tr><td>2 · A station's name</td><td>Identify, and extract data</td></tr>
+    <tr><td>3 · Four bands, one scan</td><td>Survey; find devices</td></tr>
+    <tr><td>4 · No antenna</td><td>Record and replay</td></tr>
+    <tr><td>5 · Two dots, then clouds</td><td>Why links fail</td></tr>
+    <tr><td>6 · Your TV</td><td>Transmit</td></tr>
+  </table>
+  </div>
+  <p class="so">One box. No hardware change all afternoon.</p>
+</section>
+
+<!-- ══════════════ 5 — THE SOFTWARE (8 min) ══════════════ -->
+
+<section class="slide" data-seg="5 · The software" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> It answers their real question: "what would my operators use?"</p><p><b>Say it like this:</b></p><blockquote><p>"There are three levels of user. Level one: look and listen. Programs like gqrx or SDR++. Point and click. You tune, see, listen and record. This is where operators live."</p><p>"Level two: ready-made decoders. One tool per signal type. For example, rtl_433 decodes hundreds of small wireless devices, and dump1090 shows aircraft positions."</p><p>"Level three: build your own, with GNU Radio. Any signal, any process. That is for engineers."</p><p>"Most users never go beyond level one. That is fine."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Do these cost money?"</em> — "All the programs named here are free and open source."</li></ul><p><b>Next:</b> "The easiest way to get all of them is one system: DragonOS."</p></aside>
+  <h2>Three levels of user</h2>
+  <div class="cards c3" style="margin-top:6px">
+    <div class="card" style="border-color:var(--accent)"><h4>1 · Look and listen</h4><p><b>gqrx</b>, SDR++<br><br>Point and click. Tune, see, listen, record.</p><span class="badge yes">Operators</span></div>
+    <div class="card" style="border-color:var(--sw)"><h4 style="color:var(--sw)">2 · Ready-made decoders</h4><p><b>rtl_433</b>, dump1090, SatDump, SDRangel<br><br>One tool per signal type.</p><span class="badge part">Specialists</span></div>
+    <div class="card" style="border-color:var(--amber)"><h4 style="color:var(--amber)">3 · Build your own</h4><p><b>GNU Radio</b><br><br>Any signal, any process. Engineers only.</p><span class="badge no">Engineers</span></div>
+  </div>
+  <p class="so">Most users never go beyond level 1. That is fine.</p>
+</section>
+
+<section class="slide" data-seg="5 · The software" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> It gives them a practical next step for their own machines.</p><p><b>Say it like this:</b></p><blockquote><p>"DragonOS is a free Linux system built for software radio. All three levels of software come preinstalled and already work with this box. It can run from a USB stick without touching the laptop's own system, or be installed properly."</p><p>"It is our recommendation for your own machines. Today's laptop runs ordinary Ubuntu Linux with the tools added by hand. We can prepare DragonOS for you."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Is it secure enough for our networks?"</em> — "It is a general-purpose Linux system. For a classified network, your own IT security team must approve it. For a stand-alone training laptop, it is ideal."</li></ul><p><b>Next:</b> "Where does GNU Radio fit in all this?"</p></aside>
+  <h2>DragonOS: everything, already installed</h2>
+  <div class="grow">
+  <ul>
+    <li>A free Linux system, built for software radio</li>
+    <li>All three levels preinstalled and working with this box</li>
+    <li>Runs from a USB stick, or installs on a laptop</li>
+  </ul>
+  </div>
+  <p class="so">Our recommendation for your own machines. We can prepare it for you.</p>
+</section>
+
+<section class="slide" data-seg="5 · The software" data-min="2">
+<aside class="notes"><p><b>Why this slide is here.</b> It removes any fear that operators must learn a programming tool.</p><p><b>Say it like this:</b></p><blockquote><p>"Demonstrations 2, 4, 5 and 6 were built in GNU Radio. You saw the result, never the inside. Engineers build the tools. Operators use them."</p><p>"Your operators do not need to learn GNU Radio to use this box."</p></blockquote><p><b>If someone asks:</b></p><ul><li><em>"Can we see the inside?"</em> — "Yes, after the session. We have a full training course for engineers who want to build their own."</li></ul><p><b>Next:</b> "Finally: what you may do with it, and what we propose."</p></aside>
+  <h2>Where GNU Radio fits</h2>
+  <div class="grow">
+    <p class="lede">Demos 2, 4, 5 and 6 were built in GNU Radio. You saw the result, never the inside.</p>
+    <p class="lede acc" style="margin-top:6px">Engineers build the tools. Operators use them.</p>
+  </div>
+  <p class="so">Your operators do not need to learn GNU Radio to use this box.</p>
+</section>
+
+<!-- ══════════════ 6 — NEXT (15 min) ══════════════ -->
+
+<section class="slide" data-seg="6 · Where next" data-min="3">
+<aside class="notes"><p><b>Why this slide is here.</b> A practical summary of the rules, for their own use of the box.</p><p><b>Say it like this:</b></p><blockquote><p>"Receiving broadcast radio and TV is allowed. Transmitting in licence-free bands, at low power, is allowed within the limits: 433 megahertz, 919 to 923 megahertz, and 2.4 gigahertz."</p><p>"Transmitting into a cable or a shielded room is the safe default for training. Anywhere else needs an assignment. And aviation, maritime and emergency frequencies: never."</p></blockquote><p><b>Background for you.</b> Limits from MCMC's Class Assignment: 433–435 MHz at 100 mW EIRP; 919–923 MHz and 2400–2500 MHz at 500 mW EIRP. It is revised from time to time; check the current version before quoting. See the Malaysia reference.</p><p><b>Next:</b> "Here is how we suggest going further."</p></aside>
+  <h2>What you may do with it</h2>
+  <div class="grow">
+  <table style="font-size:22px">
+    <tr><th style="width:52%">Activity</th><th>Status</th></tr>
+    <tr><td>Receive broadcast radio and TV</td><td class="acc"><b>✅ Allowed</b></td></tr>
+    <tr><td>Transmit in licence-free bands, low power (433, 919–923 MHz, 2.4 GHz)</td><td class="acc"><b>✅ Within the limits</b></td></tr>
+    <tr><td>Transmit into a cable or shielded room</td><td class="acc"><b>✅ The safe default</b></td></tr>
+    <tr><td>Transmit anywhere else</td><td class="hw"><b>⛔ Needs an assignment</b></td></tr>
+    <tr><td>Aviation, maritime or emergency frequencies</td><td class="hw"><b>⛔ Never</b></td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="slide" data-seg="6 · Where next" data-min="4">
+<aside class="notes"><p><b>Why this slide is here.</b> It turns interest into a next step.</p><p><b>Say it like this:</b></p><blockquote><p>"Three options. A hands-on workshop: one or two days where your people drive the box, on your own laptops with DragonOS. A mission pilot: you pick one real problem, and we build and test the tool for it. Or a training package: recorded signals, exercises and instructor notes for your schools."</p><p>"Our advice is to start small. One problem, one team, a few weeks."</p></blockquote><p><b>Do.</b> Ask: "Which of these is closest to what you need?" Then listen.</p><p><b>Next:</b> "Questions."</p></aside>
+  <h2>What we propose</h2>
+  <div class="cards c3" style="margin-top:6px">
+    <div class="card"><h4>Hands-on workshop</h4><p>Your people drive the box. One or two days, on your own laptops with DragonOS.</p></div>
+    <div class="card"><h4>Mission pilot</h4><p>Pick one real problem. We build and test the tool for it.</p></div>
+    <div class="card"><h4>Training package</h4><p>Recorded signals, exercises and instructor notes, for your schools.</p></div>
+  </div>
+  <p class="so">Start small. One problem, one team, a few weeks.</p>
+</section>
+
+<section class="slide center" data-seg="6 · Where next" data-min="8">
+<aside class="notes"><p><b>Why this slide is here.</b> It leaves the QR code and the one-line message on screen while you answer.</p><p><b>Say it like this:</b></p><blockquote><p>"Thank you. Any questions?"</p></blockquote><p><b>Do.</b> Keep this slide on screen. Use QA_MILITARY.md for the questions you expect. Hand out the one-page handout.</p><p><b>If you are asked something you cannot answer.</b> Say: "I do not know. I will find out and reply to you by email." Write it down in front of them. Then do it.</p><p><b>Finish with:</b></p><blockquote><p>"One box, many radios. Thank you for your time."</p></blockquote></aside>
+  <h1 style="font-size:66px">Questions</h1>
+  <p class="lede" style="margin-top:10px">One box. Many radios.</p>
+  <div style="width:170px;margin:28px auto 0"><svg viewBox="-4 -4 41 41" role="img" aria-label="QR code: github.com/mbadrulamin/signalsdrpro_lab" style="background:#fff;border-radius:10px"><rect x="-4" y="-4" width="41" height="41" fill="#fff"/><path fill="#000" shape-rendering="crispEdges" d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM8 0h1v1h-1zM10 0h1v1h-1zM13 0h1v1h-1zM14 0h1v1h-1zM15 0h1v1h-1zM16 0h1v1h-1zM18 0h1v1h-1zM21 0h1v1h-1zM23 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM29 0h1v1h-1zM30 0h1v1h-1zM31 0h1v1h-1zM32 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM19 1h1v1h-1zM20 1h1v1h-1zM22 1h1v1h-1zM26 1h1v1h-1zM32 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM10 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM17 2h1v1h-1zM18 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM22 2h1v1h-1zM23 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM29 2h1v1h-1zM30 2h1v1h-1zM32 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM16 3h1v1h-1zM17 3h1v1h-1zM23 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM29 3h1v1h-1zM30 3h1v1h-1zM32 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM11 4h1v1h-1zM16 4h1v1h-1zM19 4h1v1h-1zM23 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM29 4h1v1h-1zM30 4h1v1h-1zM32 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM12 5h1v1h-1zM15 5h1v1h-1zM18 5h1v1h-1zM20 5h1v1h-1zM21 5h1v1h-1zM26 5h1v1h-1zM32 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM29 6h1v1h-1zM30 6h1v1h-1zM31 6h1v1h-1zM32 6h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM11 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM20 7h1v1h-1zM21 7h1v1h-1zM22 7h1v1h-1zM24 7h1v1h-1zM0 8h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM10 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM17 8h1v1h-1zM20 8h1v1h-1zM21 8h1v1h-1zM23 8h1v1h-1zM25 8h1v1h-1zM26 8h1v1h-1zM27 8h1v1h-1zM28 8h1v1h-1zM29 8h1v1h-1zM32 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM23 9h1v1h-1zM25 9h1v1h-1zM29 9h1v1h-1zM30 9h1v1h-1zM31 9h1v1h-1zM0 10h1v1h-1zM2 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM23 10h1v1h-1zM25 10h1v1h-1zM29 10h1v1h-1zM31 10h1v1h-1zM1 11h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM15 11h1v1h-1zM20 11h1v1h-1zM21 11h1v1h-1zM23 11h1v1h-1zM31 11h1v1h-1zM2 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM21 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM26 12h1v1h-1zM28 12h1v1h-1zM29 12h1v1h-1zM31 12h1v1h-1zM0 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM7 13h1v1h-1zM10 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM18 13h1v1h-1zM19 13h1v1h-1zM20 13h1v1h-1zM21 13h1v1h-1zM27 13h1v1h-1zM29 13h1v1h-1zM30 13h1v1h-1zM0 14h1v1h-1zM1 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM20 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM25 14h1v1h-1zM26 14h1v1h-1zM30 14h1v1h-1zM31 14h1v1h-1zM0 15h1v1h-1zM2 15h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM17 15h1v1h-1zM21 15h1v1h-1zM22 15h1v1h-1zM24 15h1v1h-1zM25 15h1v1h-1zM26 15h1v1h-1zM27 15h1v1h-1zM28 15h1v1h-1zM4 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM17 16h1v1h-1zM19 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM22 16h1v1h-1zM23 16h1v1h-1zM24 16h1v1h-1zM26 16h1v1h-1zM28 16h1v1h-1zM31 16h1v1h-1zM2 17h1v1h-1zM4 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM10 17h1v1h-1zM13 17h1v1h-1zM14 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM29 17h1v1h-1zM30 17h1v1h-1zM31 17h1v1h-1zM0 18h1v1h-1zM1 18h1v1h-1zM2 18h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM5 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM14 18h1v1h-1zM15 18h1v1h-1zM17 18h1v1h-1zM20 18h1v1h-1zM22 18h1v1h-1zM23 18h1v1h-1zM27 18h1v1h-1zM29 18h1v1h-1zM31 18h1v1h-1zM1 19h1v1h-1zM5 19h1v1h-1zM8 19h1v1h-1zM10 19h1v1h-1zM11 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM20 19h1v1h-1zM21 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM24 19h1v1h-1zM26 19h1v1h-1zM27 19h1v1h-1zM31 19h1v1h-1zM32 19h1v1h-1zM2 20h1v1h-1zM4 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM13 20h1v1h-1zM14 20h1v1h-1zM18 20h1v1h-1zM20 20h1v1h-1zM24 20h1v1h-1zM26 20h1v1h-1zM27 20h1v1h-1zM28 20h1v1h-1zM29 20h1v1h-1zM31 20h1v1h-1zM32 20h1v1h-1zM0 21h1v1h-1zM1 21h1v1h-1zM3 21h1v1h-1zM5 21h1v1h-1zM9 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM16 21h1v1h-1zM19 21h1v1h-1zM23 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM31 21h1v1h-1zM2 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM10 22h1v1h-1zM11 22h1v1h-1zM13 22h1v1h-1zM14 22h1v1h-1zM16 22h1v1h-1zM19 22h1v1h-1zM22 22h1v1h-1zM23 22h1v1h-1zM25 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM29 22h1v1h-1zM30 22h1v1h-1zM31 22h1v1h-1zM8 23h1v1h-1zM9 23h1v1h-1zM11 23h1v1h-1zM12 23h1v1h-1zM17 23h1v1h-1zM19 23h1v1h-1zM20 23h1v1h-1zM21 23h1v1h-1zM25 23h1v1h-1zM26 23h1v1h-1zM31 23h1v1h-1zM32 23h1v1h-1zM0 24h1v1h-1zM1 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM10 24h1v1h-1zM11 24h1v1h-1zM12 24h1v1h-1zM13 24h1v1h-1zM14 24h1v1h-1zM15 24h1v1h-1zM17 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM24 24h1v1h-1zM25 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM28 24h1v1h-1zM8 25h1v1h-1zM9 25h1v1h-1zM10 25h1v1h-1zM12 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM17 25h1v1h-1zM20 25h1v1h-1zM21 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM0 26h1v1h-1zM1 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM11 26h1v1h-1zM12 26h1v1h-1zM14 26h1v1h-1zM15 26h1v1h-1zM16 26h1v1h-1zM18 26h1v1h-1zM20 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM29 26h1v1h-1zM31 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM9 27h1v1h-1zM10 27h1v1h-1zM11 27h1v1h-1zM15 27h1v1h-1zM20 27h1v1h-1zM22 27h1v1h-1zM24 27h1v1h-1zM28 27h1v1h-1zM31 27h1v1h-1zM32 27h1v1h-1zM0 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM9 28h1v1h-1zM10 28h1v1h-1zM13 28h1v1h-1zM15 28h1v1h-1zM16 28h1v1h-1zM22 28h1v1h-1zM24 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1zM29 28h1v1h-1zM0 29h1v1h-1zM2 29h1v1h-1zM3 29h1v1h-1zM4 29h1v1h-1zM6 29h1v1h-1zM9 29h1v1h-1zM10 29h1v1h-1zM11 29h1v1h-1zM18 29h1v1h-1zM19 29h1v1h-1zM20 29h1v1h-1zM21 29h1v1h-1zM23 29h1v1h-1zM24 29h1v1h-1zM26 29h1v1h-1zM27 29h1v1h-1zM28 29h1v1h-1zM30 29h1v1h-1zM31 29h1v1h-1zM0 30h1v1h-1zM2 30h1v1h-1zM3 30h1v1h-1zM4 30h1v1h-1zM6 30h1v1h-1zM9 30h1v1h-1zM12 30h1v1h-1zM13 30h1v1h-1zM15 30h1v1h-1zM17 30h1v1h-1zM18 30h1v1h-1zM20 30h1v1h-1zM23 30h1v1h-1zM24 30h1v1h-1zM26 30h1v1h-1zM27 30h1v1h-1zM28 30h1v1h-1zM0 31h1v1h-1zM6 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM13 31h1v1h-1zM14 31h1v1h-1zM15 31h1v1h-1zM16 31h1v1h-1zM17 31h1v1h-1zM18 31h1v1h-1zM21 31h1v1h-1zM24 31h1v1h-1zM0 32h1v1h-1zM1 32h1v1h-1zM2 32h1v1h-1zM3 32h1v1h-1zM4 32h1v1h-1zM5 32h1v1h-1zM6 32h1v1h-1zM8 32h1v1h-1zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM17 32h1v1h-1zM19 32h1v1h-1zM20 32h1v1h-1zM21 32h1v1h-1zM22 32h1v1h-1zM23 32h1v1h-1zM24 32h1v1h-1zM25 32h1v1h-1zM26 32h1v1h-1zM32 32h1v1h-1z"/></svg></div>
+  <p style="font-size:17px;text-align:center;color:var(--muted);margin-top:8px">github.com/mbadrulamin/signalsdrpro_lab</p>
+</section>
+
+</div></div>
+<div id="blackout"></div>
+<div id="ov"><div id="ovh"><h3>All slides</h3><span>click to jump · <kbd>Esc</kbd> to close</span></div><div id="ovg"></div></div>
+<div id="help"></div><div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+var deck   = document.getElementById('deck');
+var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+var N = slides.length;
+var cur = 0, step = 0, notesWin = null, t0 = null, tPaused = 0, running = false;
+
+/* ---------- planned timings ---------- */
+var mins = slides.map(function(s){ return parseFloat(s.dataset.min || 0); });
+var cum  = []; (function(){ var a = 0; mins.forEach(function(m,i){ cum[i] = a; a += m; }); })();
+var TOTAL = cum[N-1] + mins[N-1];
+
+function titleOf(s){
+  var e = s.querySelector('h1,h2,.big,.quote,.lede');
+  if (!e) return '—';
+  /* read innerHTML, not textContent: a <br> would otherwise glue two words together */
+  return e.innerHTML.replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,'')
+          .replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();
+}
+var titles = slides.map(titleOf);
+function stepsOf(i){ return slides[i].querySelectorAll('.step'); }
+
+/* ---------- scaling: fixed 1280x720 design space ---------- */
+function fit(){
+  var w = window.innerWidth, h = window.innerHeight;
+  var s = Math.min(w/1280, h/720);
+  deck.style.transform = 'scale(' + s + ')';
+}
+window.addEventListener('resize', fit); fit();
+
+/* ---------- render ---------- */
+function render(){
+  slides.forEach(function(s,i){ s.classList.toggle('on', i === cur); });
+  var st = stepsOf(cur);
+  for (var i = 0; i < st.length; i++) st[i].classList.toggle('show', i < step);
+  document.getElementById('seg').innerHTML = slides[cur].dataset.seg || '';
+  document.getElementById('num').textContent = (cur+1) + ' / ' + N;
+  document.getElementById('bar').style.width = ((cur+1)/N*100) + '%';
+  document.querySelectorAll('.ovi').forEach(function(e,i){ e.classList.toggle('cur', i === cur); });
+  pushNotes();
+}
+
+/* ---------- navigation ---------- */
+function next(){
+  if (step < stepsOf(cur).length) { step++; render(); return; }
+  if (cur < N-1) { cur++; step = stepsOf(cur).length ? 0 : 0; render(); }
+}
+function prev(){
+  if (step > 0) { step--; render(); return; }
+  if (cur > 0) { cur--; step = stepsOf(cur).length; render(); }
+}
+function go(i, showAll){
+  cur = Math.max(0, Math.min(N-1, i));
+  step = showAll ? stepsOf(cur).length : 0;
+  render();
+}
+
+/* ---------- overview ---------- */
+var ov = document.getElementById('ov'), ovg = document.getElementById('ovg');
+slides.forEach(function(s,i){
+  var d = document.createElement('div');
+  d.className = 'ovi';
+  var key = s.dataset.key ? ' <em>★</em>' : '';
+  d.innerHTML = '<div class="n"><span>' + (i+1) + '</span><span>' + (mins[i]||0) + ' min' + key + '</span></div>' +
+                '<div class="t">' + titles[i].replace(/[<>&]/g,'') + '</div>';
+  d.onclick = function(){ go(i, false); ov.classList.remove('on'); };
+  ovg.appendChild(d);
+});
+function toggleOv(){ ov.classList.toggle('on'); }
+
+/* ---------- misc chrome ---------- */
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('on'); }, 1400);
+}
+function theme(){
+  var r = document.documentElement;
+  var light = r.getAttribute('data-theme') === 'light';
+  r.setAttribute('data-theme', light ? 'dark' : 'light');
+  toast(light ? 'Dark theme' : 'Light theme — for a bright room');
+}
+function fullscreen(){
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(function(){});
+  else document.exitFullscreen();
+}
+
+/* ---------- timer ---------- */
+function startTimer(){ if (!running){ t0 = Date.now() - tPaused; running = true; } }
+function pauseTimer(){ if (running){ tPaused = Date.now() - t0; running = false; } }
+function elapsedMs(){ return running ? Date.now() - t0 : tPaused; }
+function mmss(ms){
+  var s = Math.max(0, Math.floor(ms/1000));
+  var h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : String(m)) + ':' + String(x).padStart(2,'0');
+}
+
+/* ---------- speaker window ---------- */
+var NOTES_CSS = '\
+body{margin:0;font:15px/1.6 "Inter","Segoe UI",system-ui,sans-serif;background:#0a0e1a;color:#eaf0fa}\
+.wrap{display:grid;grid-template-rows:auto 1fr auto;height:100vh;box-sizing:border-box}\
+header{display:flex;gap:18px;align-items:center;padding:14px 20px;border-bottom:1px solid #2a3550;background:#131b2e;flex-wrap:wrap}\
+.clock{font-size:38px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.02em}\
+.pace{font-size:14px;padding:6px 14px;border-radius:100px;font-weight:700;letter-spacing:.04em}\
+.ok{background:#12322a;color:#34d399;border:1px solid #34d399}\
+.late{background:#3a1c1c;color:#f87171;border:1px solid #f87171}\
+.early{background:#1d3557;color:#60a5fa;border:1px solid #60a5fa}\
+.meta{margin-left:auto;text-align:right;font-size:13px;color:#7e8da8;line-height:1.5}\
+main{padding:20px 24px;overflow-y:auto}\
+h2.cur{font-size:24px;margin:0 0 6px;font-weight:740;line-height:1.25}\
+.seg{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#5eead4;font-weight:750;margin-bottom:10px}\
+.notes{font-size:17px;line-height:1.62;color:#cbd6e8;border-left:3px solid #5eead4;padding-left:18px;margin-top:16px}\
+.notes p{margin:0 0 13px}.notes b{color:#fff}.notes em{color:#fbbf24;font-style:italic}\
+.notes code{background:#1b2540;padding:2px 6px;border-radius:4px;font-size:.9em;color:#5eead4}\
+footer{padding:12px 20px;border-top:1px solid #2a3550;background:#131b2e;display:flex;gap:16px;align-items:center;font-size:13px;color:#7e8da8;flex-wrap:wrap}\
+.nxt{color:#eaf0fa}.nxt b{color:#5eead4;font-weight:700}\
+button{background:#1b2540;border:1px solid #2a3550;color:#eaf0fa;padding:7px 15px;border-radius:7px;cursor:pointer;font:inherit;font-size:13px}\
+button:hover{border-color:#5eead4}\
+.steps{font-size:12px;color:#7e8da8;margin-left:auto}\
+.notes blockquote{margin:0 0 14px;padding:10px 16px;background:#131b2e;border-radius:8px;color:#eaf0fa;border-left:3px solid #fbbf24}\
+.notes blockquote p{margin:0 0 9px}.notes blockquote p:last-child{margin:0}\
+.notes ul,.notes ol{margin:0 0 13px;padding-left:22px}.notes li{margin:0 0 6px}\
+.notes table{border-collapse:collapse;margin:0 0 13px;font-size:15px}.notes td,.notes th{border:1px solid #2a3550;padding:5px 8px;text-align:left;vertical-align:top}.notes th{color:#7e8da8}\
+.notes kbd{border:1px solid #2a3550;border-radius:4px;padding:0 5px;font-size:.85em;background:#1b2540}\
+.none{color:#5b6880;font-style:italic;font-size:16px;margin-top:18px}';
+
+function openNotes(){
+  if (notesWin && !notesWin.closed) { notesWin.focus(); return; }
+  notesWin = window.open('', 'sdr_client_speaker_view', 'width=760,height=900');
+  if (!notesWin) { toast('Pop-up blocked — allow pop-ups for this file'); return; }
+  notesWin.document.open();
+  notesWin.document.write(
+    '<!doctype html><meta charset="utf-8"><title>Speaker view</title><style>' + NOTES_CSS + '</style>' +
+    '<div class="wrap"><header>' +
+      '<div class="clock" id="clk">0:00</div><div class="pace ok" id="pace">on time</div>' +
+      '<div class="meta"><div id="pos"></div><div id="wall"></div></div>' +
+    '</header><main>' +
+      '<div class="seg" id="seg"></div><h2 class="cur" id="ttl"></h2><div id="nts"></div>' +
+    '</main><footer>' +
+      '<button id="bp">Prev</button><button id="bn">Next</button>' +
+      '<button id="bt">Start / pause</button><button id="br">Reset</button>' +
+      '<span class="nxt" id="nxt"></span><span class="steps" id="stp"></span>' +
+    '</footer></div>');
+  notesWin.document.close();
+  var d = notesWin.document;
+  d.getElementById('bp').onclick = function(){ prev(); };
+  d.getElementById('bn').onclick = function(){ next(); };
+  d.getElementById('bt').onclick = function(){ running ? pauseTimer() : startTimer(); };
+  d.getElementById('br').onclick = function(){ tPaused = 0; t0 = Date.now(); };
+  notesWin.addEventListener('keydown', onKey);
+  startTimer();
+  pushNotes();
+  if (!notesWin._tick) notesWin._tick = setInterval(tick, 500);
+}
+
+function pushNotes(){
+  if (!notesWin || notesWin.closed) return;
+  var d = notesWin.document; if (!d.getElementById('ttl')) return;
+  var n = slides[cur].querySelector('.notes');
+  d.getElementById('seg').textContent = slides[cur].dataset.seg || '';
+  d.getElementById('ttl').textContent = titles[cur];
+  d.getElementById('nts').innerHTML = n ? '<div class="notes">' + n.innerHTML + '</div>'
+                                        : '<div class="none">No notes for this slide.</div>';
+  d.getElementById('nxt').innerHTML = cur < N-1
+      ? 'Next: <b>' + titles[cur+1].replace(/[<>&]/g,'') + '</b>' : '<b>Last slide</b>';
+  var ns = stepsOf(cur).length;
+  d.getElementById('stp').textContent = ns ? ('reveal ' + step + ' / ' + ns) : '';
+  d.getElementById('pos').textContent = 'slide ' + (cur+1) + ' of ' + N + ' · ' + (mins[cur]||0) + ' min planned';
+  tick();
+}
+
+function tick(){
+  if (!notesWin || notesWin.closed) return;
+  var d = notesWin.document; if (!d.getElementById('clk')) return;
+  var el = elapsedMs();
+  d.getElementById('clk').textContent = mmss(el);
+  var plannedMin = cum[cur];
+  var drift = Math.round(el/60000 - plannedMin);
+  var p = d.getElementById('pace');
+  p.className = 'pace ' + (Math.abs(drift) <= 4 ? 'ok' : (drift > 0 ? 'late' : 'early'));
+  p.textContent = Math.abs(drift) <= 4 ? 'on time'
+        : (drift > 0 ? drift + ' min behind' : Math.abs(drift) + ' min ahead');
+  d.getElementById('wall').textContent = 'planned ' + mmss(plannedMin*60000) + ' of ' + mmss(TOTAL*60000)
+        + ' · ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(tick, 500);
+
+/* ---------- keys ---------- */
+var jump = '';
+function onKey(e){
+  var k = e.key;
+  if (k >= '0' && k <= '9') { jump += k; toast('go to ' + jump); return; }
+  if (k === 'Enter' && jump) { go(parseInt(jump,10)-1, false); jump = ''; return; }
+  jump = '';
+  switch (k) {
+    case 'ArrowRight': case 'ArrowDown': case ' ': case 'PageDown': e.preventDefault(); next(); break;
+    case 'ArrowLeft':  case 'ArrowUp':   case 'PageUp':             e.preventDefault(); prev(); break;
+    case 'Home': go(0,false); break;
+    case 'End':  go(N-1,true); break;
+    case 'f': case 'F': fullscreen(); break;
+    case 's': case 'S': openNotes(); break;
+    case 'o': case 'O': toggleOv(); break;
+    case 'Escape': ov.classList.remove('on'); break;
+    case 'b': case 'B': {
+      var bo = document.getElementById('blackout');
+      bo.style.display = bo.style.display === 'block' ? 'none' : 'block'; break;
+    }
+    case 't': case 'T': theme(); break;
+    case 'p': case 'P': running ? pauseTimer() : startTimer();
+                        toast(running ? 'Timer running' : 'Timer paused'); break;
+    case '?': case 'h': case 'H': document.getElementById('help').classList.toggle('on'); break;
+  }
+}
+window.addEventListener('keydown', onKey);
+document.getElementById('help').innerHTML =
+  '<kbd>→</kbd>/<kbd>space</kbd> next &nbsp; <kbd>←</kbd> back &nbsp; <kbd>S</kbd> speaker view &nbsp; ' +
+  '<kbd>O</kbd> overview &nbsp; <kbd>F</kbd> fullscreen<br>' +
+  '<kbd>B</kbd> black screen &nbsp; <kbd>T</kbd> light/dark &nbsp; <kbd>P</kbd> pause timer &nbsp; ' +
+  '<kbd>12</kbd>+<kbd>enter</kbd> jump &nbsp; <kbd>H</kbd> hide this';
+
+/* click / touch */
+document.getElementById('stage').addEventListener('click', function(e){
+  if (e.target.closest('.ovi')) return;
+  (e.clientX < window.innerWidth * 0.18 ? prev : next)();
+});
+var tx = 0;
+window.addEventListener('touchstart', function(e){ tx = e.changedTouches[0].clientX; }, {passive:true});
+window.addEventListener('touchend', function(e){
+  var d = e.changedTouches[0].clientX - tx;
+  if (Math.abs(d) > 55) (d < 0 ? next : prev)();
+}, {passive:true});
+
+render();
+document.getElementById('help').classList.add('on');
+setTimeout(function(){ document.getElementById('help').classList.remove('on'); }, 6000);
+})();
+</script>

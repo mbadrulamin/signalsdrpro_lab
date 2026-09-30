@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SignalSDR Pro Handout</title>
+<style>
+:root{--ink:#10192b;--ink2:#3d4b63;--muted:#65748e;--line:#cdd7e8;--bg:#ffffff;--page:#e7ecf5;
+  --accent:#0d9488;--accent-dim:#e6f6f3;--amber:#b45309;--hw:#b4534f;--ok:#2f7d46}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ink:#eaf0fa;--ink2:#aab8cf;--muted:#7e8da8;
+  --line:#2a3550;--bg:#131b2e;--page:#0a0e1a;--accent:#5eead4;--accent-dim:#1f4d47;--amber:#fbbf24;--hw:#f87171;--ok:#34d399}}
+:root[data-theme="dark"]{--ink:#eaf0fa;--ink2:#aab8cf;--muted:#7e8da8;--line:#2a3550;--bg:#131b2e;--page:#0a0e1a;
+  --accent:#5eead4;--accent-dim:#1f4d47;--amber:#fbbf24;--hw:#f87171;--ok:#34d399}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font:10.5pt/1.42 "Inter","Segoe UI",-apple-system,"Helvetica Neue",Arial,"DejaVu Sans",sans-serif}
+.sheet{width:210mm;min-height:297mm;margin:12px auto;background:var(--bg);padding:13mm 14mm 11mm}
+@media screen and (max-width:820px){.sheet{width:auto;min-height:0;margin:0;padding:18px 16px}}
+h1{font-size:24pt;line-height:1.05;margin:0;letter-spacing:-.02em}
+.sub{color:var(--ink2);font-size:12pt;margin:4px 0 0}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
+  border-bottom:2.5px solid var(--accent);padding-bottom:9px;margin-bottom:11px}
+.kick{font-size:8pt;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:4px}
+.one{font-size:13pt;font-weight:650;border-left:4px solid var(--amber);padding:3px 0 3px 12px;margin:0 0 12px}
+h2{font-size:10pt;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+section{margin-bottom:11px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+@media screen and (max-width:820px){.grid{grid-template-columns:1fr}}
+table{border-collapse:collapse;width:100%}
+td,th{text-align:left;vertical-align:top;padding:3.5px 6px 3.5px 0;border-bottom:1px solid var(--line)}
+th{font-size:8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+tr:last-child td{border-bottom:none}
+td b{color:var(--ink)}
+.caps{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+@media screen and (max-width:820px){.caps{grid-template-columns:1fr 1fr}}
+.cap{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:9.5pt}
+.cap b{display:block;color:var(--ink)}
+.cap span{color:var(--ink2)}
+.tag{display:inline-block;margin-top:3px;font-size:7.5pt;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.yes{color:var(--ok)}.part{color:var(--amber)}.no{color:var(--hw)}
+ul{margin:0;padding-left:16px}li{margin:0 0 3px}
+.foot{display:flex;gap:16px;align-items:center;border-top:1px solid var(--line);padding-top:9px;margin-top:4px}
+.qr{width:19mm;flex:none}
+.qr svg{display:block;width:100%;height:auto}
+.contact{flex:1;color:var(--ink2);font-size:9.5pt}
+.line{border-bottom:1px solid var(--muted);height:16px;margin:2px 0 7px}
+@media print{body{background:#fff;font-size:9pt}h1{font-size:20pt}.one{font-size:11.5pt;margin-bottom:9px}.cap{padding:4px 7px;font-size:8.8pt}.sheet{margin:0;box-shadow:none;width:auto;min-height:0;padding:10mm 13mm 8mm}
+  td,th{padding-top:2.5px;padding-bottom:2.5px}section{margin-bottom:8px}
+  @page{size:A4;margin:0}}
+</style>
+<div class="sheet">
+<header>
+  <div>
+    <div class="kick">Client briefing · leave-behind</div>
+    <h1>SignalSDR Pro</h1>
+    <p class="sub">One box. Many radios.</p>
+  </div>
+  <div style="text-align:right;color:var(--muted);font-size:9pt">What it is, what it does,<br>and what to do next</div>
+</header>
+
+<p class="one">A software-defined radio is a radio whose job is decided by software — so one box can be many radios.</p>
+
+<div class="grid">
+<section>
+  <h2>The box, in plain words</h2>
+  <table>
+    <tr><td style="width:40%"><b>70 MHz – 6 GHz</b></td><td>From FM radio to 5.8 GHz Wi-Fi and drone links</td></tr>
+    <tr><td><b>56 MHz at once</b></td><td>See or record a whole band in one go</td></tr>
+    <tr><td><b>Transmit + receive</b></td><td>Listen and send at the same moment</td></tr>
+    <tr><td><b>GPS-locked clock</b></td><td>Accurate frequency and time anywhere</td></tr>
+    <tr><td><b>USB 3 to a laptop</b></td><td>No rack, no lab bench</td></tr>
+  </table>
+</section>
+<section>
+  <h2>What it is not</h2>
+  <ul>
+    <li><b>Not</b> a certified electronic-warfare system</li>
+    <li><b>Not</b> a direction finder on its own (one receive channel in this setup)</li>
+    <li><b>Not</b> a code-breaker: it cannot read encrypted traffic</li>
+    <li><b>Not</b> rugged: a lab, training and development tool</li>
+  </ul>
+</section>
+</div>
+
+<section>
+  <h2>Six things it can do for you</h2>
+  <div class="caps">
+    <div class="cap"><b>1 · See the spectrum</b><span>Who is transmitting here, now</span><br><span class="tag yes">Shown today</span></div>
+    <div class="cap"><b>2 · Identify signals</b><span>Unknown signal → measured → named</span><br><span class="tag yes">Shown today</span></div>
+    <div class="cap"><b>3 · Record and replay</b><span>Evidence, analysis, repeatable training</span><br><span class="tag yes">Shown today</span></div>
+    <div class="cap"><b>4 · Find devices</b><span>Remote triggers, trackers, unknown transmitters</span><br><span class="tag part">Partly shown</span></div>
+    <div class="cap"><b>5 · Transmit</b><span>Test signals and training targets</span><br><span class="tag yes">Shown today</span></div>
+    <div class="cap"><b>6 · Locate, passive radar</b><span>Needs two or more receivers</span><br><span class="tag no">A project</span></div>
+  </div>
+</section>
+
+<div class="grid">
+<section>
+  <h2>The software your people would use</h2>
+  <table>
+    <tr><td style="width:36%"><b>Look and listen</b></td><td>gqrx, SDR++ — point and click. <i>Operators.</i></td></tr>
+    <tr><td><b>Ready-made decoders</b></td><td>rtl_433, dump1090, SatDump, SDRangel. <i>Specialists.</i></td></tr>
+    <tr><td><b>Build your own</b></td><td>GNU Radio. <i>Engineers.</i></td></tr>
+  </table>
+  <p style="margin:6px 0 0;color:var(--ink2)"><b style="color:var(--ink)">DragonOS</b> — a free Linux system with all of these preinstalled. Runs from a USB stick. Our recommendation for your machines.</p>
+</section>
+<section>
+  <h2>The rules, in short (Malaysia)</h2>
+  <table>
+    <tr><td style="width:56%">Receive broadcast radio and TV</td><td class="yes"><b style="color:inherit">Allowed</b></td></tr>
+    <tr><td>Receive other people's traffic</td><td class="part"><b style="color:inherit">Take care</b> — CMA 1998 s.234</td></tr>
+    <tr><td>Transmit, licence-free bands, low power</td><td class="yes"><b style="color:inherit">Within MCMC limits</b></td></tr>
+    <tr><td>Transmit into a cable or shielded room</td><td class="yes"><b style="color:inherit">Safe default</b></td></tr>
+    <tr><td>Transmit anywhere else</td><td class="no"><b style="color:inherit">Needs an assignment</b></td></tr>
+    <tr><td>Decrypt, jam, or use emergency bands</td><td class="no"><b style="color:inherit">Never</b></td></tr>
+  </table>
+</section>
+</div>
+
+<section>
+  <h2>Next steps we propose</h2>
+  <div class="caps">
+    <div class="cap"><b>Hands-on workshop</b><span>Your people drive the box. One or two days, on your laptops with DragonOS.</span></div>
+    <div class="cap"><b>Mission pilot</b><span>You pick one real problem. We build and test the tool for it.</span></div>
+    <div class="cap"><b>Training package</b><span>Recorded signals, exercises and instructor notes for your schools.</span></div>
+  </div>
+</section>
+
+<div class="foot">
+  <div class="qr"><svg viewBox="-4 -4 41 41" role="img" aria-label="QR code: github.com/mbadrulamin/signalsdrpro_lab" style="background:#fff;border-radius:10px"><rect x="-4" y="-4" width="41" height="41" fill="#fff"/><path fill="#000" shape-rendering="crispEdges" d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM8 0h1v1h-1zM10 0h1v1h-1zM13 0h1v1h-1zM14 0h1v1h-1zM15 0h1v1h-1zM16 0h1v1h-1zM18 0h1v1h-1zM21 0h1v1h-1zM23 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM29 0h1v1h-1zM30 0h1v1h-1zM31 0h1v1h-1zM32 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM19 1h1v1h-1zM20 1h1v1h-1zM22 1h1v1h-1zM26 1h1v1h-1zM32 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM10 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM16 2h1v1h-1zM17 2h1v1h-1zM18 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM22 2h1v1h-1zM23 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM29 2h1v1h-1zM30 2h1v1h-1zM32 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM16 3h1v1h-1zM17 3h1v1h-1zM23 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM29 3h1v1h-1zM30 3h1v1h-1zM32 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM11 4h1v1h-1zM16 4h1v1h-1zM19 4h1v1h-1zM23 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM29 4h1v1h-1zM30 4h1v1h-1zM32 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM12 5h1v1h-1zM15 5h1v1h-1zM18 5h1v1h-1zM20 5h1v1h-1zM21 5h1v1h-1zM26 5h1v1h-1zM32 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM29 6h1v1h-1zM30 6h1v1h-1zM31 6h1v1h-1zM32 6h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM11 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM20 7h1v1h-1zM21 7h1v1h-1zM22 7h1v1h-1zM24 7h1v1h-1zM0 8h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM10 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM17 8h1v1h-1zM20 8h1v1h-1zM21 8h1v1h-1zM23 8h1v1h-1zM25 8h1v1h-1zM26 8h1v1h-1zM27 8h1v1h-1zM28 8h1v1h-1zM29 8h1v1h-1zM32 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM23 9h1v1h-1zM25 9h1v1h-1zM29 9h1v1h-1zM30 9h1v1h-1zM31 9h1v1h-1zM0 10h1v1h-1zM2 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM23 10h1v1h-1zM25 10h1v1h-1zM29 10h1v1h-1zM31 10h1v1h-1zM1 11h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM15 11h1v1h-1zM20 11h1v1h-1zM21 11h1v1h-1zM23 11h1v1h-1zM31 11h1v1h-1zM2 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM21 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM26 12h1v1h-1zM28 12h1v1h-1zM29 12h1v1h-1zM31 12h1v1h-1zM0 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM7 13h1v1h-1zM10 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM18 13h1v1h-1zM19 13h1v1h-1zM20 13h1v1h-1zM21 13h1v1h-1zM27 13h1v1h-1zM29 13h1v1h-1zM30 13h1v1h-1zM0 14h1v1h-1zM1 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM20 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM25 14h1v1h-1zM26 14h1v1h-1zM30 14h1v1h-1zM31 14h1v1h-1zM0 15h1v1h-1zM2 15h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM17 15h1v1h-1zM21 15h1v1h-1zM22 15h1v1h-1zM24 15h1v1h-1zM25 15h1v1h-1zM26 15h1v1h-1zM27 15h1v1h-1zM28 15h1v1h-1zM4 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM17 16h1v1h-1zM19 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM22 16h1v1h-1zM23 16h1v1h-1zM24 16h1v1h-1zM26 16h1v1h-1zM28 16h1v1h-1zM31 16h1v1h-1zM2 17h1v1h-1zM4 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM10 17h1v1h-1zM13 17h1v1h-1zM14 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM29 17h1v1h-1zM30 17h1v1h-1zM31 17h1v1h-1zM0 18h1v1h-1zM1 18h1v1h-1zM2 18h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM5 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM14 18h1v1h-1zM15 18h1v1h-1zM17 18h1v1h-1zM20 18h1v1h-1zM22 18h1v1h-1zM23 18h1v1h-1zM27 18h1v1h-1zM29 18h1v1h-1zM31 18h1v1h-1zM1 19h1v1h-1zM5 19h1v1h-1zM8 19h1v1h-1zM10 19h1v1h-1zM11 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM20 19h1v1h-1zM21 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM24 19h1v1h-1zM26 19h1v1h-1zM27 19h1v1h-1zM31 19h1v1h-1zM32 19h1v1h-1zM2 20h1v1h-1zM4 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM13 20h1v1h-1zM14 20h1v1h-1zM18 20h1v1h-1zM20 20h1v1h-1zM24 20h1v1h-1zM26 20h1v1h-1zM27 20h1v1h-1zM28 20h1v1h-1zM29 20h1v1h-1zM31 20h1v1h-1zM32 20h1v1h-1zM0 21h1v1h-1zM1 21h1v1h-1zM3 21h1v1h-1zM5 21h1v1h-1zM9 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM16 21h1v1h-1zM19 21h1v1h-1zM23 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM31 21h1v1h-1zM2 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM10 22h1v1h-1zM11 22h1v1h-1zM13 22h1v1h-1zM14 22h1v1h-1zM16 22h1v1h-1zM19 22h1v1h-1zM22 22h1v1h-1zM23 22h1v1h-1zM25 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM29 22h1v1h-1zM30 22h1v1h-1zM31 22h1v1h-1zM8 23h1v1h-1zM9 23h1v1h-1zM11 23h1v1h-1zM12 23h1v1h-1zM17 23h1v1h-1zM19 23h1v1h-1zM20 23h1v1h-1zM21 23h1v1h-1zM25 23h1v1h-1zM26 23h1v1h-1zM31 23h1v1h-1zM32 23h1v1h-1zM0 24h1v1h-1zM1 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM10 24h1v1h-1zM11 24h1v1h-1zM12 24h1v1h-1zM13 24h1v1h-1zM14 24h1v1h-1zM15 24h1v1h-1zM17 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM24 24h1v1h-1zM25 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM28 24h1v1h-1zM8 25h1v1h-1zM9 25h1v1h-1zM10 25h1v1h-1zM12 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM17 25h1v1h-1zM20 25h1v1h-1zM21 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM0 26h1v1h-1zM1 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM11 26h1v1h-1zM12 26h1v1h-1zM14 26h1v1h-1zM15 26h1v1h-1zM16 26h1v1h-1zM18 26h1v1h-1zM20 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM29 26h1v1h-1zM31 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM9 27h1v1h-1zM10 27h1v1h-1zM11 27h1v1h-1zM15 27h1v1h-1zM20 27h1v1h-1zM22 27h1v1h-1zM24 27h1v1h-1zM28 27h1v1h-1zM31 27h1v1h-1zM32 27h1v1h-1zM0 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM9 28h1v1h-1zM10 28h1v1h-1zM13 28h1v1h-1zM15 28h1v1h-1zM16 28h1v1h-1zM22 28h1v1h-1zM24 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1zM29 28h1v1h-1zM0 29h1v1h-1zM2 29h1v1h-1zM3 29h1v1h-1zM4 29h1v1h-1zM6 29h1v1h-1zM9 29h1v1h-1zM10 29h1v1h-1zM11 29h1v1h-1zM18 29h1v1h-1zM19 29h1v1h-1zM20 29h1v1h-1zM21 29h1v1h-1zM23 29h1v1h-1zM24 29h1v1h-1zM26 29h1v1h-1zM27 29h1v1h-1zM28 29h1v1h-1zM30 29h1v1h-1zM31 29h1v1h-1zM0 30h1v1h-1zM2 30h1v1h-1zM3 30h1v1h-1zM4 30h1v1h-1zM6 30h1v1h-1zM9 30h1v1h-1zM12 30h1v1h-1zM13 30h1v1h-1zM15 30h1v1h-1zM17 30h1v1h-1zM18 30h1v1h-1zM20 30h1v1h-1zM23 30h1v1h-1zM24 30h1v1h-1zM26 30h1v1h-1zM27 30h1v1h-1zM28 30h1v1h-1zM0 31h1v1h-1zM6 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM13 31h1v1h-1zM14 31h1v1h-1zM15 31h1v1h-1zM16 31h1v1h-1zM17 31h1v1h-1zM18 31h1v1h-1zM21 31h1v1h-1zM24 31h1v1h-1zM0 32h1v1h-1zM1 32h1v1h-1zM2 32h1v1h-1zM3 32h1v1h-1zM4 32h1v1h-1zM5 32h1v1h-1zM6 32h1v1h-1zM8 32h1v1h-1zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM17 32h1v1h-1zM19 32h1v1h-1zM20 32h1v1h-1zM21 32h1v1h-1zM22 32h1v1h-1zM23 32h1v1h-1zM24 32h1v1h-1zM25 32h1v1h-1zM26 32h1v1h-1zM32 32h1v1h-1z"/></svg></div>
+  <div class="contact">
+    <b style="color:var(--ink)">Full course material, free:</b> github.com/mbadrulamin/signalsdrpro_lab
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px"><div>Your contact:<div class="line"></div></div><div>Email / phone:<div class="line"></div></div></div>
+  </div>
+</div>
+</div>
