@@ -106,7 +106,7 @@ GPS receiver for its clock, and can receive the GPS band for study.
 **Could it be used for training our signals operators?**
 Yes. This is its strongest use. Record real signals once, then train on them indoors, as many
 times as you like. Transmit known test signals into a shielded room. Show students what noise
-and interference do. That is exactly what the training package would build.
+and interference do.
 
 **Could several boxes work together?**
 Yes, with engineering work. Several boxes can share a clock and be controlled from one laptop.
@@ -168,8 +168,12 @@ takes a few days. Building new tools in GNU Radio takes weeks to months, and is 
 Quote from the current price list. Do not guess.
 
 **What support do we get?**
-Say what our company offers: the workshop, the mission pilot, the training package. Also the
-full course material, which is free and on GitHub.
+Today is a demonstration, not a proposal. Do not offer anything on the spot. Write the question
+down and say: "I will pass this on and we will reply in writing."
+
+**Can we have the course material?**
+Only if they ask. Say it exists and that you will send the link after the session. Do not show
+the repository or hand it out unprompted.
 
 **Can we keep the recordings as evidence?**
 The recordings are exact copies of what the radio received, with the time and frequency in the
@@ -210,6 +214,8 @@ anything below 70 MHz.
 - **Legal answers are short:** receive broadcast freely; take care with other traffic; transmit
   only with authority; never decrypt or jam.
 - **Training is the strongest use case.** Steer towards it.
+- **We demonstrate; we do not propose.** Support, workshops and the course material are
+  answered only when asked, and in writing afterwards.
 - **Never guess** prices, export status or your client's own rules. Write the question down and
   reply in writing.
 

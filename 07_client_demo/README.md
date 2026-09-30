@@ -18,7 +18,7 @@ Read them in this order.
 | 1 | [SESSION_PLAN.md](./SESSION_PLAN.md) | **Start here.** The run of show, the cut order, the risks, and what to do if the radio fails |
 | 2 | [SETUP_CHECKLIST.md](./SETUP_CHECKLIST.md) | What to buy today, what to rehearse tonight, and the 10-minute smoke test |
 | 3 | [DEMO_RUNSHEET.md](./DEMO_RUNSHEET.md) | **Print it.** The six demos: command, what the room sees, what to say, fallback, reset |
-| 4 | [client_brief.html](./client_brief.html) | **The deck.** 36 slides, 150 minutes, speaker notes and a pace timer built in |
+| 4 | [client_brief.html](./client_brief.html) | **The deck.** 35 slides, 150 minutes, speaker notes and a pace timer built in |
 | 5 | [PRESENTER_SCRIPT.md](./PRESENTER_SCRIPT.md) | What to say on every slide, in full sentences. The deck's speaker view shows the same |
 | 6 | [QA_MILITARY.md](./QA_MILITARY.md) | About 30 questions they will ask, with honest answers |
 | 7 | [client_handout.html](./client_handout.html) | One A4 page to leave behind. Open it and print |
@@ -39,7 +39,7 @@ Read them in this order.
 | 10 | Break |
 | 70 | Six live demonstrations (see below) |
 | 8 | The software they would use, and DragonOS |
-| 15 | What we propose, and questions |
+| 15 | What you may do with it, and questions |
 
 | # | Demo | Command | Radio |
 |---|---|---|---|

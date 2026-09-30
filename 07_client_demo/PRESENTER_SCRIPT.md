@@ -64,8 +64,8 @@ an end and the demonstrations are coming.
 
 **If someone asks:**
 
-- *"Will we get to try it?"* — "Today is a demonstration. A hands-on workshop is one of the
-  options I will show you at the end."
+- *"Will we get to try it?"* — "Today is a demonstration. If your team wants hands-on time
+  later, tell me and I will pass it on."
 
 **Next:** "Let us start with what every radio does."
 
@@ -774,11 +774,11 @@ capability list, not with a memory of software windows.
 - *"Can we see the inside?"* — "Yes, after the session. We have a full training course for
   engineers who want to build their own."
 
-**Next:** "Finally: what you may do with it, and what we propose."
+**Next:** "Finally: what you may do with it."
 
 ---
 
-# 6 · Where next (15 minutes)
+# 6 · Wrap-up (15 minutes)
 
 ## S34 · What you may do with it (3 min)
 
@@ -796,33 +796,14 @@ capability list, not with a memory of software windows.
 MHz and 2400–2500 MHz at 500 mW EIRP. It is revised from time to time; check the current version
 before quoting. See [the Malaysia reference](../05_reference/04_malaysia.md#4-licence-exempt-bands-class-assignment).
 
-**Next:** "Here is how we suggest going further."
+**Next:** "That is everything I wanted to show you. Questions."
 
 ---
 
-## S35 · What we propose (4 min)
+## S35 · Questions (12 min)
 
-**Why this slide is here.** It turns interest into a next step.
-
-**Say it like this:**
-
-> "Three options. A hands-on workshop: one or two days where your people drive the box, on your
-> own laptops with DragonOS. A mission pilot: you pick one real problem, and we build and test
-> the tool for it. Or a training package: recorded signals, exercises and instructor notes for
-> your schools."
->
-> "Our advice is to start small. One problem, one team, a few weeks."
-
-**Do.** Ask: "Which of these is closest to what you need?" Then listen.
-
-**Next:** "Questions."
-
----
-
-## S36 · Questions (8 min)
-
-**Why this slide is here.** It leaves the QR code and the one-line message on screen while you
-answer.
+**Why this slide is here.** It leaves the one-line message on screen while you answer. Today is a
+demonstration, not a proposal, so the session ends here.
 
 **Say it like this:**
 
@@ -830,6 +811,9 @@ answer.
 
 **Do.** Keep this slide on screen. Use [QA_MILITARY.md](./QA_MILITARY.md) for the questions you
 expect. Hand out the [one-page handout](./client_handout.html).
+
+**If they ask for the course material or the software.** Only then, say it exists and that you
+will send the link after the session. Do not show or hand out the repository unless asked.
 
 **If you are asked something you cannot answer.** Say: "I do not know. I will find out and reply
 to you by email." Write it down in front of them. Then do it.
@@ -844,7 +828,7 @@ to you by email." Write it down in front of them. Then do it.
 
 ## ✅ Summary
 
-- 36 slides, 150 minutes. The explanation is about 45 minutes; the demonstrations are 70.
+- 35 slides, 150 minutes. The explanation is about 45 minutes; the demonstrations are 70.
 - Every slide speaks about **their** work. No equations, no code on screen.
 - The legal line is said twice: on S21, and again before Demo 6.
 - Honest limits are part of the script: S8, S15 and S20.

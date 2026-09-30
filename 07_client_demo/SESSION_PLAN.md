@@ -33,7 +33,7 @@ of live demonstrations.
 |---|---|---|
 | Audience | People who will build radios | People who will use them |
 | Length | 4 hours | 2½ hours |
-| Slides | 63, with theory | 36, no equations, no code |
+| Slides | 63, with theory | 35, no equations, no code |
 | GNU Radio | Built live, block by block | Never opened on screen |
 | Goal | "You can start" | "We know what it is for" |
 
@@ -52,7 +52,7 @@ The clock column is time from the start. Write your real start time beside it on
 | 0:47 | 10 | **Break** | S22 | You: `./preflight.sh`, TV box on, big terminal font |
 | 0:57 | 70 | **Demonstrations** | S23–S30 | Six demos from [the run sheet](./DEMO_RUNSHEET.md), then the recap |
 | 2:07 | 8 | **The software** | S31–S33 | Three levels of user · DragonOS · where GNU Radio fits |
-| 2:15 | 15 | **Where next** | S34–S36 | Rules · what we propose · questions |
+| 2:15 | 15 | **Wrap-up** | S34–S35 | The rules · questions |
 | 2:30 | | **End** | | Handout on the table |
 
 ### Inside the demonstration block
@@ -89,10 +89,10 @@ Cut in this order. Each line says how much time it saves.
 | 5 | S33 (where GNU Radio fits) | 2 min | Say its one sentence on S31 instead |
 | 6 | Demo 4 (record and replay) | 6 min | Mention it on S30: "we can also record" |
 
-**Never cut:** S5 (the one picture), S21 (the legal line), Demo 2 (hidden data), Demo 6
-(television), S35 (what we propose).
+**Never cut:** S5 (the one picture), S21 (the legal line), Demo 2 (hidden data) and Demo 6
+(television).
 
-If you are **early**, spend it on questions at S30 and S36. Do not add content.
+If you are **early**, spend it on questions at S30 and S35. Do not add content.
 
 ---
 
@@ -154,10 +154,10 @@ Tick everything off in [the setup checklist](./SETUP_CHECKLIST.md) the morning b
 
 ## ✅ Summary
 
-- **150 minutes:** about 45 explaining, 70 demonstrating, 10 break, the rest software and next
-  steps.
+- **150 minutes:** about 45 explaining, 70 demonstrating, 10 break, the rest software and
+  questions.
 - **Cut from the top of the cut order** if late. Never cut the SDR picture, the legal line,
-  Demo 2, Demo 6 or the proposal.
+  Demo 2 or Demo 6.
 - **Every demo has a fallback.** Demos 4 and 5 need no radio at all.
 - **If the radio dies,** the session still works: say it once, use the recordings, move on.
 
