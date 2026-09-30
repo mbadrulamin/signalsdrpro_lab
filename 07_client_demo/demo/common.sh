@@ -8,6 +8,18 @@ LABS="$REPO/02_flowgraphs"
 SCRIPTS="$REPO/03_scripts"
 STORE="$HOME/sdr_demo"
 
+# VS Code installed as a snap points GTK and GIO at its own libraries, and its
+# terminal passes that on. The first Qt window then crashes with
+# "symbol lookup error ... /snap/core20/...". Undo it so the demos run the same
+# from VS Code as from an ordinary terminal.
+if [ "${SNAP_NAME:-}" = "code" ]; then
+    [ -n "${XDG_DATA_DIRS_VSCODE_SNAP_ORIG:-}" ]   && export XDG_DATA_DIRS="$XDG_DATA_DIRS_VSCODE_SNAP_ORIG"
+    [ -n "${XDG_CONFIG_DIRS_VSCODE_SNAP_ORIG:-}" ] && export XDG_CONFIG_DIRS="$XDG_CONFIG_DIRS_VSCODE_SNAP_ORIG"
+    unset GTK_PATH GTK_EXE_PREFIX GTK_IM_MODULE_FILE GIO_MODULE_DIR \
+          GDK_PIXBUF_MODULE_FILE GDK_PIXBUF_MODULEDIR GSETTINGS_SCHEMA_DIR \
+          LOCPATH XDG_DATA_HOME
+fi
+
 say()  { printf '\n\033[1m%s\033[0m\n' "$*"; }
 ok()   { printf '  \033[32mOK\033[0m    %s\n' "$*"; }
 warn() { printf '  \033[33mWARN\033[0m  %s\n' "$*"; }

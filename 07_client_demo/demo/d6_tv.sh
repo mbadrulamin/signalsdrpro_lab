@@ -20,10 +20,13 @@ restore bintang_dvbt2.ts || exit 1
 say "Demo 6: DVB-T2 on channel 21 (474 MHz). TRANSMITS. Starts at zero power."
 echo "  TX digital amplitude -> 0.25, then raise TX RF gain slowly. TV box: channel 21 / 474 MHz."
 cd "$SCRIPTS" || exit 1
+# tv_playout splits --launch on spaces, and the repo path has one ("GNU Radio").
+# %q escapes it, so the path reaches python3 in one piece.
+printf -v launch 'python3 %q' "$LABS/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
 python3 tv_playout.py /tmp/bintang_dvbt2.ts --copy \
     --standard dvbt2 --t2-fft 32k --t2-guard 1/128 --t2-rate 2/3 \
     --t2-fecblocks 202 --t2-datasyms 59 --fifo /tmp/tv.fifo \
-    --launch "python3 $LABS/lab10_dvbt2_tx_rx/lab10_dvbt2_tx.py"
+    --launch "$launch"
 
 say "Playout has stopped. Checking the transmitter is off:"
 sleep 2

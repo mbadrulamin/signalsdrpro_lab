@@ -310,7 +310,13 @@ def main():
             # thread returned here the kernel would kill the flowgraph the
             # instant it started -- which is exactly what happened the first
             # time this was written.
-            pl.child.wait()
+            rc = pl.child.wait()
+            # Without this, a flowgraph that fails at once (a bad path, say)
+            # leaves playout filling a pipe nobody reads, and no window ever
+            # appears. Stop, and say why.
+            if not pl.stop.is_set():
+                print(f"[playout] the flowgraph exited (code {rc}) - stopping")
+                pl.stop.set()
         _th.Thread(target=_go, daemon=True).start()
 
     def _cleanup(signum=None, frame=None):
